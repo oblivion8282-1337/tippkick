@@ -17,7 +17,7 @@ export function AppNav({
 }) {
   return (
     <header className="border-border/60 bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-5">
           <Link href="/dashboard" className="shrink-0">
             <Wordmark size="lg" />
