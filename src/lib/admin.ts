@@ -90,6 +90,32 @@ export async function createMatchday(input: {
 }
 
 /**
+ * Legt `count` Tipptage auf einmal an, fortlaufend nummeriert ab der höchsten
+ * existierenden Nummer + 1 (erste Anlage also 1..count). Platzhalter-Daten; Span/
+ * Deadline werden via recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet sind.
+ */
+export async function createTipptageBatch(competitionId: string, count: number): Promise<number> {
+  const n = Math.max(1, Math.min(100, Math.trunc(count)));
+  const latest = await prisma.matchday.findFirst({
+    where: { competitionId },
+    orderBy: { number: 'desc' },
+    select: { number: true },
+  });
+  const start = (latest?.number ?? 0) + 1;
+  const now = new Date();
+  await prisma.matchday.createMany({
+    data: Array.from({ length: n }, (_, i) => ({
+      competitionId,
+      number: start + i,
+      startDate: now,
+      endDate: now,
+      deadlineAt: now,
+    })),
+  });
+  return n;
+}
+
+/**
  * Legt eine neue Saison an (idempotent) inkl. Bundesliga-Wettbewerb (BL1+BL2 als
  * OpenLigaDB-Quelle). Der Cron importiert die Spieltage dann automatisch.
  */

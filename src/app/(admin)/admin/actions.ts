@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { addFixture, createMatchday, createSeasonWithBundesliga, deleteFixture } from '@/lib/admin';
+import { addFixture, createMatchday, createSeasonWithBundesliga, createTipptageBatch, deleteFixture } from '@/lib/admin';
 import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -73,21 +73,14 @@ export async function createSeasonAction(formData: FormData): Promise<void> {
 // ─── Tipptag-Gruppierung (Spieltage → Tipptage) ───────────────────────────────
 
 /**
- * Legt einen leeren Tipptag an (Placeholder-Daten; werden via recalcMatchdaySpan
- * gesetzt, sobald Spieltage zugeordnet werden). Nummer muss im Wettbewerb eindeutig.
+ * Legt mehrere Tipptage auf einmal an (Anzahl aus dem Formular), fortlaufend ab der
+ * höchsten existierenden Nummer + 1. Placeholder-Daten; Span/Deadline werden via
+ * recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet werden.
  */
 export async function createTipptagAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const competitionId = String(formData.get('competitionId'));
-  const number = Number(formData.get('number'));
-  const now = new Date();
-  await createMatchday({
-    competitionId,
-    number,
-    startDate: now,
-    endDate: now,
-    deadlineAt: now,
-  });
+  await createTipptageBatch(competitionId, Number(formData.get('count')));
   revalidatePath('/admin/spieltage');
 }
 

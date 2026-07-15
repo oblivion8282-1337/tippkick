@@ -126,11 +126,11 @@ export default async function SpieltagePage({
             <form action={createTipptagAction} className="flex flex-wrap items-end gap-3 pt-2">
               <input type="hidden" name="competitionId" value={competitions[0].id} />
               <div className="flex flex-col gap-2">
-                <Label htmlFor="number">Neuer Tipptag (Nr.)</Label>
-                <Input id="number" name="number" type="number" min={1} className="w-28" />
+                <Label htmlFor="count">Anzahl Tipptage</Label>
+                <Input id="count" name="count" type="number" min={1} max={100} defaultValue={34} className="w-28" />
               </div>
               <Button type="submit" size="sm">
-                Tipptag anlegen
+                Tipptage anlegen
               </Button>
             </form>
           )}
