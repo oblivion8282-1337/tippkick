@@ -5,6 +5,7 @@ import { deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FixtureResultForm } from '@/components/fixture-result-form';
@@ -20,19 +21,30 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
 
   const allFixtures = matchday.sections.flatMap((s) => s.fixtures);
 
+  const seasonId = matchday.competition.season.id;
+
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow={`${matchday.competition.name} · ${matchday.competition.season.name}`}
-        title={`${matchday.number}. Tipptag`}
-        description={`${formatDateRange(matchday.startDate, matchday.endDate)} · Deadline ${formatDateTime(matchday.deadlineAt)}`}
-        actions={
-          <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm">
-            <Download className="h-4 w-4" />
-            Als Excel
-          </LinkButton>
-        }
-      />
+      <div className="space-y-3">
+        <Breadcrumb
+          items={[
+            { label: 'Admin', href: `/admin?season=${seasonId}` },
+            { label: 'Spieltage & Tipptage', href: `/admin/spieltage?season=${seasonId}` },
+            { label: `${matchday.number}. Tipptag` },
+          ]}
+        />
+        <PageHeader
+          eyebrow={`${matchday.competition.name} · ${matchday.competition.season.name}`}
+          title={`${matchday.number}. Tipptag`}
+          description={`${formatDateRange(matchday.startDate, matchday.endDate)} · Deadline ${formatDateTime(matchday.deadlineAt)}`}
+          actions={
+            <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm">
+              <Download className="h-4 w-4" />
+              Als Excel
+            </LinkButton>
+          }
+        />
+      </div>
 
       <Card>
         <CardHeader className="border-b border-border/40">
