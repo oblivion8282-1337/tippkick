@@ -1,0 +1,22 @@
+# Nur für lokale Entwicklung. In Produktion läuft Postgres im netcup-Compose-Stack.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: tippkick-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tippkick}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tippkick}
+      POSTGRES_DB: ${POSTGRES_DB:-tippkick}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - tippkick-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tippkick} -d ${POSTGRES_DB:-tippkick}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tippkick-db-data:
