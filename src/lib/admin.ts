@@ -90,12 +90,13 @@ export async function createMatchday(input: {
 }
 
 /**
- * Stellt sicher, dass Tipptage 1..count existieren (idempotent): es werden nur
- * noch fehlende Nummern angelegt. Wiederholtes „Anlegen" mit derselben Anzahl
- * ändert also nichts. Platzhalter-Daten; Span/Deadline werden via
- * recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet sind.
+ * Setzt die Tipptage eines Wettbewerbs auf exakt 1..count (idempotent): fehlende
+ * Nummern werden angelegt, Tipptage mit Nummer > count gelöscht (deren Spieltage
+ * wandern per SetNull zurück in den Pool). „Anlegen" mit 34 bei bestehenden 35
+ * entfernt also Nr. 35; erneutes Klicken mit 34 ändert nichts. Platzhalter-Daten;
+ * Span/Deadline werden via recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet.
  */
-export async function createTipptageBatch(competitionId: string, count: number): Promise<number> {
+export async function createTipptageBatch(competitionId: string, count: number): Promise<{ created: number; deleted: number }> {
   const target = Math.max(1, Math.min(100, Math.trunc(count)));
   const existing = await prisma.matchday.findMany({ where: { competitionId }, select: { number: true } });
   const have = new Set(existing.map((m) => m.number));
@@ -103,10 +104,12 @@ export async function createTipptageBatch(competitionId: string, count: number):
   const toCreate = Array.from({ length: target }, (_, i) => i + 1)
     .filter((number) => !have.has(number))
     .map((number) => ({ competitionId, number, startDate: now, endDate: now, deadlineAt: now }));
-  if (toCreate.length > 0) {
-    await prisma.matchday.createMany({ data: toCreate });
-  }
-  return toCreate.length;
+
+  await prisma.$transaction([
+    ...(toCreate.length > 0 ? [prisma.matchday.createMany({ data: toCreate })] : []),
+    prisma.matchday.deleteMany({ where: { competitionId, number: { gt: target } } }),
+  ]);
+  return { created: toCreate.length, deleted: existing.filter((m) => m.number > target).length };
 }
 
 /**
