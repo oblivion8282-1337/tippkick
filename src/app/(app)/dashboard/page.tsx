@@ -181,7 +181,7 @@ function WeekendHero({
     <article className="from-card via-card to-pitch/5 relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br p-6 shadow-[0_1px_0_oklch(0.21_0.018_160/0.04),0_8px_24px_-12px_oklch(0.21_0.018_160/0.12)] sm:p-10 dark:bg-gradient-to-br dark:from-card dark:via-card dark:to-pitch/10 dark:shadow-[0_1px_0_oklch(0.93_0.01_100/0.04),0_8px_24px_-12px_oklch(0_0_0/0.4)]">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-4">
-          <p className="text-muted-foreground flex items-center gap-2 font-mono text-[0.7rem] font-medium tracking-[0.18em] uppercase">
+          <p className="text-muted-foreground flex items-center gap-2 pl-12 font-mono text-[0.7rem] font-medium tracking-[0.18em] uppercase">
             <CalendarDays className="h-3.5 w-3.5" />
             {competitionName}
           </p>
@@ -196,7 +196,7 @@ function WeekendHero({
             <TipptagArrow dir="next" target={nextNumber} />
           </div>
 
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 pl-12 text-base">
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               Deadline <span className="text-foreground font-medium">{deadlineLabel}</span>
@@ -207,7 +207,7 @@ function WeekendHero({
             </span>
           </div>
 
-          <div className="space-y-2 pt-1">
+          <div className="space-y-2 pl-12 pt-1">
             <div className="flex items-baseline gap-2">
               <span className="font-display text-3xl font-semibold tabular-nums">
                 {tipped}
