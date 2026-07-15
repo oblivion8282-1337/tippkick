@@ -186,16 +186,14 @@ function WeekendHero({
             {competitionName}
           </p>
 
-          {/* Tipptag + Pfeile zum Schalten */}
-          <div className="flex items-center gap-2">
+          {/* Tipptag + Pfeile zum Schalten (flankierend) */}
+          <div className="flex items-center gap-3">
+            <TipptagArrow dir="prev" target={prevNumber} />
             <h2 className="font-display text-5xl font-semibold tracking-tight sm:text-7xl">
               {md.number}.{' '}
               <span className="text-muted-foreground font-display font-normal">Tipptag</span>
             </h2>
-            <div className="flex gap-1 pb-2">
-              <TipptagArrow dir="prev" target={prevNumber} />
-              <TipptagArrow dir="next" target={nextNumber} />
-            </div>
+            <TipptagArrow dir="next" target={nextNumber} />
           </div>
 
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
