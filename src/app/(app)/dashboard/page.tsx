@@ -105,11 +105,7 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-10">
-      <PageHeader
-        eyebrow={`Saison ${visibleRows[0]?.c.season.name ?? ''}`}
-        title="Dein Wochenende"
-        description="Hier landest du auf dem nächsten offenen Tipptag. Tippe ihn jetzt — nach der Deadline geht nichts mehr."
-      />
+      <PageHeader eyebrow={`Saison ${visibleRows[0]?.c.season.name ?? ''}`} title={`Hallo, ${session.user.name ?? session.user.email}`} />
 
       <WeekendHero
         competitionKey={heroC.key}

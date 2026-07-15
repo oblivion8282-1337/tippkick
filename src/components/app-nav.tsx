@@ -22,9 +22,6 @@ export function AppNav({
           <Link href="/dashboard" className="shrink-0">
             <Wordmark size="lg" />
           </Link>
-          <span className="text-muted-foreground hidden truncate text-base md:inline">
-            Hallo, <span className="text-foreground font-medium">{userName}</span>
-          </span>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <LinkButton href="/dashboard" variant="ghost" className="hidden sm:inline-flex">
