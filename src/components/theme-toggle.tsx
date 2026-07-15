@@ -1,9 +1,9 @@
 'use client';
 
-import { useTheme } from 'next-themes';
 import { Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { useTheme } from '@/components/theme-provider';
 
 /**
  * Zustandsloser Dark/Light-Umschalter. Die Icon-Sichtbarkeit läuft rein über
