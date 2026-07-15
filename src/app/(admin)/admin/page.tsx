@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarClock, Check, Download, Users } from 'lucide-react';
+import { CalendarClock, Check, ChevronRight, Download, Users } from 'lucide-react';
 
 import {
   getCompetitionsOverview,
@@ -68,9 +68,11 @@ export default async function AdminHomePage({
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
   const selfId = (await getSession())?.user.id;
-  // Tipp-Status für den nächsten anstehenden Tipptag (✓ getippt / ausstehend).
+  // Tipp-Sets je anstehendem Tipptag (für die aufklappbare „wer hat getippt"-Liste).
+  const upcomingTipped = await Promise.all(upcoming.map((u) => getTipptagTippers(u.id)));
+  // Tipp-Status für den nächsten anstehenden Tipptag (Badge in der Tipper-Karte).
   const nextTipptag = upcoming[0];
-  const nextTipped = nextTipptag ? await getTipptagTippers(nextTipptag.id) : new Set<string>();
+  const nextTipped = nextTipptag ? upcomingTipped[0] : new Set<string>();
   const pending = tippers.filter((u) => !u.approved);
   const active = tippers.filter((u) => u.approved);
 
@@ -99,29 +101,57 @@ export default async function AdminHomePage({
               </Link>
             </p>
           ) : (
-            <ul className="divide-y divide-border/40">
-              {upcoming.map((u) => (
-                <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-4 text-sm">
-                  <span className="bg-muted rounded px-2 py-0.5 text-xs font-semibold">
-                    {COMPETITION_SHORT[u.competitionKey]}
-                  </span>
-                  <Link href={`/admin/matchdays/${u.id}`} className="hover:underline">
-                    <span className="font-display font-semibold">Tipptag {u.number}</span>
-                  </Link>
-                  <span className="text-muted-foreground tabular-nums">{u.fixtureCount} Partien</span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {u.tippersTipped}/{tipperStats.tippers} getippt
-                  </span>
-                  <span className="text-muted-foreground ml-auto tabular-nums">
-                    {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
-                  </span>
-                  <LinkButton href={`/admin/matchdays/${u.id}/export`} size="sm" variant="outline">
-                    <Download className="h-4 w-4" />
-                    Excel
-                  </LinkButton>
-                </li>
-              ))}
-            </ul>
+            <div className="divide-y divide-border/40">
+              {upcoming.map((u, i) => {
+                const tipped = upcomingTipped[i];
+                const outstanding = active.filter((t) => !tipped.has(t.id));
+                return (
+                  <details key={u.id} className="group">
+                    <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm [&::-webkit-details-marker]:hidden">
+                      <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+                      <span className="bg-muted rounded px-2 py-0.5 text-xs font-semibold">
+                        {COMPETITION_SHORT[u.competitionKey]}
+                      </span>
+                      <Link href={`/admin/matchdays/${u.id}`} className="hover:underline">
+                        <span className="font-display font-semibold">Tipptag {u.number}</span>
+                      </Link>
+                      <span className="text-muted-foreground tabular-nums">{u.fixtureCount} Partien</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {u.tippersTipped}/{active.length} getippt
+                        {outstanding.length > 0 && <span className="text-destructive"> · {outstanding.length} offen</span>}
+                      </span>
+                      <span className="text-muted-foreground ml-auto tabular-nums">
+                        {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
+                      </span>
+                      <LinkButton href={`/admin/matchdays/${u.id}/export`} size="sm" variant="outline">
+                        <Download className="h-4 w-4" />
+                        Excel
+                      </LinkButton>
+                    </summary>
+                    <ul className="border-border/40 border-t">
+                      {active.map((t) => {
+                        const done = tipped.has(t.id);
+                        return (
+                          <li key={t.id} className="flex items-center gap-2 py-2 pr-6 pl-12 text-sm">
+                            <span className="font-medium">{t.name}</span>
+                            {t.role === 'admin' && <span className="text-muted-foreground text-xs">Tippleitung</span>}
+                            <span className={done ? 'text-primary ml-auto inline-flex items-center gap-1' : 'text-muted-foreground ml-auto'}>
+                              {done ? (
+                                <>
+                                  <Check className="h-3 w-3" /> getippt
+                                </>
+                              ) : (
+                                'noch offen'
+                              )}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </details>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
