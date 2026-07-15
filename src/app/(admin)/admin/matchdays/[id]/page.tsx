@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { activateMatchdayAction, addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
@@ -8,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LinkButton } from '@/components/link-button';
 
 export default async function MatchdayDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,9 +35,9 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
               </Button>
             </form>
           )}
-          <Button size="sm" render={<Link href={`/admin/matchdays/${matchday.id}/export`} />}>
+          <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm">
             Tipps als Excel
-          </Button>
+          </LinkButton>
         </div>
       </div>
 

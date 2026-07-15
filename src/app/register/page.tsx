@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { authClient, requestVerificationEmail } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LinkButton } from '@/components/link-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -46,9 +47,9 @@ export default function RegisterPage() {
               Wir haben dir einen Bestätigungs-Link geschickt (in der Entwicklung wird er in der Konsole ausgegeben).
               Bitte klicke darauf, um dein Konto zu aktivieren.
             </p>
-            <Button variant="outline" className="w-full" render={<Link href="/login" />}>
+            <LinkButton href="/login" variant="outline" className="w-full">
               Zum Login
-            </Button>
+            </LinkButton>
           </CardContent>
         </Card>
       </main>

@@ -1,7 +1,5 @@
-import Link from 'next/link';
-
 import { getMatchdays } from '@/lib/matchdays';
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/link-button';
 
 export default async function AdminHomePage() {
   const matchdays = await getMatchdays();
@@ -10,7 +8,7 @@ export default async function AdminHomePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Spieltage</h1>
-        <Button render={<Link href="/admin/matchdays/new" />}>Neuer Spieltag</Button>
+        <LinkButton href="/admin/matchdays/new">Neuer Spieltag</LinkButton>
       </div>
 
       {matchdays.length === 0 ? (
@@ -26,9 +24,9 @@ export default async function AdminHomePage() {
                 </span>
                 <span className="text-muted-foreground ml-2 text-sm">{md.season.name}</span>
               </div>
-              <Button variant="outline" size="sm" render={<Link href={`/admin/matchdays/${md.id}`} />}>
+              <LinkButton href={`/admin/matchdays/${md.id}`} variant="outline" size="sm">
                 {md._count.fixtures} Partien →
-              </Button>
+              </LinkButton>
             </li>
           ))}
         </ul>

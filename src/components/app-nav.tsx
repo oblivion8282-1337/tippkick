@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/link-button';
 
 export function AppNav({ userName, isAdmin }: { userName: string; isAdmin: boolean }) {
   const router = useRouter();
@@ -26,9 +27,9 @@ export function AppNav({ userName, isAdmin }: { userName: string; isAdmin: boole
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button variant="outline" size="sm" render={<Link href="/admin" />}>
+            <LinkButton href="/admin" variant="outline" size="sm">
               Admin
-            </Button>
+            </LinkButton>
           )}
           <Button variant="outline" size="sm" onClick={onLogout}>
             Abmelden

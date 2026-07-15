@@ -1,10 +1,8 @@
-import Link from 'next/link';
-
 import { getActiveMatchday, isTippable } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatDateTime } from '@/lib/datetime';
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/link-button';
 
 export default async function DashboardPage() {
   const session = await requireUser();
@@ -33,7 +31,7 @@ export default async function DashboardPage() {
             {matchday.season.name} · Deadline {formatDateTime(matchday.deadlineAt)}
           </p>
         </div>
-        <Button render={<Link href={`/tippen/${matchday.id}`} />}>{open ? 'Tippen' : 'Tipps ansehen'}</Button>
+        <LinkButton href={`/tippen/${matchday.id}`}>{open ? 'Tippen' : 'Tipps ansehen'}</LinkButton>
       </div>
 
       <div className="rounded-lg border p-6">

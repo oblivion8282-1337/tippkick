@@ -1,7 +1,5 @@
-import Link from 'next/link';
-
 import { getSession } from '@/lib/session';
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/link-button';
 
 export default async function Home() {
   const session = await getSession();
@@ -15,13 +13,13 @@ export default async function Home() {
 
       <div className="flex gap-3">
         {session ? (
-          <Button render={<Link href="/dashboard" />}>Zum Tippbereich</Button>
+          <LinkButton href="/dashboard">Zum Tippbereich</LinkButton>
         ) : (
           <>
-            <Button render={<Link href="/login" />}>Einloggen</Button>
-            <Button variant="outline" render={<Link href="/register" />}>
+            <LinkButton href="/login">Einloggen</LinkButton>
+            <LinkButton href="/register" variant="outline">
               Registrieren
-            </Button>
+            </LinkButton>
           </>
         )}
       </div>
