@@ -88,6 +88,7 @@ export default async function SpieltagePage() {
                   <form action={setTipptagDeadlineAction} className="ml-auto flex items-center gap-2">
                     <input type="hidden" name="matchdayId" value={t.id} />
                     <Input
+                      key={toLocalInput(t.deadlineAt)}
                       name="deadlineAt"
                       type="datetime-local"
                       defaultValue={toLocalInput(t.deadlineAt)}

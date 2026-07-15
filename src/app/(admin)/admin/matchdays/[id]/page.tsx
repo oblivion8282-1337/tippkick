@@ -61,6 +61,7 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
                         <span className="font-medium">{f.awayTeam}</span>
                       </span>
                       <FixtureResultForm
+                        key={`${f.id}-${f.homeGoals}-${f.awayGoals}-${f.status}-${f.resultSource}`}
                         fixtureId={f.id}
                         matchdayId={matchday.id}
                         home={f.homeGoals}
