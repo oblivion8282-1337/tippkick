@@ -6,7 +6,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen">
-      <AppNav userName={session.user.name ?? session.user.email} isAdmin={session.user.role === 'admin'} />
+      <AppNav
+        userName={session.user.name ?? session.user.email}
+        userImage={session.user.image}
+        isAdmin={session.user.role === 'admin'}
+      />
       <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8">{children}</main>
     </div>
   );
