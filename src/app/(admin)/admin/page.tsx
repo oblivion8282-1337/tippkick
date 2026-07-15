@@ -13,16 +13,13 @@ import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/
 import { formatCountdown, formatDateTime } from '@/lib/datetime';
 import { ConfirmButton } from '@/components/confirm-button';
 import { CreateSeasonForm } from '@/components/create-season-form';
+import { RoleSelectForm } from '@/components/role-select-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
-import {
-  approveUserAction,
-  deleteUserAction,
-  rejectUserAction,
-  setUserRoleAction,
-} from '@/app/(admin)/admin/actions';
+import { getSession } from '@/lib/session';
+import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
 
 export default async function AdminHomePage() {
   const season = await getManageableSeason();
@@ -47,6 +44,7 @@ export default async function AdminHomePage() {
     getTipperList(),
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
+  const selfId = (await getSession())?.user.id;
   // Tipp-Status für den nächsten anstehenden Tipptag (✓ getippt / ausstehend).
   const nextTipptag = upcoming[0];
   const nextTipped = nextTipptag ? await getTipptagTippers(nextTipptag.id) : new Set<string>();
@@ -183,18 +181,18 @@ export default async function AdminHomePage() {
             <ul className="divide-y divide-border/40 border-t border-border/40">
               {active.map((u) => {
                 const isAdmin = u.role === 'admin';
+                const isSelf = u.id === selfId;
                 const tipped = nextTipptag ? nextTipped.has(u.id) : null;
                 return (
                   <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
-                    <span className="font-medium">{u.name}</span>
+                    <span className="font-medium">
+                      {u.name}
+                      {isSelf && <span className="text-muted-foreground ml-1 text-xs">(du)</span>}
+                    </span>
                     <span className="text-muted-foreground truncate">{u.email}</span>
                     {nextTipptag && (
                       <span
-                        className={
-                          tipped
-                            ? 'text-primary inline-flex items-center gap-1 text-xs'
-                            : 'text-muted-foreground text-xs'
-                        }
+                        className={tipped ? 'text-primary inline-flex items-center gap-1 text-xs' : 'text-muted-foreground text-xs'}
                         title={`Tipptag ${nextTipptag.number}`}
                       >
                         {tipped ? (
@@ -206,30 +204,27 @@ export default async function AdminHomePage() {
                         )}
                       </span>
                     )}
-                    <span
-                      className={
-                        isAdmin
-                          ? 'bg-primary/15 text-primary ml-auto rounded px-2 py-0.5 text-xs font-medium'
-                          : 'bg-muted text-muted-foreground ml-auto rounded px-2 py-0.5 text-xs'
-                      }
-                    >
-                      {isAdmin ? 'Tippleitung' : 'Tipper'}
-                    </span>
-                    <span className="flex gap-2">
-                      <form action={setUserRoleAction}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <input type="hidden" name="role" value={isAdmin ? 'user' : 'admin'} />
-                        <Button type="submit" size="sm" variant="outline">
-                          {isAdmin ? 'Zum Tipper' : 'Zur Tippleitung'}
-                        </Button>
-                      </form>
-                      <form action={deleteUserAction}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <ConfirmButton confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`} variant="destructive" size="sm">
-                          Entfernen
-                        </ConfirmButton>
-                      </form>
-                    </span>
+                    {isSelf ? (
+                      <span
+                        className={
+                          isAdmin
+                            ? 'bg-primary/15 text-primary ml-auto rounded px-2 py-0.5 text-xs font-medium'
+                            : 'bg-muted text-muted-foreground ml-auto rounded px-2 py-0.5 text-xs'
+                        }
+                      >
+                        {isAdmin ? 'Tippleitung' : 'Tipper'}
+                      </span>
+                    ) : (
+                      <span className="ml-auto flex items-center gap-2">
+                        <RoleSelectForm userId={u.id} role={u.role ?? 'user'} />
+                        <form action={deleteUserAction}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <ConfirmButton confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`} variant="destructive" size="sm">
+                            Entfernen
+                          </ConfirmButton>
+                        </form>
+                      </span>
+                    )}
                   </li>
                 );
               })}
