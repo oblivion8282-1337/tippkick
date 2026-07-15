@@ -53,7 +53,12 @@ export default async function TippenPage({
   const prev = idx > 0 ? numbers[idx - 1] : null;
   const next = idx < numbers.length - 1 ? numbers[idx + 1] : null;
 
-  const fixtures = matchday.fixtures.map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam }));
+  const fixtures = matchday.fixtures.map((f) => ({
+    id: f.id,
+    league: f.league,
+    homeTeam: f.homeTeam,
+    awayTeam: f.awayTeam,
+  }));
 
   return (
     <div className="space-y-6">

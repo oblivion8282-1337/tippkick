@@ -1,7 +1,41 @@
 import { prisma } from '@/lib/prisma';
-import { fetchMatchday, fetchSeason, seasonToYear } from '@/lib/openligadb';
+import { fetchMatchday, fetchSeason, seasonToYear, type ImportedFixture } from '@/lib/openligadb';
 import { getCurrentSeason } from '@/lib/matchdays';
-import { DEADLINE_OFFSET_MS } from '@/lib/constants';
+import { DEADLINE_OFFSET_MS, SHORTCUT_TO_LEAGUE } from '@/lib/constants';
+import type { League } from '@/generated/prisma/client';
+
+/** Partie inkl. Sektions-Tag (1./2. Liga bei Bundesliga; sonst null). */
+type TaggedFixture = ImportedFixture & { league: League | null };
+
+/** Holt einen Spieltag über alle Quellen eines Wettbewerbs, Partien getaggt. */
+async function fetchTaggedMatchday(shortcuts: string[], year: number, groupOrderId: number): Promise<TaggedFixture[]> {
+  const out: TaggedFixture[] = [];
+  for (const shortcut of shortcuts) {
+    const league = SHORTCUT_TO_LEAGUE[shortcut] ?? null;
+    const fixtures = await fetchMatchday(shortcut, year, groupOrderId);
+    out.push(...fixtures.map((f) => ({ ...f, league })));
+  }
+  return out;
+}
+
+/** Holt eine ganze Saison über alle Quellen, gruppiert + getaggt nach Spieltag. */
+async function fetchTaggedSeason(shortcuts: string[], year: number): Promise<Map<number, TaggedFixture[]>> {
+  const merged = new Map<number, TaggedFixture[]>();
+  for (const shortcut of shortcuts) {
+    const league = SHORTCUT_TO_LEAGUE[shortcut] ?? null;
+    const seasonMap = await fetchSeason(shortcut, year);
+    for (const [group, fixtures] of seasonMap) {
+      const arr = merged.get(group) ?? [];
+      arr.push(...fixtures.map((f) => ({ ...f, league })));
+      merged.set(group, arr);
+    }
+  }
+  return merged;
+}
+
+function earliestKickoff(fixtures: TaggedFixture[]): Date {
+  return fixtures.reduce((min, f) => (f.kickoff < min ? f.kickoff : min), fixtures[0].kickoff);
+}
 
 /**
  * Setzt genau einen Spieltag im zugehörigen Wettbewerb aktiv (andere im selben
@@ -94,12 +128,12 @@ export async function importFixturesFromOpenLigaDb(
     where: { id: competitionId },
     include: { season: true },
   });
-  if (!competition || !competition.sourceShortcut || !competition.season) {
+  if (!competition || competition.sourceShortcuts.length === 0 || !competition.season) {
     return { ok: false, reason: 'no-source' };
   }
 
-  const fixtures = await fetchMatchday(
-    competition.sourceShortcut,
+  const fixtures = await fetchTaggedMatchday(
+    competition.sourceShortcuts,
     seasonToYear(competition.season.name),
     matchdayNumber,
   );
@@ -107,8 +141,8 @@ export async function importFixturesFromOpenLigaDb(
     return { ok: false, reason: 'empty' };
   }
 
-  // Spieltag anlegen (falls nicht vorhanden) + Deadline = 1 Min vor frühestem Anstoß.
-  const earliest = fixtures.reduce((min, f) => (f.kickoff < min ? f.kickoff : min), fixtures[0].kickoff);
+  // Spieltag anlegen (falls nicht vorhanden) + Deadline = 1 Min vor frühestem Anstoß (beider Ligen).
+  const earliest = earliestKickoff(fixtures);
   const deadlineAt = new Date(earliest.getTime() - DEADLINE_OFFSET_MS);
 
   const matchday = await prisma.matchday.upsert({
@@ -129,6 +163,7 @@ export async function importFixturesFromOpenLigaDb(
     await prisma.fixture.createMany({
       data: fixtures.map((f, sortOrder) => ({
         matchdayId: matchday.id,
+        league: f.league,
         kickoff: f.kickoff,
         homeTeam: f.homeTeam,
         awayTeam: f.awayTeam,
@@ -154,11 +189,11 @@ export async function importSeasonFromOpenLigaDb(competitionId: string): Promise
     where: { id: competitionId },
     include: { season: true },
   });
-  if (!competition || !competition.sourceShortcut || !competition.season) {
+  if (!competition || competition.sourceShortcuts.length === 0 || !competition.season) {
     return { ok: false, reason: 'no-source' };
   }
 
-  const seasonMap = await fetchSeason(competition.sourceShortcut, seasonToYear(competition.season.name));
+  const seasonMap = await fetchTaggedSeason(competition.sourceShortcuts, seasonToYear(competition.season.name));
   if (seasonMap.size === 0) {
     return { ok: false, reason: 'empty' };
   }
@@ -166,7 +201,7 @@ export async function importSeasonFromOpenLigaDb(competitionId: string): Promise
   let matchdays = 0;
   let fixtures = 0;
   for (const [number, dayFixtures] of [...seasonMap.entries()].sort((a, b) => a[0] - b[0])) {
-    const earliest = dayFixtures.reduce((min, f) => (f.kickoff < min ? f.kickoff : min), dayFixtures[0].kickoff);
+    const earliest = earliestKickoff(dayFixtures);
     const matchday = await prisma.matchday.upsert({
       where: { competitionId_number: { competitionId, number } },
       update: {},
@@ -184,6 +219,7 @@ export async function importSeasonFromOpenLigaDb(competitionId: string): Promise
       await prisma.fixture.createMany({
         data: dayFixtures.map((f, sortOrder) => ({
           matchdayId: matchday.id,
+          league: f.league,
           kickoff: f.kickoff,
           homeTeam: f.homeTeam,
           awayTeam: f.awayTeam,

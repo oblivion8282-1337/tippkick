@@ -69,20 +69,20 @@ async function main() {
     create: { name: '25/26' },
   });
 
-  // 2) Wettbewerbe (BL + L2, mit OpenLigaDB-Shortcut)
-  const competitions = [
-    { key: 'BL' as const, name: '1. Bundesliga', sortOrder: 0, sourceShortcut: 'bl1' },
-    { key: 'L2' as const, name: '2. Bundesliga', sortOrder: 1, sourceShortcut: 'bl2' },
-  ];
-  const compIds: Record<string, string> = {};
-  for (const c of competitions) {
-    const existing = await prisma.competition.findUnique({
-      where: { seasonId_key: { seasonId: season.id, key: c.key } },
-    });
-    compIds[c.key] = existing?.id ?? (await prisma.competition.create({ data: { ...c, seasonId: season.id } })).id;
-  }
+  // 2) Wettbewerb Bundesliga (1.+2. Liga zusammen, mit OpenLigaDB-Quellen)
+  const competition = await prisma.competition.upsert({
+    where: { seasonId_key: { seasonId: season.id, key: 'BL' } },
+    update: {},
+    create: {
+      seasonId: season.id,
+      key: 'BL',
+      name: 'Bundesliga (1. + 2. Liga)',
+      sortOrder: 0,
+      sourceShortcuts: ['bl1', 'bl2'],
+    },
+  });
 
-  // 3) Spieltag 34 je Wettbewerb (Demo-Daten, tippbar)
+  // 3) Spieltag 34 (Demo: 9 BL + 9 L2 in einem Spieltag, tippbar)
   const saturday = nextSaturday();
   const friday = new Date(saturday);
   friday.setDate(friday.getDate() - 1);
@@ -90,38 +90,40 @@ async function main() {
   const sunday = new Date(saturday);
   sunday.setDate(sunday.getDate() + 1);
 
-  for (const [key, fixtures] of [
-    ['BL', BL_FIXTURES],
-    ['L2', L2_FIXTURES],
-  ] as const) {
-    const existing = await prisma.matchday.findUnique({
-      where: { competitionId_number: { competitionId: compIds[key], number: 34 } },
-    });
-    const matchday =
-      existing ??
-      (await prisma.matchday.create({
-        data: {
-          competitionId: compIds[key],
-          number: 34,
-          startDate: friday,
-          endDate: sunday,
-          deadlineAt: friday,
-          isActive: true,
-        },
-      }));
+  const matchday =
+    (await prisma.matchday.findUnique({
+      where: { competitionId_number: { competitionId: competition.id, number: 34 } },
+    })) ??
+    (await prisma.matchday.create({
+      data: {
+        competitionId: competition.id,
+        number: 34,
+        startDate: friday,
+        endDate: sunday,
+        deadlineAt: friday,
+        isActive: true,
+      },
+    }));
 
-    const hasFixtures = await prisma.fixture.count({ where: { matchdayId: matchday.id } });
-    if (hasFixtures === 0) {
-      await prisma.fixture.createMany({
-        data: fixtures.map(([homeTeam, awayTeam], sortOrder) => ({
-          matchdayId: matchday.id,
-          kickoff: saturday,
-          homeTeam,
-          awayTeam,
-          sortOrder,
-        })),
-      });
-    }
+  const hasFixtures = await prisma.fixture.count({ where: { matchdayId: matchday.id } });
+  if (hasFixtures === 0) {
+    const bl = BL_FIXTURES.map(([homeTeam, awayTeam], sortOrder) => ({
+      matchdayId: matchday.id,
+      league: 'BL' as const,
+      kickoff: saturday,
+      homeTeam,
+      awayTeam,
+      sortOrder,
+    }));
+    const l2 = L2_FIXTURES.map(([homeTeam, awayTeam], sortOrder) => ({
+      matchdayId: matchday.id,
+      league: 'L2' as const,
+      kickoff: saturday,
+      homeTeam,
+      awayTeam,
+      sortOrder: sortOrder + BL_FIXTURES.length,
+    }));
+    await prisma.fixture.createMany({ data: [...bl, ...l2] });
   }
 
   // 4) Bootstrap-Admin + Demo-Tipper

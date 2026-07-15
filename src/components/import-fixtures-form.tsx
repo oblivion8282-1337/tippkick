@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type Competition = { id: string; name: string; sourceShortcut: string | null };
+type Competition = { id: string; name: string; sourceShortcuts: string[] };
 
 const initialState = { ok: false, message: '' };
 
 export function ImportFixturesForm({ competitions }: { competitions: Competition[] }) {
-  const importable = competitions.filter((c) => c.sourceShortcut);
+  const importable = competitions.filter((c) => c.sourceShortcuts.length > 0);
   const selectRef = useRef<HTMLSelectElement>(null);
   const [seasonMsg, setSeasonMsg] = useState<string | null>(null);
   const [seasonPending, setSeasonPending] = useState(false);

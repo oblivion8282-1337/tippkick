@@ -2,12 +2,14 @@
 
 import { useMemo, useRef, useState } from 'react';
 
+import type { League } from '@/generated/prisma/client';
+
 import { saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
-import { MAX_GOALS, MIN_GOALS } from '@/lib/constants';
+import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER, MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
-type Fixture = { id: string; homeTeam: string; awayTeam: string };
+type Fixture = { id: string; league: League | null; homeTeam: string; awayTeam: string };
 
 type Props = {
   fixtures: Fixture[];
@@ -39,6 +41,18 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
     () => fixtures.filter((f) => isFilled(values[f.id]?.home) && isFilled(values[f.id]?.away)).length,
     [fixtures, values],
   );
+
+  // Sektionen: 1. Liga, 2. Liga (Bundesliga); Wettbewerbe ohne Liga in einer Sektion.
+  const sections = useMemo(() => {
+    const hasLeagues = fixtures.some((f) => f.league !== null);
+    if (!hasLeagues) {
+      return [{ league: null, items: fixtures }];
+    }
+    return LEAGUE_SECTION_ORDER.map((league) => ({
+      league,
+      items: fixtures.filter((f) => f.league === league),
+    })).filter((s) => s.items.length > 0);
+  }, [fixtures]);
 
   function handleChange(fixtureId: string, side: 'home' | 'away', raw: string) {
     const next = sanitize(raw);
@@ -75,16 +89,23 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
         <SaveBadge state={saveState} />
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        {fixtures.map((f) => (
-          <FixtureRow
-            key={f.id}
-            fixture={f}
-            home={values[f.id]?.home ?? ''}
-            away={values[f.id]?.away ?? ''}
-            disabled={!open}
-            onChange={(side, v) => handleChange(f.id, side, v)}
-          />
+      <div className="space-y-4">
+        {sections.map(({ league, items }) => (
+          <section key={league ?? 'all'} className="space-y-2">
+            {league && <h2 className="font-medium">{LEAGUE_SECTION_LABELS[league]}</h2>}
+            <div className="overflow-hidden rounded-lg border">
+              {items.map((f) => (
+                <FixtureRow
+                  key={f.id}
+                  fixture={f}
+                  home={values[f.id]?.home ?? ''}
+                  away={values[f.id]?.away ?? ''}
+                  disabled={!open}
+                  onChange={(side, v) => handleChange(f.id, side, v)}
+                />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 

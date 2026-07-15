@@ -2,22 +2,22 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ExcelJS from 'exceljs';
 
+import type { League } from '@/generated/prisma/client';
 import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/types';
 
 /**
- * Vorlagenbasierter Export für die BL+L2-Auswertung (das Originalformat).
- * Lädt die Master-Vorlage (mit allen 1386 Formeln + TW-Blatt), schreibt nur
- * die Partien und die gematchten Tipps; Ergebnisse (E/G) bleiben frei – die
- * Tippleitung trägt sie ein, Punkte/Rangliste rechnen automatisch.
+ * Vorlagenbasierter Export für die Bundesliga-Auswertung (1.+2. Liga, Originalformat).
+ * Lädt die Master-Vorlage (mit allen 1386 Formeln + TW-Blatt), schreibt nur die
+ * Partien eines (kombinierten) Spieltags und die gematchten Tipps; Ergebnisse
+ * (E/G) bleiben frei – die Tippleitung trägt sie ein, Punkte/Rangliste rechnen.
  *
- * BL-Partien -> Zeilen 6-14, L2-Partien -> Zeilen 18-26 (wie in der Vorlage).
+ * Partien mit league=BL -> Zeilen 6-14, league=L2 -> Zeilen 18-26.
  */
 
 const TEMPLATE_PATH = path.join(process.cwd(), 'src/lib/excel/template/auswertung-template.xlsx');
-const BL_FIRST_ROW = 6;
-const L2_FIRST_ROW = 18;
+const FIRST_ROW_BY_LEAGUE: Record<League, number> = { BL: 6, L2: 18 };
 
-export type BLFixture = FixtureRow;
+export type BLFixture = FixtureRow & { league: League };
 export type BLTipper = { id: string; name: string };
 
 function normalizeName(name: string): string {
@@ -27,12 +27,11 @@ function normalizeName(name: string): string {
 export async function buildBundesligaExcel(params: {
   matchdayNumber: number;
   dateRange: string;
-  blFixtures: BLFixture[];
-  l2Fixtures: BLFixture[];
+  fixtures: BLFixture[];
   tippers: BLTipper[];
   tipsByUser: Map<string, TipMap>;
 }): Promise<Buffer> {
-  const { matchdayNumber, dateRange, blFixtures, l2Fixtures, tippers, tipsByUser } = params;
+  const { matchdayNumber, dateRange, fixtures, tippers, tipsByUser } = params;
 
   const templateBuffer = await readFile(TEMPLATE_PATH);
   const workbook = new ExcelJS.Workbook();
@@ -74,8 +73,8 @@ export async function buildBundesligaExcel(params: {
   ws.getCell(1, COL_HOME).value = `${matchdayNumber}.TT`;
   ws.getCell(3, COL_HOME).value = dateRange;
 
-  function writeSection(firstRow: number, fixtures: BLFixture[]) {
-    fixtures.forEach((fixture, i) => {
+  function writeSection(firstRow: number, sectionFixtures: BLFixture[]) {
+    sectionFixtures.forEach((fixture, i) => {
       const row = firstRow + i;
       ws.getCell(row, COL_HOME).value = fixture.homeTeam;
       ws.getCell(row, COL_HOME + 1).value = ':';
@@ -92,8 +91,12 @@ export async function buildBundesligaExcel(params: {
     });
   }
 
-  writeSection(BL_FIRST_ROW, blFixtures);
-  writeSection(L2_FIRST_ROW, l2Fixtures);
+  (['BL', 'L2'] as League[]).forEach((league) => {
+    writeSection(
+      FIRST_ROW_BY_LEAGUE[league],
+      fixtures.filter((f) => f.league === league),
+    );
+  });
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);

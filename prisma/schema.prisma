@@ -13,12 +13,17 @@ datasource db {
 // better-auth verwaltet und nicht von Hand verändert.
 
 enum CompetitionKey {
-  BL // 1. Bundesliga
-  L2 // 2. Bundesliga
+  BL // Bundesliga (1. + 2. Liga zusammen)
   CL // Champions League
   DFB // DFB-Pokal
   EM // Europameisterschaft
   WM // Weltmeisterschaft
+}
+
+// Sektion innerhalb eines Bundesliga-Spieltags (1. Liga / 2. Liga).
+enum League {
+  BL // 1. Bundesliga
+  L2 // 2. Bundesliga
 }
 
 model Season {
@@ -33,9 +38,9 @@ model Competition {
   seasonId       String
   season         Season      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   key            CompetitionKey
-  name           String // z. B. "1. Bundesliga"
+  name           String // z. B. "Bundesliga (1. + 2. Liga)"
   sortOrder      Int
-  sourceShortcut String? // OpenLigaDB leagueShortcut, z. B. "bl1"
+  sourceShortcuts String[] // OpenLigaDB leagueShortcuts, z. B. ["bl1","bl2"]
   createdAt      DateTime    @default(now())
   matchdays      Matchday[]
 
@@ -64,6 +69,7 @@ model Fixture {
   id         String   @id @default(cuid())
   matchdayId String
   matchday   Matchday @relation(fields: [matchdayId], references: [id], onDelete: Cascade)
+  league     League? // Sektion (1./2. Liga) bei Bundesliga-Spieltagen; sonst null
   kickoff    DateTime
   homeTeam   String
   awayTeam   String

@@ -44,30 +44,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 type MinimalMatchday = Awaited<ReturnType<typeof getMatchdayAdmin>>;
 type Tipper = { id: string; name: string };
 
-/** BL/L2: vorlagenbasierter Export, zieht BL + L2 Spieltag gleicher Nummer. */
+/** Bundesliga: vorlagenbasierter Export aus dem einen (kombinierten) Spieltag. */
 async function buildBundesligaExport(matchday: NonNullable<MinimalMatchday>, tippers: Tipper[]): Promise<Buffer> {
-  const seasonId = matchday.competition.seasonId;
-  const number = matchday.number;
-
-  const [bl, l2] = await Promise.all([
-    prisma.matchday.findFirst({
-      where: { competition: { key: 'BL', seasonId }, number },
-      include: { fixtures: { orderBy: { sortOrder: 'asc' } } },
-    }),
-    prisma.matchday.findFirst({
-      where: { competition: { key: 'L2', seasonId }, number },
-      include: { fixtures: { orderBy: { sortOrder: 'asc' } } },
-    }),
-  ]);
-
-  const matchdayIds = [bl?.id, l2?.id].filter((x): x is string => Boolean(x));
-  const tipsByUser = await loadTipsByUser(matchdayIds);
+  const tipsByUser = await loadTipsByUser([matchday.id]);
 
   return buildBundesligaExcel({
-    matchdayNumber: number,
+    matchdayNumber: matchday.number,
     dateRange: formatDateRange(matchday.startDate, matchday.endDate),
-    blFixtures: (bl?.fixtures ?? []).map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
-    l2Fixtures: (l2?.fixtures ?? []).map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
+    fixtures: matchday.fixtures.map((f) => ({
+      id: f.id,
+      league: f.league ?? 'BL',
+      homeTeam: f.homeTeam,
+      awayTeam: f.awayTeam,
+    })),
     tippers,
     tipsByUser,
   });
