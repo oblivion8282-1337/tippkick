@@ -17,7 +17,7 @@ export function Wordmark({
   const iconSize = size === 'sm' ? 18 : size === 'lg' ? 28 : 22;
 
   return (
-    <span className={cn('inline-flex items-center gap-2 font-display font-semibold tracking-tight', textSize, className)}>
+    <span className={cn('inline-flex items-center gap-2 font-display font-semibold leading-none tracking-tight', textSize, className)}>
       <svg
         width={iconSize}
         height={iconSize}
