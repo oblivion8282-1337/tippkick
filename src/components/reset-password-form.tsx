@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +43,7 @@ export function ResetPasswordForm() {
           id="password"
           type="password"
           required
-          minLength={8}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

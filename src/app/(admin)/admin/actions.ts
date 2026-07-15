@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { activateMatchday, addFixture, createMatchday, deleteFixture } from '@/lib/admin';
+import { parseLeague } from '@/lib/constants';
 import { requireAdmin } from '@/lib/session';
 
 function parseDate(value: string): Date {
@@ -36,7 +37,7 @@ export async function activateMatchdayAction(matchdayId: string): Promise<void> 
 
 export async function addFixtureAction(matchdayId: string, formData: FormData): Promise<void> {
   await requireAdmin();
-  const league = String(formData.get('league')) === 'BL' ? 'BL' : 'L2';
+  const league = parseLeague(String(formData.get('league')));
   await addFixture({
     matchdayId,
     league,

@@ -6,6 +6,7 @@ import type { League } from '@/generated/prisma/client';
 
 import { saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
+import { LEAGUE_LABELS, LEAGUE_ORDER, MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 type Fixture = { id: string; league: League; homeTeam: string; awayTeam: string };
@@ -80,7 +81,7 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
 
       {grouped.map(({ league, items }) => (
         <section key={league} className="space-y-2">
-          <h2 className="font-medium">{league === 'BL' ? '1. Liga' : '2. Liga'}</h2>
+          <h2 className="font-medium">{LEAGUE_LABELS[league]}</h2>
           <div className="overflow-hidden rounded-lg border">
             {items.map((f) => (
               <FixtureRow
@@ -142,8 +143,8 @@ function TipInput({
     <Input
       type="number"
       inputMode="numeric"
-      min={0}
-      max={99}
+      min={MIN_GOALS}
+      max={MAX_GOALS}
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
@@ -170,10 +171,9 @@ function SaveBadge({ state }: { state: SaveState }) {
 }
 
 function groupByLeague(fixtures: Fixture[]) {
-  const leagues: League[] = ['BL', 'L2'];
-  return leagues
-    .map((league) => ({ league, items: fixtures.filter((f) => f.league === league) }))
-    .filter((g) => g.items.length > 0);
+  return LEAGUE_ORDER.map((league) => ({ league, items: fixtures.filter((f) => f.league === league) })).filter(
+    (g) => g.items.length > 0,
+  );
 }
 
 function isFilled(v: string | undefined): boolean {
@@ -188,5 +188,5 @@ function sanitize(raw: string): string {
   if (Number.isNaN(n)) {
     return '';
   }
-  return String(Math.min(99, Math.max(0, n)));
+  return String(Math.min(MAX_GOALS, Math.max(MIN_GOALS, n)));
 }

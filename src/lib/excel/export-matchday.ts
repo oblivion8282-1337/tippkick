@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 
 import type { League } from '@/generated/prisma/client';
+import { LEAGUE_LABELS, LEAGUE_ORDER } from '@/lib/constants';
 
 /**
  * Baut die Auswertungs-Excel für einen Spieltag im Layout des `34.TT`-Blatts
@@ -58,14 +59,14 @@ export async function buildMatchdayExcel(params: {
   }
 
   let row = 5;
-  for (const league of ['BL', 'L2'] as const) {
+  for (const league of LEAGUE_ORDER) {
     const leagueFixtures = fixtures.filter((f) => f.league === league);
     if (leagueFixtures.length === 0) {
       continue;
     }
 
     // Kopfzeile des Liga-Abschnitts
-    ws.getCell(row, COL_HOME).value = league === 'BL' ? '1. Liga' : '2. Liga';
+    ws.getCell(row, COL_HOME).value = LEAGUE_LABELS[league];
     ws.getCell(row, 4).value = `${matchdayNumber}. Spieltag`;
     ws.getCell(row, 5).value = 'Ergeb.';
     ws.getCell(row, 9).value = '3er';

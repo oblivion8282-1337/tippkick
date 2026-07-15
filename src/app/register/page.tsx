@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 import { authClient, requestVerificationEmail } from '@/lib/auth-client';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
@@ -86,7 +87,7 @@ export default function RegisterPage() {
                 type="password"
                 required
                 autoComplete="new-password"
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

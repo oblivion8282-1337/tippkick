@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { isTippable } from '@/lib/matchdays';
-
-const MIN_GOALS = 0;
-const MAX_GOALS = 99;
+import { MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 
 function normalizeGoals(value: number): number {
   return Math.min(MAX_GOALS, Math.max(MIN_GOALS, Number.isFinite(value) ? Math.trunc(value) : 0));
