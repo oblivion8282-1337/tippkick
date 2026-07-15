@@ -2,11 +2,10 @@ import 'dotenv/config';
 import { hashPassword } from 'better-auth/crypto';
 
 import { prisma } from '../src/lib/prisma';
-import type { League } from '../src/generated/prisma/client';
 
 // ─── Spieltag 34, Saison 25/26 — Paarungen aus Vorlagen/34.TT.xlsx ───────────
-// Datum/Anstoß sind DEMO-Werte (relativ zur aktuellen Saisonphase), damit der
-// Spieltag zum Ausprobieren tippbar ist. Team-Paarungen entsprechen der Vorlage.
+// Datum/Anstoß sind DEMO-Werte (relativ zur aktuellen Saisonphase), damit die
+// Spieltage zum Ausprobieren tippbar sind. Team-Paarungen entsprechen der Vorlage.
 const BL_FIXTURES: [string, string][] = [
   ['Werder Bremen', 'Borussia Dortmund'],
   ['Bayern München', '1. FC Köln'],
@@ -63,13 +62,27 @@ async function createUser(opts: { name: string; email: string; password: string;
 }
 
 async function main() {
-  // 1) Saison + Spieltag 34
+  // 1) Saison
   const season = await prisma.season.upsert({
     where: { name: '25/26' },
     update: {},
     create: { name: '25/26' },
   });
 
+  // 2) Wettbewerbe (BL + L2, mit OpenLigaDB-Shortcut)
+  const competitions = [
+    { key: 'BL' as const, name: '1. Bundesliga', sortOrder: 0, sourceShortcut: 'bl1' },
+    { key: 'L2' as const, name: '2. Bundesliga', sortOrder: 1, sourceShortcut: 'bl2' },
+  ];
+  const compIds: Record<string, string> = {};
+  for (const c of competitions) {
+    const existing = await prisma.competition.findUnique({
+      where: { seasonId_key: { seasonId: season.id, key: c.key } },
+    });
+    compIds[c.key] = existing?.id ?? (await prisma.competition.create({ data: { ...c, seasonId: season.id } })).id;
+  }
+
+  // 3) Spieltag 34 je Wettbewerb (Demo-Daten, tippbar)
   const saturday = nextSaturday();
   const friday = new Date(saturday);
   friday.setDate(friday.getDate() - 1);
@@ -77,43 +90,41 @@ async function main() {
   const sunday = new Date(saturday);
   sunday.setDate(sunday.getDate() + 1);
 
-  const matchday = await prisma.matchday.upsert({
-    where: { seasonId_number: { seasonId: season.id, number: 34 } },
-    update: {},
-    create: {
-      seasonId: season.id,
-      number: 34,
-      startDate: friday,
-      endDate: sunday,
-      deadlineAt: friday,
-      isActive: true,
-    },
-  });
+  for (const [key, fixtures] of [
+    ['BL', BL_FIXTURES],
+    ['L2', L2_FIXTURES],
+  ] as const) {
+    const existing = await prisma.matchday.findUnique({
+      where: { competitionId_number: { competitionId: compIds[key], number: 34 } },
+    });
+    const matchday =
+      existing ??
+      (await prisma.matchday.create({
+        data: {
+          competitionId: compIds[key],
+          number: 34,
+          startDate: friday,
+          endDate: sunday,
+          deadlineAt: friday,
+          isActive: true,
+        },
+      }));
 
-  // 2) Partien (nur anlegen, falls noch keine für diesen Spieltag existieren)
-  const fixtureCount = await prisma.fixture.count({ where: { matchdayId: matchday.id } });
-  if (fixtureCount === 0) {
-    let order = 0;
-    const blFixtures = BL_FIXTURES.map(([homeTeam, awayTeam]) => ({
-      matchdayId: matchday.id,
-      league: 'BL' as League,
-      kickoff: saturday,
-      homeTeam,
-      awayTeam,
-      sortOrder: order++,
-    }));
-    const l2Fixtures = L2_FIXTURES.map(([homeTeam, awayTeam]) => ({
-      matchdayId: matchday.id,
-      league: 'L2' as League,
-      kickoff: sunday,
-      homeTeam,
-      awayTeam,
-      sortOrder: order++,
-    }));
-    await prisma.fixture.createMany({ data: [...blFixtures, ...l2Fixtures] });
+    const hasFixtures = await prisma.fixture.count({ where: { matchdayId: matchday.id } });
+    if (hasFixtures === 0) {
+      await prisma.fixture.createMany({
+        data: fixtures.map(([homeTeam, awayTeam], sortOrder) => ({
+          matchdayId: matchday.id,
+          kickoff: saturday,
+          homeTeam,
+          awayTeam,
+          sortOrder,
+        })),
+      });
+    }
   }
 
-  // 3) Bootstrap-Admin + Demo-Tipper
+  // 4) Bootstrap-Admin + Demo-Tipper
   await createUser({ name: 'Tippleitung', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: 'admin' });
   await createUser({ name: 'Cordoba', email: 'cordoba@tippkick.local', password: 'demo1234', role: 'user' });
 

@@ -38,12 +38,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const buffer = await buildMatchdayExcel({
-    matchdayNumber: matchday.number,
+    title: `${matchday.competition.name} – ${matchday.number}. Spieltag`,
     dateRange: formatDateRange(matchday.startDate, matchday.endDate),
     tippers,
     fixtures: matchday.fixtures.map((f) => ({
       id: f.id,
-      league: f.league,
       homeTeam: f.homeTeam,
       awayTeam: f.awayTeam,
     })),

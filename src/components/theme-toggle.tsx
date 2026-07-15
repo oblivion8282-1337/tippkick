@@ -19,12 +19,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <Button
-      variant="outline"
-      size="icon-sm"
-      aria-label="Zwischen Hell- und Dunkel-Modus wechseln"
-      onClick={toggle}
-    >
+    <Button variant="outline" size="icon-sm" aria-label="Zwischen Hell- und Dunkel-Modus wechseln" onClick={toggle}>
       <Moon className="dark:hidden" />
       <Sun className="hidden dark:block" />
     </Button>

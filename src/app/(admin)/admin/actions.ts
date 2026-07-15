@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { activateMatchday, addFixture, createMatchday, deleteFixture } from '@/lib/admin';
-import { parseLeague } from '@/lib/constants';
 import { requireAdmin } from '@/lib/session';
 
 function parseDate(value: string): Date {
@@ -18,13 +17,14 @@ function parseDate(value: string): Date {
 export async function createMatchdayAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = await createMatchday({
-    seasonName: String(formData.get('seasonName')),
+    competitionId: String(formData.get('competitionId')),
     number: Number(formData.get('number')),
     startDate: parseDate(String(formData.get('startDate'))),
     endDate: parseDate(String(formData.get('endDate'))),
     deadlineAt: parseDate(String(formData.get('deadlineAt'))),
   });
   revalidatePath('/admin');
+  revalidatePath('/dashboard');
   redirect(`/admin/matchdays/${id}`);
 }
 
@@ -37,10 +37,8 @@ export async function activateMatchdayAction(matchdayId: string): Promise<void> 
 
 export async function addFixtureAction(matchdayId: string, formData: FormData): Promise<void> {
   await requireAdmin();
-  const league = parseLeague(String(formData.get('league')));
   await addFixture({
     matchdayId,
-    league,
     kickoff: parseDate(String(formData.get('kickoff'))),
     homeTeam: String(formData.get('homeTeam')).trim(),
     awayTeam: String(formData.get('awayTeam')).trim(),

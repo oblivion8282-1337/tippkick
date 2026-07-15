@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
  * Base UI erwartet sonst ein natives <button> (nativeButton=true). Für Links
  * muss nativeButton deaktiviert werden – hier gebündelt, nicht pro Aufruf.
  */
-type LinkButtonProps = ComponentProps<typeof Button> & { href: string };
+type LinkButtonProps = ComponentProps<typeof Button> & { href: ComponentProps<typeof Link>['href'] };
 
 export function LinkButton({ href, children, ...props }: LinkButtonProps) {
   return (

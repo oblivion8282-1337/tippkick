@@ -1,27 +1,44 @@
 import { prisma } from '@/lib/prisma';
+import type { CompetitionKey } from '@/generated/prisma/client';
 
-export type MatchdayWithFixtures = NonNullable<Awaited<ReturnType<typeof getActiveMatchday>>>;
+/** Wettbewerbe der aktuellen Saison (sortiert) inkl. ihrer Spieltage. */
+export async function getCompetitions() {
+  // Aktuelle Saison = die mit den jüngsten Spieltagen; wir nehmen die neueste Season.
+  const season = await prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
+  if (!season) {
+    return [];
+  }
+  return prisma.competition.findMany({
+    where: { seasonId: season.id },
+    orderBy: { sortOrder: 'asc' },
+    include: { matchdays: { orderBy: { number: 'asc' }, select: { number: true, isActive: true, deadlineAt: true } } },
+  });
+}
 
-/** Aktiver Spieltag inkl. Partien (sortiert wie auf dem Tippzettel). */
-export async function getActiveMatchday() {
+/** Spieltag nach Wettbewerbs-Key + Nummer (in der aktuellen Saison). */
+export async function getMatchdayByNumber(competitionKey: CompetitionKey, number: number) {
   return prisma.matchday.findFirst({
-    where: { isActive: true },
-    include: { season: true, fixtures: { orderBy: { sortOrder: 'asc' } } },
+    where: { competition: { key: competitionKey }, number },
+    include: {
+      competition: true,
+      fixtures: { orderBy: { sortOrder: 'asc' } },
+    },
   });
 }
 
-export async function getMatchday(id: string) {
-  return prisma.matchday.findUnique({
-    where: { id },
-    include: { season: true, fixtures: { orderBy: { sortOrder: 'asc' } } },
+/** Aktiver Spieltag eines Wettbewerbs (für Default-Auswahl im Tipper-Bereich). */
+export async function getActiveMatchdayForCompetition(competitionKey: CompetitionKey) {
+  return prisma.matchday.findFirst({
+    where: { competition: { key: competitionKey }, isActive: true },
+    include: { competition: true, fixtures: { orderBy: { sortOrder: 'asc' } } },
   });
 }
 
-/** Alle Spieltage einer Saison (für Admin-Übersicht). */
+/** Alle Spieltage (Admin-Übersicht), mit Wettbewerb + Partieanzahl. */
 export async function getMatchdays() {
   return prisma.matchday.findMany({
-    orderBy: { number: 'asc' },
-    include: { season: true, _count: { select: { fixtures: true } } },
+    orderBy: [{ competition: { sortOrder: 'asc' } }, { number: 'asc' }],
+    include: { competition: { include: { season: true } }, _count: { select: { fixtures: true } } },
   });
 }
 

@@ -19,10 +19,10 @@ export default async function AdminHomePage() {
             <li key={md.id} className="flex items-center justify-between px-4 py-3">
               <div>
                 <span className="font-medium">
-                  {md.number}. Spieltag
+                  {md.competition.name} – {md.number}. Spieltag
                   {md.isActive && <span className="text-primary ml-2 text-sm">(aktiv)</span>}
                 </span>
-                <span className="text-muted-foreground ml-2 text-sm">{md.season.name}</span>
+                <span className="text-muted-foreground ml-2 text-sm">{md.competition.season.name}</span>
               </div>
               <LinkButton href={`/admin/matchdays/${md.id}`} variant="outline" size="sm">
                 {md._count.fixtures} Partien →

@@ -10,7 +10,7 @@ function normalizeGoals(value: number): number {
 export async function getMyTips(userId: string, matchdayId: string) {
   const matchday = await prisma.matchday.findUnique({
     where: { id: matchdayId },
-    include: { fixtures: { orderBy: { sortOrder: 'asc' } } },
+    include: { competition: true, fixtures: { orderBy: { sortOrder: 'asc' } } },
   });
   if (!matchday) {
     return null;

@@ -1,30 +1,33 @@
 import { prisma } from '@/lib/prisma';
-import type { League } from '@/generated/prisma/client';
 
-/** Setzt genau einen Spieltag aktiv (alle anderen inaktiv) – SSOT für "aktuell". */
+/**
+ * Setzt genau einen Spieltag im zugehörigen Wettbewerb aktiv (andere im selben
+ * Wettbewerb werden inaktiv) – SSOT für "aktueller Spieltag je Wettbewerb".
+ */
 export async function activateMatchday(matchdayId: string): Promise<void> {
+  const matchday = await prisma.matchday.findUnique({ where: { id: matchdayId }, select: { competitionId: true } });
+  if (!matchday) {
+    return;
+  }
   await prisma.$transaction([
-    prisma.matchday.updateMany({ where: { isActive: true }, data: { isActive: false } }),
+    prisma.matchday.updateMany({
+      where: { competitionId: matchday.competitionId, isActive: true },
+      data: { isActive: false },
+    }),
     prisma.matchday.update({ where: { id: matchdayId }, data: { isActive: true } }),
   ]);
 }
 
 export async function createMatchday(input: {
-  seasonName: string;
+  competitionId: string;
   number: number;
   startDate: Date;
   endDate: Date;
   deadlineAt: Date;
 }): Promise<string> {
-  const season = await prisma.season.upsert({
-    where: { name: input.seasonName },
-    update: {},
-    create: { name: input.seasonName },
-  });
-
   const matchday = await prisma.matchday.create({
     data: {
-      seasonId: season.id,
+      competitionId: input.competitionId,
       number: input.number,
       startDate: input.startDate,
       endDate: input.endDate,
@@ -34,19 +37,8 @@ export async function createMatchday(input: {
   return matchday.id;
 }
 
-export async function updateMatchday(
-  matchdayId: string,
-  input: { number: number; startDate: Date; endDate: Date; deadlineAt: Date },
-): Promise<void> {
-  await prisma.matchday.update({
-    where: { id: matchdayId },
-    data: input,
-  });
-}
-
 export async function addFixture(input: {
   matchdayId: string;
-  league: League;
   kickoff: Date;
   homeTeam: string;
   awayTeam: string;
@@ -63,9 +55,21 @@ export async function getMatchdayAdmin(matchdayId: string) {
   return prisma.matchday.findUnique({
     where: { id: matchdayId },
     include: {
-      season: true,
+      competition: { include: { season: true } },
       fixtures: { orderBy: { sortOrder: 'asc' } },
       _count: { select: { fixtures: true } },
     },
+  });
+}
+
+/** Wettbewerbe der aktuellen Saison (Admin-Auswahl). */
+export async function getCompetitionsAdmin() {
+  const season = await prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
+  if (!season) {
+    return [];
+  }
+  return prisma.competition.findMany({
+    where: { seasonId: season.id },
+    orderBy: { sortOrder: 'asc' },
   });
 }

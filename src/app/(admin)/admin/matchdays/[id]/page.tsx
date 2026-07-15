@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 
 import { activateMatchdayAction, addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
-import { LEAGUE_LABELS, LEAGUE_ORDER } from '@/lib/constants';
 import { formatDateTime } from '@/lib/datetime';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,9 +20,11 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">{matchday.number}. Spieltag</h1>
+          <h1 className="text-2xl font-semibold">
+            {matchday.competition.name} – {matchday.number}. Spieltag
+          </h1>
           <p className="text-muted-foreground text-sm">
-            {matchday.season.name} · Deadline {formatDateTime(matchday.deadlineAt)}
+            {matchday.competition.season.name} · Deadline {formatDateTime(matchday.deadlineAt)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -54,7 +55,6 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
             {matchday.fixtures.map((f) => (
               <li key={f.id} className="flex items-center justify-between px-3 py-2">
                 <span className="text-sm">
-                  <span className="text-muted-foreground mr-2">{LEAGUE_LABELS[f.league]}</span>
                   {f.homeTeam} : {f.awayTeam}
                 </span>
                 <form action={deleteFixtureAction.bind(null, matchday.id, f.id)}>
@@ -70,21 +70,6 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
             action={addFixtureAction.bind(null, matchday.id)}
             className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2"
           >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="league">Liga</Label>
-              <select
-                id="league"
-                name="league"
-                defaultValue={LEAGUE_ORDER[0]}
-                className="border-input bg-background h-8 rounded-md border px-2 text-sm"
-              >
-                {LEAGUE_ORDER.map((league) => (
-                  <option key={league} value={league}>
-                    {LEAGUE_LABELS[league]}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="kickoff">Anstoß</Label>
               <Input id="kickoff" name="kickoff" type="datetime-local" required />

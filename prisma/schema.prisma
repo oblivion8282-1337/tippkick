@@ -9,47 +9,65 @@ datasource db {
 }
 
 // ─── Domain-Modelle (Tippspiel) ───────────────────────────────────────────────
-// SSOT für Spieltage/Partien/Tipps. Auth-Tabellen oben werden von better-auth
-// verwaltet und nicht von Hand verändert.
+// SSOT für Wettbewerbe/Spieltage/Partien/Tipps. Auth-Tabellen unten werden von
+// better-auth verwaltet und nicht von Hand verändert.
 
-enum League {
+enum CompetitionKey {
   BL // 1. Bundesliga
-  L2 // 2. Liga
+  L2 // 2. Bundesliga
+  CL // Champions League
+  DFB // DFB-Pokal
+  EM // Europameisterschaft
+  WM // Weltmeisterschaft
 }
 
 model Season {
-  id        String     @id @default(cuid())
-  name      String     @unique // z. B. "25/26"
-  createdAt DateTime   @default(now())
-  matchdays Matchday[]
+  id           String        @id @default(cuid())
+  name         String        @unique // z. B. "25/26"
+  createdAt    DateTime      @default(now())
+  competitions Competition[]
+}
+
+model Competition {
+  id             String      @id @default(cuid())
+  seasonId       String
+  season         Season      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  key            CompetitionKey
+  name           String // z. B. "1. Bundesliga"
+  sortOrder      Int
+  sourceShortcut String? // OpenLigaDB leagueShortcut, z. B. "bl1"
+  createdAt      DateTime    @default(now())
+  matchdays      Matchday[]
+
+  @@unique([seasonId, key])
+  @@index([seasonId])
 }
 
 model Matchday {
-  id         String    @id @default(cuid())
-  seasonId   String
-  season     Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  number     Int       // z. B. 34
-  startDate  DateTime
-  endDate    DateTime
-  deadlineAt DateTime  // Tipp-Deadline, i. d. R. Freitag 19:00
-  isActive   Boolean   @default(false)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  fixtures   Fixture[]
+  id            String       @id @default(cuid())
+  competitionId String
+  competition   Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  number        Int // z. B. 34
+  startDate     DateTime
+  endDate       DateTime
+  deadlineAt    DateTime // Tipp-Deadline, i. d. R. Freitag 19:00
+  isActive      Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  fixtures      Fixture[]
 
-  @@unique([seasonId, number])
-  @@index([seasonId])
+  @@unique([competitionId, number])
+  @@index([competitionId])
 }
 
 model Fixture {
   id         String   @id @default(cuid())
   matchdayId String
   matchday   Matchday @relation(fields: [matchdayId], references: [id], onDelete: Cascade)
-  league     League
   kickoff    DateTime
   homeTeam   String
   awayTeam   String
-  sortOrder  Int // Reihenfolge innerhalb des Spieltags (wie auf dem Tippzettel)
+  sortOrder  Int // Reihenfolge innerhalb des Spieltags
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   tips       Tip[]

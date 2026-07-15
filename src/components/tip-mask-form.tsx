@@ -2,14 +2,12 @@
 
 import { useMemo, useRef, useState } from 'react';
 
-import type { League } from '@/generated/prisma/client';
-
 import { saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
-import { LEAGUE_LABELS, LEAGUE_ORDER, MAX_GOALS, MIN_GOALS } from '@/lib/constants';
+import { MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
-type Fixture = { id: string; league: League; homeTeam: string; awayTeam: string };
+type Fixture = { id: string; homeTeam: string; awayTeam: string };
 
 type Props = {
   fixtures: Fixture[];
@@ -68,10 +66,8 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
     setSaveState(result.ok ? 'saved' : 'error');
   }
 
-  const grouped = useMemo(() => groupByLeague(fixtures), [fixtures]);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground text-sm">
           {tippedCount} / {fixtures.length} getippt
@@ -79,23 +75,18 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
         <SaveBadge state={saveState} />
       </div>
 
-      {grouped.map(({ league, items }) => (
-        <section key={league} className="space-y-2">
-          <h2 className="font-medium">{LEAGUE_LABELS[league]}</h2>
-          <div className="overflow-hidden rounded-lg border">
-            {items.map((f) => (
-              <FixtureRow
-                key={f.id}
-                fixture={f}
-                home={values[f.id]?.home ?? ''}
-                away={values[f.id]?.away ?? ''}
-                disabled={!open}
-                onChange={(side, v) => handleChange(f.id, side, v)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      <div className="overflow-hidden rounded-lg border">
+        {fixtures.map((f) => (
+          <FixtureRow
+            key={f.id}
+            fixture={f}
+            home={values[f.id]?.home ?? ''}
+            away={values[f.id]?.away ?? ''}
+            disabled={!open}
+            onChange={(side, v) => handleChange(f.id, side, v)}
+          />
+        ))}
+      </div>
 
       {!open && (
         <p className="text-destructive text-sm">
@@ -120,12 +111,12 @@ function FixtureRow({
   onChange: (side: 'home' | 'away', value: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 border-b px-3 py-2 last:border-b-0">
-      <span className="flex-1 text-right text-sm">{fixture.homeTeam}</span>
+    <div className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
+      <span className="flex-1 text-right text-base">{fixture.homeTeam}</span>
       <TipInput value={home} disabled={disabled} onChange={(v) => onChange('home', v)} />
       <span className="text-muted-foreground">:</span>
       <TipInput value={away} disabled={disabled} onChange={(v) => onChange('away', v)} />
-      <span className="flex-1 text-sm">{fixture.awayTeam}</span>
+      <span className="flex-1 text-base">{fixture.awayTeam}</span>
     </div>
   );
 }
@@ -148,7 +139,7 @@ function TipInput({
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
-      className="w-14 text-center"
+      className="w-14 text-center text-base"
     />
   );
 }
@@ -167,12 +158,6 @@ function SaveBadge({ state }: { state: SaveState }) {
       {state === 'saved' && 'gespeichert'}
       {state === 'error' && 'Fehler beim Speichern'}
     </span>
-  );
-}
-
-function groupByLeague(fixtures: Fixture[]) {
-  return LEAGUE_ORDER.map((league) => ({ league, items: fixtures.filter((f) => f.league === league) })).filter(
-    (g) => g.items.length > 0,
   );
 }
 

@@ -1,8 +1,8 @@
-import type { League } from '@/generated/prisma/client';
+import type { CompetitionKey } from '@/generated/prisma/client';
 
 /**
- * Zentrale Konstanten (SSOT). bewusst ohne Prisma-Runtime-Import, damit dieses
- * Modul auch in Client Components genutzt werden kann (League ist type-only).
+ * Zentrale Konstanten (SSOT). Bewusst ohne Prisma-Runtime-Import, damit dieses
+ * Modul auch in Client Components genutzt werden kann (CompetitionKey ist type-only).
  */
 
 /** Erlaubter Tipp-Wertebereich für Tore (Heim/Gast). */
@@ -12,16 +12,33 @@ export const MAX_GOALS = 99;
 /** Mindestlänge der Passwörter (besser-auth setzt serverseitig dieselbe Grenze). */
 export const MIN_PASSWORD_LENGTH = 8;
 
-/** Anzeige-Label je Liga – eine Quelle, kein 'BL' ? '1. Liga' an mehreren Orten. */
-export const LEAGUE_LABELS: Record<League, string> = {
-  BL: '1. Liga',
-  L2: '2. Liga',
+/** Anzeige-Label je Wettbewerb – eine Quelle, kein Mapping an mehreren Orten. */
+export const COMPETITION_LABELS: Record<CompetitionKey, string> = {
+  BL: '1. Bundesliga',
+  L2: '2. Bundesliga',
+  CL: 'Champions League',
+  DFB: 'DFB-Pokal',
+  EM: 'Europameisterschaft',
+  WM: 'Weltmeisterschaft',
 };
 
-/** Ligareihenfolge (1. Liga vor 2. Liga) – einheitlich in UI und Export. */
-export const LEAGUE_ORDER: League[] = ['BL', 'L2'];
+/** Kurz-Label (für Tabs/Badges, platzsparend). */
+export const COMPETITION_SHORT: Record<CompetitionKey, string> = {
+  BL: '1. Liga',
+  L2: '2. Liga',
+  CL: 'Champions League',
+  DFB: 'DFB-Pokal',
+  EM: 'EM',
+  WM: 'WM',
+};
 
-/** Wandelt einen Form-/JSON-Wert in eine Liga um (Default 2. Liga bei Ungültigem). */
-export function parseLeague(value: string | null | undefined): League {
-  return LEAGUE_ORDER.includes(value as League) ? (value as League) : 'L2';
-}
+/** Wettbewerbs-Reihenfolge (Ligen zuerst). */
+export const COMPETITION_ORDER: CompetitionKey[] = ['BL', 'L2', 'CL', 'DFB', 'EM', 'WM'];
+
+/** OpenLigaDB leagueShortcut je Wettbewerb (None = keine Autoquelle, z. B. EM/WM jahresabhängig). */
+export const OPENLIGADB_SHORTCUTS: Partial<Record<CompetitionKey, string>> = {
+  BL: 'bl1',
+  L2: 'bl2',
+  DFB: 'dfb',
+  CL: 'cl',
+};
