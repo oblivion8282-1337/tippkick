@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { addFixture, createMatchday, deleteFixture } from '@/lib/admin';
+import { addFixture, createMatchday, createSeasonWithBundesliga, deleteFixture } from '@/lib/admin';
 import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -58,6 +58,16 @@ export async function deleteFixtureAction(matchdayId: string, fixtureId: string)
   await deleteFixture(fixtureId);
   revalidatePath(`/admin/matchdays/${matchdayId}`);
   revalidatePath('/admin/spieltage');
+}
+
+// ─── Saison-Verwaltung ────────────────────────────────────────────────────────
+
+/** Legt eine neue Saison (+ Bundesliga-Wettbewerb) an und wählt sie im Admin aus. */
+export async function createSeasonAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const result = await createSeasonWithBundesliga(String(formData.get('name')));
+  revalidatePath('/admin/spieltage');
+  redirect(`/admin/spieltage?season=${result.id}`);
 }
 
 // ─── Tipptag-Gruppierung (Spieltage → Tipptage) ───────────────────────────────

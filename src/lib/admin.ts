@@ -10,7 +10,7 @@ import {
 import { seasonToYear } from '@/lib/openligadb';
 import { getManageableSeason, matchdaySectionsInclude } from '@/lib/matchdays';
 import { deriveFixtureFields } from '@/lib/result-sync';
-import { LEAGUE_SHORTCUTS } from '@/lib/constants';
+import { COMPETITION_LABELS, LEAGUE_SHORTCUTS, OPENLIGADB_SHORTCUTS } from '@/lib/constants';
 import type { League } from '@/generated/prisma/client';
 
 /**
@@ -90,6 +90,46 @@ export async function createMatchday(input: {
 }
 
 /**
+ * Legt eine neue Saison an (idempotent) inkl. Bundesliga-Wettbewerb (BL1+BL2 als
+ * OpenLigaDB-Quelle). Der Cron importiert die Spieltage dann automatisch.
+ */
+export async function createSeasonWithBundesliga(name: string): Promise<{ id: string; created: boolean }> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('Saison-Name fehlt');
+  }
+  const existing = await prisma.season.findUnique({
+    where: { name: trimmed },
+    include: { competitions: { select: { key: true } } },
+  });
+  if (existing) {
+    if (!existing.competitions.some((c) => c.key === 'BL')) {
+      await prisma.competition.create({
+        data: {
+          seasonId: existing.id,
+          key: 'BL',
+          name: COMPETITION_LABELS.BL,
+          sortOrder: 0,
+          sourceShortcuts: OPENLIGADB_SHORTCUTS.BL,
+        },
+      });
+    }
+    return { id: existing.id, created: false };
+  }
+  const season = await prisma.season.create({ data: { name: trimmed } });
+  await prisma.competition.create({
+    data: {
+      seasonId: season.id,
+      key: 'BL',
+      name: COMPETITION_LABELS.BL,
+      sortOrder: 0,
+      sourceShortcuts: OPENLIGADB_SHORTCUTS.BL,
+    },
+  });
+  return { id: season.id, created: true };
+}
+
+/**
  * Legt eine Partie in einer bestehenden Sektion (Spieltag) an. Die Sektion muss
  * existieren (Identität competitionId + league + number). Aktualisiert die
  * Sektionsspanne.
@@ -146,14 +186,14 @@ export async function getMatchdayAdmin(matchdayId: string) {
   });
 }
 
-/** Wettbewerbe der admin-managbaren Saison (Import-Auswahl). */
-export async function getCompetitionsAdmin() {
-  const season = await getManageableSeason();
-  if (!season) {
+/** Wettbewerbe der admin-managbaren Saison oder – falls seasonId gegeben – der gewählten. */
+export async function getCompetitionsAdmin(seasonId?: string) {
+  const id = seasonId ?? (await getManageableSeason())?.id;
+  if (!id) {
     return [];
   }
   return prisma.competition.findMany({
-    where: { seasonId: season.id },
+    where: { seasonId: id },
     orderBy: { sortOrder: 'asc' },
   });
 }

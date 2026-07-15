@@ -1,7 +1,8 @@
-import { CalendarDays, Layers } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarDays, Layers, Plus } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
-import { getManageableSeason } from '@/lib/matchdays';
+import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { getRoundOverview, getTipptageOverview, resultState } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
@@ -11,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/page-header';
-import { createTipptagAction, setTipptagDeadlineAction } from '@/app/(admin)/admin/actions';
+import { createSeasonAction, createTipptagAction, setTipptagDeadlineAction } from '@/app/(admin)/admin/actions';
 
 function toLocalInput(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -28,16 +29,30 @@ function weekKey(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-export default async function SpieltagePage() {
-  const season = await getManageableSeason();
-  if (!season) {
-    return <p className="text-muted-foreground text-sm">Keine Saison vorhanden.</p>;
+export default async function SpieltagePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ season?: string }>;
+}) {
+  const { season: seasonParam } = await searchParams;
+  const [seasons, manageable] = await Promise.all([getSeasons(), getManageableSeason()]);
+
+  if (seasons.length === 0 || !manageable) {
+    return (
+      <div className="space-y-8">
+        <PageHeader eyebrow="Admin" title="Spieltage & Tipptage" />
+        <CreateSeasonForm />
+      </div>
+    );
   }
+
+  // Gewählte Saison (aus Query) oder die vom System vorgeschlagene.
+  const season = seasons.find((s) => s.id === seasonParam) ?? manageable;
 
   const [rounds, tipptage, competitions] = await Promise.all([
     getRoundOverview(season.id),
     getTipptageOverview(season.id),
-    getCompetitionsAdmin(),
+    getCompetitionsAdmin(season.id),
   ]);
 
   const tipptagOptions = tipptage.map((t) => ({ id: t.id, number: t.number }));
@@ -62,6 +77,8 @@ export default async function SpieltagePage() {
         title="Spieltage & Tipptage"
         description="Importierte Spieltage nach Datum, gruppiert in Tipptage. BL startet später als die 2. Liga – die Anfangsphase zeigt nur L2."
       />
+
+      <SeasonSwitcher seasons={seasons} activeId={season.id} />
 
       <Card>
         <CardHeader className="border-b border-border/40">
@@ -183,5 +200,53 @@ export default async function SpieltagePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Saison-Wechsler (Tabs) + Formular zum Anlegen einer neuen Saison. */
+function SeasonSwitcher({ seasons, activeId }: { seasons: { id: string; name: string }[]; activeId: string }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground mr-1 text-sm">Saison:</span>
+          {seasons.map((s) => {
+            const active = s.id === activeId;
+            return (
+              <Link
+                key={s.id}
+                href={`/admin/spieltage?season=${s.id}`}
+                className={
+                  active
+                    ? 'bg-primary text-primary-foreground rounded-md px-3 py-1 text-sm font-medium'
+                    : 'hover:bg-muted rounded-md px-3 py-1 text-sm transition-colors'
+                }
+              >
+                {s.name}
+              </Link>
+            );
+          })}
+        </div>
+        <CreateSeasonForm />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Legt eine neue Saison an (inkl. Bundesliga-Wettbewerb; Cron importiert dann automatisch). */
+function CreateSeasonForm() {
+  return (
+    <form action={createSeasonAction} className="flex items-end gap-2">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="season-name" className="sr-only">
+          Neue Saison
+        </Label>
+        <Input id="season-name" name="name" placeholder="z. B. 26/27" className="h-8 w-28" required />
+      </div>
+      <Button type="submit" size="sm" variant="outline">
+        <Plus className="h-4 w-4" />
+        Neue Saison
+      </Button>
+    </form>
   );
 }

@@ -33,6 +33,11 @@ export async function getManageableSeason() {
   return withSections ?? prisma.season.findFirst({ orderBy: { name: 'desc' } });
 }
 
+/** Alle Saisons (absteigend), für den Saison-Wechsler im Admin. */
+export async function getSeasons() {
+  return prisma.season.findMany({ orderBy: { name: 'desc' } });
+}
+
 /**
  * SSOT für den `sections`-Include-Shaped von Matchday. Sortiert nach Liga (BL vor L2
  * bzw. Single-Liga `null` zuerst) + Liga-Spieltags-Nummer; Fixtures nach sortOrder.
