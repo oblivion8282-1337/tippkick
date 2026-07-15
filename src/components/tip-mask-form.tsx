@@ -2,11 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 
+import type { League } from '@/generated/prisma/client';
+
 import { saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-type Fixture = { id: string; league: 'BL' | 'L2'; homeTeam: string; awayTeam: string };
+type Fixture = { id: string; league: League; homeTeam: string; awayTeam: string };
 
 type Props = {
   fixtures: Fixture[];
@@ -168,7 +170,7 @@ function SaveBadge({ state }: { state: SaveState }) {
 }
 
 function groupByLeague(fixtures: Fixture[]) {
-  const leagues: Array<'BL' | 'L2'> = ['BL', 'L2'];
+  const leagues: League[] = ['BL', 'L2'];
   return leagues
     .map((league) => ({ league, items: fixtures.filter((f) => f.league === league) }))
     .filter((g) => g.items.length > 0);

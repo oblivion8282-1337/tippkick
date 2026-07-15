@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { activateMatchdayAction, addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
+import { formatDateTime } from '@/lib/datetime';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -102,14 +103,4 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
       </Card>
     </div>
   );
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString('de-DE', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }

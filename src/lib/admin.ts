@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import type { League } from '@/generated/prisma/client';
 
 /** Setzt genau einen Spieltag aktiv (alle anderen inaktiv) – SSOT für "aktuell". */
 export async function activateMatchday(matchdayId: string): Promise<void> {
@@ -45,7 +46,7 @@ export async function updateMatchday(
 
 export async function addFixture(input: {
   matchdayId: string;
-  league: 'BL' | 'L2';
+  league: League;
   kickoff: Date;
   homeTeam: string;
   awayTeam: string;

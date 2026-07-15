@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getMyTips } from '@/lib/tipps';
 import { isTippable } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
+import { formatDateTime } from '@/lib/datetime';
 import { TipMaskForm } from '@/components/tip-mask-form';
 
 type ExistingTip = { homeGoals: number; awayGoals: number };
@@ -42,14 +43,4 @@ export default async function TippenPage({ params }: { params: Promise<{ matchda
       <TipMaskForm fixtures={fixtures} existingTips={existing} open={open} />
     </div>
   );
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString('de-DE', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }

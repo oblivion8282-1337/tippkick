@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/session';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
+import { formatDateRange } from '@/lib/datetime';
 import { buildMatchdayExcel } from '@/lib/excel/export-matchday';
 
 export const runtime = 'nodejs';
@@ -56,9 +57,4 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   });
-}
-
-function formatDateRange(start: Date, end: Date): string {
-  const fmt = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-  return `${fmt(start)} - ${fmt(end)}`;
 }

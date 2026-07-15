@@ -25,8 +25,5 @@ export async function saveTipAction(params: {
     awayGoals: params.awayGoals,
   });
 
-  if (!result.ok) {
-    return result;
-  }
-  return { ok: true };
+  return result;
 }

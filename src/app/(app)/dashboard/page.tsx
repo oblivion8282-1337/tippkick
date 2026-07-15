@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getActiveMatchday, isTippable } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { formatDateTime } from '@/lib/datetime';
 import { Button } from '@/components/ui/button';
 
 export default async function DashboardPage() {
@@ -56,14 +57,4 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString('de-DE', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
