@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays, Layers, Plus } from 'lucide-react';
+import { CalendarDays, Layers } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
@@ -7,12 +7,13 @@ import { getRoundOverview, getTipptageOverview, resultState } from '@/lib/rounds
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
+import { CreateSeasonForm } from '@/components/create-season-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/page-header';
-import { createSeasonAction, createTipptagAction, setTipptagDeadlineAction } from '@/app/(admin)/admin/actions';
+import { createTipptagAction, setTipptagDeadlineAction } from '@/app/(admin)/admin/actions';
 
 function toLocalInput(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -230,23 +231,5 @@ function SeasonSwitcher({ seasons, activeId }: { seasons: { id: string; name: st
         <CreateSeasonForm />
       </CardContent>
     </Card>
-  );
-}
-
-/** Legt eine neue Saison an (inkl. Bundesliga-Wettbewerb; Cron importiert dann automatisch). */
-function CreateSeasonForm() {
-  return (
-    <form action={createSeasonAction} className="flex items-end gap-2">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="season-name" className="sr-only">
-          Neue Saison
-        </Label>
-        <Input id="season-name" name="name" placeholder="z. B. 26/27" className="h-8 w-28" required />
-      </div>
-      <Button type="submit" size="sm" variant="outline">
-        <Plus className="h-4 w-4" />
-        Neue Saison
-      </Button>
-    </form>
   );
 }
