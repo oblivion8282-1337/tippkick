@@ -1,9 +1,18 @@
 import { prisma } from '@/lib/prisma';
 import type { CompetitionKey, Prisma } from '@/generated/prisma/client';
 
-/** Aktuelle Saison = die neueste nach createdAt (SSOT für diese Regel). */
+/**
+ * Aktuelle Saison = die Saison, in der der nächste zu tippende Matchday liegt
+ * (früheste nicht-abgelaufene Deadline). Damit zeigen Dashboard und Tippen
+ * automatisch die richtige Saison, auch wenn parallel Demodaten existieren.
+ */
 export async function getCurrentSeason() {
-  return prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
+  const next = await prisma.matchday.findFirst({
+    where: { deadlineAt: { gt: new Date() } },
+    orderBy: { deadlineAt: 'asc' },
+    select: { competition: { select: { season: true } } },
+  });
+  return next?.competition.season ?? null;
 }
 
 /**

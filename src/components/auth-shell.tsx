@@ -26,7 +26,7 @@ export function AuthShell({
         </Link>
         <div className="relative z-10 max-w-md space-y-4">
           <p className="font-mono text-[0.7rem] font-medium tracking-[0.2em] text-pitch uppercase">
-            Tippverein
+            V.O.T.Z.E.
           </p>
           <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight">
             Jedes Wochenende ein Spieltags­zettel — nur digital.
@@ -37,7 +37,7 @@ export function AuthShell({
           </p>
         </div>
         <p className="text-muted-foreground relative z-10 text-xs">
-          © {new Date().getFullYear()} Tippverein
+          © {new Date().getFullYear()} V.O.T.Z.E.
         </p>
       </aside>
 

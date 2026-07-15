@@ -29,7 +29,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Tippverein',
+  title: 'V.O.T.Z.E.',
   description: 'Online tippen statt Excel per Mail.',
 };
 

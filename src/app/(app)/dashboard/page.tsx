@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { CalendarDays, ChevronRight, Clock, ShieldCheck } from 'lucide-react';
 
-import { getCompetitions, isTippable, pickActiveMatchday, pickDefaultMatchday } from '@/lib/matchdays';
+import { getCompetitions, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
@@ -26,11 +26,12 @@ export default async function DashboardPage() {
     );
   }
 
-  // Pro Wettbewerb: aktiver Tipptag + Tipp-Fortschritt des Nutzers.
+  // Pro Wettbewerb: der nächste zu tippende Tipptag + Fortschritt des Nutzers.
+  // pickDefaultMatchday liefert den „richtigen" Matchday (aktiver wenn tippbar,
+  // sonst frühester nicht abgelaufener) — nicht einfach den letzten in der Liste.
   const rows = await Promise.all(
     competitions.map(async (c) => {
-      const active = pickActiveMatchday(c.matchdays);
-      const focus = active ?? pickDefaultMatchday(c.matchdays);
+      const focus = pickDefaultMatchday(c.matchdays);
       if (!focus) {
         return null;
       }
@@ -134,12 +135,6 @@ function WeekendHero({
 }) {
   const ratio = row.total === 0 ? 0 : row.tipped / row.total;
   const finished = row.tipped === row.total && row.total > 0;
-  const dateRange = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(
-    row.md.startDate,
-  );
-  const endRange = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(
-    row.md.endDate,
-  );
   const deadlineLabel = new Intl.DateTimeFormat('de-DE', {
     weekday: 'short',
     day: '2-digit',
@@ -161,10 +156,6 @@ function WeekendHero({
             <span className="text-muted-foreground font-display font-normal">Tipptag</span>
           </h2>
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
-            <span>
-              {dateRange === endRange ? dateRange : `${dateRange} – ${endRange}`}
-            </span>
-            <span aria-hidden="true">·</span>
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               Deadline{' '}
@@ -199,7 +190,7 @@ function WeekendHero({
           </div>
         </div>
 
-        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+        <div className="flex flex-col items-stretch sm:items-end">
           <LinkButton
             href={{
               pathname: '/tippen',
@@ -211,11 +202,6 @@ function WeekendHero({
             {row.open ? 'Jetzt tippen' : 'Ansehen'}
             <ChevronRight />
           </LinkButton>
-          <p className="text-muted-foreground text-right text-xs">
-            {row.open
-              ? 'Tippspeicherung erfolgt automatisch beim Tippen.'
-              : 'Deadline abgelaufen — Tippabgabe geschlossen.'}
-          </p>
         </div>
       </div>
     </article>

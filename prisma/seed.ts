@@ -85,28 +85,39 @@ async function main() {
     },
   });
 
-  // 3) Demo-Tipptag 34 (9 BL + 9 L2 in zwei Sektionen, tippbar)
-  const saturday = nextSaturday();
+  // 3) Demo-Tipptag 34 (9 BL + 9 L2 in zwei Sektionen).
+  // Bewusst in der VERGANGENHEIT — Demo zum Anschauen, nicht zum Tippen. So
+  // wählt getCurrentSeason() automatisch die 26/27-Saison mit dem nächsten
+  // echten Spieltag.
+  const now = new Date();
+  const saturday = new Date(now);
+  saturday.setDate(saturday.getDate() - 7); // letzter Samstag
+  saturday.setHours(15, 30, 0, 0);
   const friday = new Date(saturday);
   friday.setDate(friday.getDate() - 1);
-  friday.setHours(19, 0, 0, 0); // Deadline Freitag 19:00
+  friday.setHours(19, 0, 0, 0); // Fr 19:00 = Deadline
   const sunday = new Date(saturday);
   sunday.setDate(sunday.getDate() + 1);
 
-  const matchday =
-    (await prisma.matchday.findUnique({
-      where: { competitionId_number: { competitionId: competition.id, number: 34 } },
-    })) ??
-    (await prisma.matchday.create({
-      data: {
-        competitionId: competition.id,
-        number: 34,
-        startDate: friday,
-        endDate: sunday,
-        deadlineAt: friday,
-        isActive: true,
-      },
-    }));
+  // upsert mit update-Block: bestehenden Demo-Matchday auf Vergangenheit setzen,
+  // damit Dashboard/Saison-Logik den richtigen „aktuellen" TT wählen.
+  const matchday = await prisma.matchday.upsert({
+    where: { competitionId_number: { competitionId: competition.id, number: 34 } },
+    update: {
+      startDate: saturday,
+      endDate: sunday,
+      deadlineAt: friday,
+      isActive: false,
+    },
+    create: {
+      competitionId: competition.id,
+      number: 34,
+      startDate: saturday,
+      endDate: sunday,
+      deadlineAt: friday,
+      isActive: false,
+    },
+  });
 
   // Sektionen + Fixtures idempotent.
   for (const [league, fixtures] of [
@@ -134,16 +145,6 @@ async function main() {
   await createUser({ name: 'Cordoba', email: 'cordoba@tippkick.local', password: 'demo1234', role: 'user' });
 
   console.log('Seed fertig. Admin-Login:', ADMIN_EMAIL);
-}
-
-function nextSaturday(): Date {
-  const now = new Date();
-  const day = now.getDay(); // 0 So … 6 Sa
-  const daysUntilSaturday = (6 - day + 7) % 7 || 7; // mindestens nächster Samstag
-  const sat = new Date(now);
-  sat.setDate(sat.getDate() + daysUntilSaturday);
-  sat.setHours(15, 30, 0, 0);
-  return sat;
 }
 
 main()

@@ -34,9 +34,6 @@ export function AppNav({ userName, isAdmin }: { userName: string; isAdmin: boole
           <LinkButton href="/dashboard" size="sm" variant="ghost" className="hidden sm:inline-flex">
             Dashboard
           </LinkButton>
-          <LinkButton href="/tippen" size="sm" variant="ghost" className="hidden sm:inline-flex">
-            Tippen
-          </LinkButton>
           {isAdmin && (
             <LinkButton href="/admin" size="sm" variant="ghost" className="hidden md:inline-flex">
               Admin

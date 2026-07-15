@@ -32,7 +32,7 @@ export function Wordmark({
         <circle cx="12" cy="12" r="6" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5" />
         <path d="M12 4.5 V8 M12 16 V19.5 M4.5 12 H8 M16 12 H19.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
-      <span>Tippverein</span>
+      <span>V.O.T.Z.E.</span>
     </span>
   );
 }
