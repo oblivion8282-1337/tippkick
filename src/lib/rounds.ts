@@ -24,16 +24,6 @@ const roundOverviewInclude = {
 
 export type RoundRow = Prisma.MatchdaySectionGetPayload<{ include: typeof roundOverviewInclude }>;
 
-export type ResultState = 'none' | 'partial' | 'complete';
-
-/** Ergebnis-Fortschritt eines Spieltags aus Gesamt- und Endspiel-Zählwerten. */
-export function resultState(total: number, finished: number): ResultState {
-  if (total === 0 || finished === 0) {
-    return 'none';
-  }
-  return finished === total ? 'complete' : 'partial';
-}
-
 /**
  * Alle Spieltage (Sections) einer Saison, datum-sortiert, inkl. Zuordnung zu einem
  * Tipptag und Partien (für die aufklappbare Detailansicht). Die Early-L2-only-Phase

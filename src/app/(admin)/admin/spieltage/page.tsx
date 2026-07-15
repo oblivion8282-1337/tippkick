@@ -3,7 +3,7 @@ import { CalendarDays, ChevronRight } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
-import { getRoundOverview, getTipptageOverview, resultState } from '@/lib/rounds';
+import { getRoundOverview, getTipptageOverview } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
@@ -50,8 +50,6 @@ export default async function SpieltagePage({
     getTipptageOverview(season.id),
     getCompetitionsAdmin(season.id),
   ]);
-
-  const resultLabels = { none: 'offen', partial: 'teilweise', complete: 'fertig' } as const;
 
   // Spieltage nach Woche clustern (Datumssortierung bleibt erhalten).
   const clusters: { key: string; rows: typeof rounds }[] = [];
@@ -137,7 +135,7 @@ export default async function SpieltagePage({
                             </span>
                             <span className="text-muted-foreground">{row.number}. Spieltag</span>
                             <span className="text-muted-foreground tabular-nums">
-                              {total} Partien · {resultLabels[resultState(total, finished)]}
+                              {total} Partien{finished > 0 ? ` · ${finished}/${total} Ergebnisse` : ''}
                             </span>
                             <span className="ml-auto">
                               <AssignRoundForm
