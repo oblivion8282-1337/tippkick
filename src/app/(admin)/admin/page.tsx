@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CalendarClock, Download, Users } from 'lucide-react';
 
 import { getManageableSeason } from '@/lib/matchdays';
-import { getCompetitionsOverview, getTipperStats, getUpcomingTipptage } from '@/lib/dashboard';
+import { getCompetitionsOverview, getTipperList, getTipperStats, getUpcomingTipptage } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/constants';
 import { formatCountdown, formatDateTime } from '@/lib/datetime';
 import { CreateSeasonForm } from '@/components/create-season-form';
@@ -26,10 +26,11 @@ export default async function AdminHomePage() {
     );
   }
 
-  const [competitions, upcoming, tipperStats] = await Promise.all([
+  const [competitions, upcoming, tipperStats, tippers] = await Promise.all([
     getCompetitionsOverview(season.id),
     getUpcomingTipptage(season.id),
     getTipperStats(),
+    getTipperList(),
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
 
@@ -118,14 +119,34 @@ export default async function AdminHomePage() {
       <Card>
         <CardHeader className="border-b border-border/40">
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-4 w-4" /> Tipper
+            <Users className="h-4 w-4" /> Tipper · {tipperStats.tippers} (+{tipperStats.admins} Tippleitung)
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-5 text-sm">
-          <p className="text-muted-foreground">
-            <span className="text-foreground font-semibold">{tipperStats.tippers}</span> Tipper ·{' '}
-            <span className="text-foreground font-semibold">{tipperStats.admins}</span> Tippleitung
-          </p>
+        <CardContent className="px-0 pt-0">
+          {tippers.length === 0 ? (
+            <p className="text-muted-foreground px-6 py-8 text-sm">Noch keine Tipper angelegt.</p>
+          ) : (
+            <ul className="divide-y divide-border/40">
+              {tippers.map((u) => {
+                const isAdmin = u.role === 'admin';
+                return (
+                  <li key={u.id} className="flex items-center gap-3 px-6 py-3 text-sm">
+                    <span className="font-medium">{u.name}</span>
+                    <span className="text-muted-foreground truncate">{u.email}</span>
+                    <span
+                      className={
+                        isAdmin
+                          ? 'bg-primary/15 text-primary ml-auto rounded px-2 py-0.5 text-xs font-medium'
+                          : 'bg-muted text-muted-foreground ml-auto rounded px-2 py-0.5 text-xs'
+                      }
+                    >
+                      {isAdmin ? 'Tippleitung' : 'Tipper'}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

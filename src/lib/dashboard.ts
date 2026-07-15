@@ -85,3 +85,11 @@ export async function getTipperStats(): Promise<TipperStats> {
   ]);
   return { total, tippers, admins };
 }
+
+/** Alle Tipper namentlich (Tippleitung zuerst, dann Name) für die Tipper-Liste. */
+export async function getTipperList() {
+  return prisma.user.findMany({
+    orderBy: [{ role: 'asc' }, { name: 'asc' }],
+    select: { id: true, name: true, email: true, role: true, emailVerified: true },
+  });
+}
