@@ -1,23 +1,21 @@
 import Link from 'next/link';
-import { ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 import { getMatchdays } from '@/lib/matchdays';
-import { getCompetitionsAdmin } from '@/lib/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ImportFixturesForm } from '@/components/import-fixtures-form';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 import { formatDateRange } from '@/lib/datetime';
 
 export default async function AdminHomePage() {
-  const [matchdays, competitions] = await Promise.all([getMatchdays(), getCompetitionsAdmin()]);
+  const matchdays = await getMatchdays();
 
   return (
     <div className="space-y-10">
       <PageHeader
         eyebrow="Tippleitung"
-        title="Spieltage"
-        description="Tipptage verwalten, Partien importieren und am Spieltag die Tipps als Excel exportieren."
+        title="Tipptage"
+        description="Spieltage werden automatisch aus OpenLigaDB importiert. Hier gruppierst du sie zu Tipptagen und exportierst die Tipps als Excel."
         actions={
           <>
             <LinkButton href="/admin/spieltage" size="sm">
@@ -69,20 +67,6 @@ export default async function AdminHomePage() {
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {competitions.some((c) => c.sourceShortcuts.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="text-pitch h-4 w-4" />
-              Aus OpenLigaDB laden
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ImportFixturesForm competitions={competitions} />
           </CardContent>
         </Card>
       )}

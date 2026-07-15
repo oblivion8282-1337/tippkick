@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import {
   earliestKickoff,
-  fetchTaggedMatchday,
   fetchTaggedSeason,
   groupBy,
   latestKickoff,
@@ -157,56 +156,6 @@ export async function getCompetitionsAdmin() {
     where: { seasonId: season.id },
     orderBy: { sortOrder: 'asc' },
   });
-}
-
-export type ImportResult =
-  | { ok: true; sections: number; count: number }
-  | { ok: false; reason: 'no-source' | 'empty' | 'error'; message?: string };
-
-/**
- * Importiert einen Spieltag aus OpenLigaDB als **unzugeordnete** Sektion(en) in den
- * Wettbewerb (noch keinem Tipptag zugeordnet — Gruppierung via /admin/spieltage).
- * Pro Liga (BL/L2) eine eigene Sektion mit number=groupOrderId. Partien inkl.
- * externalId + aktueller Ergebnisdaten. Idempotent: existierende Sektionen werden
- * nicht neu befüllt, aber ihre Spanne/Quelle aktualisiert.
- */
-export async function importFixturesFromOpenLigaDb(
-  competitionId: string,
-  matchdayNumber: number,
-): Promise<ImportResult> {
-  const competition = await prisma.competition.findUnique({
-    where: { id: competitionId },
-    include: { season: true },
-  });
-  if (!competition || competition.sourceShortcuts.length === 0 || !competition.season) {
-    return { ok: false, reason: 'no-source' };
-  }
-
-  const fixtures = await fetchTaggedMatchday(
-    competition.sourceShortcuts,
-    seasonToYear(competition.season.name),
-    matchdayNumber,
-  );
-  if (fixtures.length === 0) {
-    return { ok: false, reason: 'empty' };
-  }
-
-  const byLeague = groupBy(fixtures, (f) => f.league);
-  let sections = 0;
-  let totalInserted = 0;
-  for (const [league, leagueFixtures] of byLeague) {
-    const shortcut = leagueFixtureShortcut(competition.sourceShortcuts, league);
-    totalInserted += await populateSectionFixtures({
-      competitionId,
-      league,
-      number: matchdayNumber,
-      sourceShortcut: shortcut,
-      fixtures: leagueFixtures,
-    });
-    sections++;
-  }
-
-  return { ok: true, sections, count: totalInserted };
 }
 
 export type SeasonImportResult =

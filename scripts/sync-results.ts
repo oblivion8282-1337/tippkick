@@ -1,16 +1,16 @@
 import 'dotenv/config';
 
-import { syncResults } from '../src/lib/result-sync';
+import { syncOpenLigaDb } from '../src/lib/openligadb-sync';
 
 /**
- * Löst den Ergebnis-Abgleich mit OpenLigaDB manuell aus (Dev-Ersatz für den
- * Cron-Sidecar). Aufruf: `pnpm sync:results`.
+ * Löst den vollständigen OpenLigaDB-Abgleich manuell aus (Spieltage importieren +
+ * Ergebnisse aktualisieren) — Dev-Ersatz für den Cron-Sidecar. Aufruf: `pnpm sync:results`.
  */
-syncResults()
-  .then((summary) => {
+syncOpenLigaDb()
+  .then((s) => {
     console.log(
-      `Sync fertig: ${summary.competitions} Wettbewerbe, ` +
-        `${summary.sections} Spieltage, ${summary.updated} aktualisiert, ${summary.skipped} übersprungen (MANUAL).`,
+      `Sync fertig: ${s.competitions} Wettbewerbe, ${s.sections} Spieltage, ${s.fixtures} Partien, ` +
+        `${s.resultsUpdated} Ergebnisse aktualisiert, ${s.resultsSkipped} übersprungen (MANUAL).`,
     );
   })
   .catch((error) => {

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { syncResults } from '@/lib/result-sync';
+import { syncOpenLigaDb } from '@/lib/openligadb-sync';
 
 /**
- * Cron-Einstieg für den Ergebnis-Abgleich. Geschützt via Bearer-Token (CRON_SECRET);
- * aufgerufen vom Cron-Sidecar im Produktiv-Compose (aller ~15 Min). In Dev per
- * `pnpm sync:results` oder `curl -H "Authorization: Bearer $CRON_SECRET" …`.
+ * Cron-Einstieg für den OpenLigaDB-Abgleich (Spieltage importieren + Ergebnisse
+ * aktualisieren). Geschützt via Bearer-Token (CRON_SECRET); aufgerufen vom
+ * Cron-Sidecar im Produktiv-Compose (aller ~15 Min). In Dev per `pnpm sync:results`.
  */
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +32,6 @@ async function runSync(request: Request): Promise<Response> {
     return unauthorized();
   }
 
-  const summary = await syncResults();
+  const summary = await syncOpenLigaDb();
   return NextResponse.json(summary);
 }

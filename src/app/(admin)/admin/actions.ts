@@ -3,13 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import {
-  addFixture,
-  createMatchday,
-  deleteFixture,
-  importFixturesFromOpenLigaDb,
-  importSeasonFromOpenLigaDb,
-} from '@/lib/admin';
+import { addFixture, createMatchday, deleteFixture } from '@/lib/admin';
 import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -64,55 +58,6 @@ export async function deleteFixtureAction(matchdayId: string, fixtureId: string)
   await deleteFixture(fixtureId);
   revalidatePath(`/admin/matchdays/${matchdayId}`);
   revalidatePath('/admin/spieltage');
-}
-
-/**
- * Importiert einen Spieltag aus OpenLigaDB (als unzugeordnete Sektion). Gibt ein
- * Ergebnis zurück, das die UI auswerten kann (kein Redirect, damit Fehler sichtbar).
- */
-export async function importFixturesAction(formData: FormData): Promise<{
-  ok: boolean;
-  message: string;
-}> {
-  await requireAdmin();
-  const competitionId = String(formData.get('competitionId'));
-  const matchdayNumber = Number(formData.get('matchdayNumber'));
-
-  const result = await importFixturesFromOpenLigaDb(competitionId, matchdayNumber);
-  revalidatePath('/admin');
-  revalidatePath('/admin/spieltage');
-  revalidatePath('/dashboard');
-
-  if (result.ok) {
-    return { ok: true, message: `${result.sections} Spieltag(e), ${result.count} Partien importiert.` };
-  }
-  const messages = {
-    'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
-    empty: 'Keine Partien gefunden (Spieltag existiert noch nicht?).',
-    error: 'Fehler beim Abruf.',
-  } as const;
-  return { ok: false, message: messages[result.reason] };
-}
-
-/** Importiert eine komplette Saison für einen Wettbewerb aus OpenLigaDB. */
-export async function importSeasonAction(competitionId: string): Promise<{
-  ok: boolean;
-  message: string;
-}> {
-  await requireAdmin();
-  const result = await importSeasonFromOpenLigaDb(competitionId);
-  revalidatePath('/admin');
-  revalidatePath('/admin/spieltage');
-  revalidatePath('/dashboard');
-  if (result.ok) {
-    return { ok: true, message: `${result.sections} Spieltage, ${result.fixtures} Partien importiert.` };
-  }
-  const messages = {
-    'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
-    empty: 'Keine Partien gefunden.',
-    error: 'Fehler beim Abruf.',
-  } as const;
-  return { ok: false, message: messages[result.reason] };
 }
 
 // ─── Tipptag-Gruppierung (Spieltage → Tipptage) ───────────────────────────────
