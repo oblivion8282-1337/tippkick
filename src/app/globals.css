@@ -54,86 +54,86 @@
 
 /*
  * Default = „Dark Stage": tiefer Anthrazit-Hintergrund mit zwei dezenten,
- * weichen radialen Verläufen (weißer Glow oben links + Pitch-Green Glow
+ * weichen radialen Verläufen (weißer Glow oben links + blauer Glow
  * unten rechts) — gibt der Seite Tiefe, ohne abzulenken. Buttons bleiben
- * Pitch-Green (das ist die Signatur des Vereins).
+ * Blau (Signatur-Akzent).
  */
 :root {
-  --background: oklch(0.135 0.008 260); /* Anthrazit-Schwarz, leicht blau-stichig */
+  --background: oklch(0.135 0.01 255); /* Anthrazit-Schwarz, blau-stichig */
   --foreground: oklch(0.94 0.008 90); /* warmes Off-White */
-  --card: oklch(0.19 0.008 260); /* eine Stufe heller als BG */
+  --card: oklch(0.19 0.01 255); /* eine Stufe heller als BG */
   --card-foreground: oklch(0.94 0.008 90);
-  --popover: oklch(0.19 0.008 260);
+  --popover: oklch(0.19 0.01 255);
   --popover-foreground: oklch(0.94 0.008 90);
-  --primary: oklch(0.74 0.14 152); /* #46D693 — Pitch-Green */
-  --primary-foreground: oklch(0.135 0.008 260);
-  --secondary: oklch(0.24 0.008 260);
+  --primary: oklch(0.7 0.16 250); /* Azur-Blau */
+  --primary-foreground: oklch(0.135 0.01 255);
+  --secondary: oklch(0.24 0.01 255);
   --secondary-foreground: oklch(0.94 0.008 90);
-  --muted: oklch(0.22 0.008 260);
-  --muted-foreground: oklch(0.68 0.012 155); /* gedämpftes Grau */
+  --muted: oklch(0.22 0.01 255);
+  --muted-foreground: oklch(0.68 0.012 255); /* gedämpftes Grau */
   --accent: oklch(0.74 0.13 80); /* #D7B055 — Gold (Ocker) */
   --accent-foreground: oklch(0.135 0.05 80);
   --destructive: oklch(0.65 0.18 28); /* #E07263 */
-  --border: oklch(0.28 0.008 260); /* dunkles Grau */
-  --input: oklch(0.32 0.01 260);
-  --ring: oklch(0.74 0.14 152);
-  --chart-1: oklch(0.74 0.14 152);
+  --border: oklch(0.28 0.01 255); /* dunkles Grau */
+  --input: oklch(0.32 0.01 255);
+  --ring: oklch(0.7 0.16 250);
+  --chart-1: oklch(0.7 0.16 250);
   --chart-2: oklch(0.74 0.13 80);
   --chart-3: oklch(0.65 0.18 28);
-  --chart-4: oklch(0.55 0.04 160);
-  --chart-5: oklch(0.4 0.02 160);
+  --chart-4: oklch(0.55 0.04 250);
+  --chart-5: oklch(0.4 0.02 250);
   --radius: 0.75rem;
-  --paper: oklch(0.19 0.008 260);
+  --paper: oklch(0.19 0.01 255);
   --paper-foreground: oklch(0.94 0.008 90);
-  --pitch: oklch(0.74 0.14 152);
-  --pitch-foreground: oklch(0.135 0.008 260);
-  --sidebar: oklch(0.18 0.008 260);
+  --pitch: oklch(0.7 0.16 250);
+  --pitch-foreground: oklch(0.135 0.01 255);
+  --sidebar: oklch(0.18 0.01 255);
   --sidebar-foreground: oklch(0.94 0.008 90);
-  --sidebar-primary: oklch(0.74 0.14 152);
-  --sidebar-primary-foreground: oklch(0.135 0.008 260);
-  --sidebar-accent: oklch(0.24 0.008 260);
+  --sidebar-primary: oklch(0.7 0.16 250);
+  --sidebar-primary-foreground: oklch(0.135 0.01 255);
+  --sidebar-accent: oklch(0.24 0.01 255);
   --sidebar-accent-foreground: oklch(0.94 0.008 90);
-  --sidebar-border: oklch(0.28 0.008 260);
-  --sidebar-ring: oklch(0.6 0.02 160);
+  --sidebar-border: oklch(0.28 0.01 255);
+  --sidebar-ring: oklch(0.6 0.02 250);
 }
 
-/* Heller Modus: wärmeres Off-White-Stage mit Pitch-Green-Akzent — wer es hell mag. */
+/* Heller Modus: wärmeres Off-White-Stage mit blauem Akzent — wer es hell mag. */
 .light {
   --background: oklch(0.96 0.012 95); /* warmes Off-White */
-  --foreground: oklch(0.21 0.018 160);
+  --foreground: oklch(0.21 0.018 255);
   --card: oklch(0.985 0.008 95);
-  --card-foreground: oklch(0.21 0.018 160);
+  --card-foreground: oklch(0.21 0.018 255);
   --popover: oklch(0.985 0.008 95);
-  --popover-foreground: oklch(0.21 0.018 160);
-  --primary: oklch(0.5 0.11 152); /* Pitch-Green, dunkler */
+  --popover-foreground: oklch(0.21 0.018 255);
+  --primary: oklch(0.52 0.16 250); /* Azur-Blau, dunkler */
   --primary-foreground: oklch(0.985 0.008 95);
   --secondary: oklch(0.92 0.018 90);
-  --secondary-foreground: oklch(0.27 0.02 160);
+  --secondary-foreground: oklch(0.27 0.02 255);
   --muted: oklch(0.93 0.015 95);
-  --muted-foreground: oklch(0.48 0.015 155);
+  --muted-foreground: oklch(0.48 0.015 255);
   --accent: oklch(0.72 0.13 80);
   --accent-foreground: oklch(0.21 0.05 80);
   --destructive: oklch(0.5 0.16 28);
   --border: oklch(0.88 0.018 90);
   --input: oklch(0.84 0.02 88);
-  --ring: oklch(0.5 0.11 152);
-  --chart-1: oklch(0.5 0.11 152);
+  --ring: oklch(0.52 0.16 250);
+  --chart-1: oklch(0.52 0.16 250);
   --chart-2: oklch(0.72 0.13 80);
   --chart-3: oklch(0.5 0.16 28);
-  --chart-4: oklch(0.65 0.04 160);
-  --chart-5: oklch(0.4 0.02 160);
+  --chart-4: oklch(0.65 0.04 250);
+  --chart-5: oklch(0.4 0.02 250);
   --paper: oklch(0.985 0.008 95);
-  --paper-foreground: oklch(0.21 0.018 160);
-  --pitch: oklch(0.5 0.11 152);
+  --paper-foreground: oklch(0.21 0.018 255);
+  --pitch: oklch(0.52 0.16 250);
   --pitch-foreground: oklch(0.985 0.008 95);
   --sidebar: oklch(0.97 0.01 95);
-  --sidebar-foreground: oklch(0.21 0.018 160);
-  --sidebar-primary: oklch(0.21 0.018 160);
+  --sidebar-foreground: oklch(0.21 0.018 255);
+  --sidebar-primary: oklch(0.21 0.018 255);
   --sidebar-primary-foreground: oklch(0.985 0.008 95);
   --sidebar-accent: oklch(0.93 0.015 95);
-  --sidebar-accent-foreground: oklch(0.21 0.018 160);
+  --sidebar-accent-foreground: oklch(0.21 0.018 255);
   --sidebar-border: oklch(0.88 0.018 90);
-  --sidebar-ring: oklch(0.7 0.02 95);
+  --sidebar-ring: oklch(0.7 0.02 250);
 }
 
 @layer base {
@@ -177,20 +177,20 @@
     color 0.2s ease;
 }
 
-/* Selection in Pitch-Green — typografisches Detail. */
+/* Selection in Blau — typografisches Detail. */
 ::selection {
-  background-color: oklch(0.74 0.14 152 / 0.4);
+  background-color: oklch(0.7 0.16 250 / 0.4);
   color: oklch(0.94 0.008 90);
 }
 .light ::selection {
-  background-color: oklch(0.5 0.11 152 / 0.25);
-  color: oklch(0.21 0.018 160);
+  background-color: oklch(0.52 0.16 250 / 0.25);
+  color: oklch(0.21 0.018 255);
 }
 
 /*
  * Stage-Hintergrund: Anthrazit mit zwei weichen radialen Verläufen.
  * - Weißer Glow oben links (Spotlight-Effekt)
- * - Pitch-Green Glow unten rechts (sehr dezent, gibt der Seite eine subtile Wärme)
+ * - Blauer Glow unten rechts (sehr dezent, gibt der Seite eine subtile Tiefe)
  * Beide fixiert (background-attachment: fixed) damit sie beim Scrollen
  * stehen bleiben — die Seite fühlt sich dadurch räumlich an.
  */
@@ -198,7 +198,7 @@
   background-color: var(--background);
   background-image:
     radial-gradient(ellipse 80% 60% at 20% 0%, oklch(1 0 0 / 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 45% at 100% 100%, oklch(0.74 0.14 152 / 0.06) 0%, transparent 55%);
+    radial-gradient(ellipse 50% 45% at 100% 100%, oklch(0.7 0.16 250 / 0.06) 0%, transparent 55%);
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
@@ -210,7 +210,7 @@
   background-repeat: no-repeat;
 }
 
-/* Akzent-Bar — Pitch-Green-Streifen (z. B. links neben Liga-Sektionen). */
+/* Akzent-Bar — Blau-Streifen (z. B. links neben Liga-Sektionen). */
 .pitch-bar {
   background-image: linear-gradient(180deg, var(--pitch), oklch(from var(--pitch) h c calc(l - 0.08)));
 }
