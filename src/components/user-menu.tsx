@@ -26,13 +26,13 @@ export function UserMenu({ userName, userImage }: { userName: string; userImage?
     <Menu.Root>
       <Menu.Trigger
         aria-label="Konto-Menü"
-        className="border-border/60 bg-muted/40 hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/40 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border transition-colors outline-none focus-visible:ring-4"
+        className="border-border/60 bg-muted/40 hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/40 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border transition-colors outline-none focus-visible:ring-4"
       >
         {userImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={userImage} alt={userName} className="h-full w-full object-cover" />
         ) : (
-          <UserIcon className="h-4 w-4" />
+          <UserIcon className="h-5 w-5" />
         )}
       </Menu.Trigger>
       <Menu.Portal>
