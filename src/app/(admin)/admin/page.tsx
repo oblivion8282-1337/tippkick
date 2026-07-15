@@ -1,15 +1,27 @@
 import { getMatchdays } from '@/lib/matchdays';
+import { getCompetitionsAdmin } from '@/lib/admin';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ImportFixturesForm } from '@/components/import-fixtures-form';
 import { LinkButton } from '@/components/link-button';
 
 export default async function AdminHomePage() {
-  const matchdays = await getMatchdays();
+  const [matchdays, competitions] = await Promise.all([getMatchdays(), getCompetitionsAdmin()]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Spieltage</h1>
-        <LinkButton href="/admin/matchdays/new">Neuer Spieltag</LinkButton>
+        <LinkButton href="/admin/matchdays/new">Neuer Spieltag (manuell)</LinkButton>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Spieltag aus OpenLigaDB laden</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ImportFixturesForm competitions={competitions} />
+        </CardContent>
+      </Card>
 
       {matchdays.length === 0 ? (
         <p className="text-muted-foreground">Noch keine Spieltage angelegt.</p>

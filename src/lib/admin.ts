@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { fetchMatchday, seasonToYear } from '@/lib/openligadb';
 
 /**
  * Setzt genau einen Spieltag im zugehörigen Wettbewerb aktiv (andere im selben
@@ -72,4 +73,67 @@ export async function getCompetitionsAdmin() {
     where: { seasonId: season.id },
     orderBy: { sortOrder: 'asc' },
   });
+}
+
+export type ImportResult =
+  | { ok: true; matchdayId: string; count: number }
+  | { ok: false; reason: 'no-source' | 'empty' | 'error'; message?: string };
+
+/**
+ * Importiert einen Spieltag aus OpenLigaDB in den Wettbewerb. Legt den Spieltag
+ * (falls noch nicht vorhanden) an und fügt die Partien ein. Bestehende Partien
+ * werden nicht überschrieben (Idempotenz über hasFixtures-Check).
+ */
+export async function importFixturesFromOpenLigaDb(
+  competitionId: string,
+  matchdayNumber: number,
+): Promise<ImportResult> {
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    include: { season: true },
+  });
+  if (!competition || !competition.sourceShortcut || !competition.season) {
+    return { ok: false, reason: 'no-source' };
+  }
+
+  const fixtures = await fetchMatchday(
+    competition.sourceShortcut,
+    seasonToYear(competition.season.name),
+    matchdayNumber,
+  );
+  if (fixtures.length === 0) {
+    return { ok: false, reason: 'empty' };
+  }
+
+  // Spieltag anlegen (falls nicht vorhanden) + Deadline = 1 Min vor frühestem Anstoß.
+  const earliest = fixtures.reduce((min, f) => (f.kickoff < min ? f.kickoff : min), fixtures[0].kickoff);
+  const deadlineAt = new Date(earliest.getTime() - 60 * 1000);
+
+  const matchday = await prisma.matchday.upsert({
+    where: { competitionId_number: { competitionId, number: matchdayNumber } },
+    update: {},
+    create: {
+      competitionId,
+      number: matchdayNumber,
+      startDate: earliest,
+      endDate: earliest,
+      deadlineAt,
+      isActive: false,
+    },
+  });
+
+  const hasFixtures = await prisma.fixture.count({ where: { matchdayId: matchday.id } });
+  if (hasFixtures === 0) {
+    await prisma.fixture.createMany({
+      data: fixtures.map((f, sortOrder) => ({
+        matchdayId: matchday.id,
+        kickoff: f.kickoff,
+        homeTeam: f.homeTeam,
+        awayTeam: f.awayTeam,
+        sortOrder,
+      })),
+    });
+  }
+
+  return { ok: true, matchdayId: matchday.id, count: fixtures.length };
 }

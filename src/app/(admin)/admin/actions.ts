@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { activateMatchday, addFixture, createMatchday, deleteFixture } from '@/lib/admin';
+import { activateMatchday, addFixture, createMatchday, deleteFixture, importFixturesFromOpenLigaDb } from '@/lib/admin';
 import { requireAdmin } from '@/lib/session';
 
 function parseDate(value: string): Date {
@@ -50,4 +50,32 @@ export async function deleteFixtureAction(matchdayId: string, fixtureId: string)
   await requireAdmin();
   await deleteFixture(fixtureId);
   revalidatePath(`/admin/matchdays/${matchdayId}`);
+}
+
+/**
+ * Importiert einen Spieltag aus OpenLigaDB. Gibt ein Ergebnis zurück, das die UI
+ * auswerten kann (kein automatisches Redirect, damit Fehler sichtbar werden).
+ */
+export async function importFixturesAction(formData: FormData): Promise<{
+  ok: boolean;
+  message: string;
+  matchdayId?: string;
+}> {
+  await requireAdmin();
+  const competitionId = String(formData.get('competitionId'));
+  const matchdayNumber = Number(formData.get('matchdayNumber'));
+
+  const result = await importFixturesFromOpenLigaDb(competitionId, matchdayNumber);
+  revalidatePath('/admin');
+  revalidatePath('/dashboard');
+
+  if (result.ok) {
+    return { ok: true, message: `${result.count} Partien importiert.`, matchdayId: result.matchdayId };
+  }
+  const messages = {
+    'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
+    empty: 'Keine Partien gefunden (Spieltag existiert noch nicht?).',
+    error: 'Fehler beim Abruf.',
+  } as const;
+  return { ok: false, message: messages[result.reason] };
 }
