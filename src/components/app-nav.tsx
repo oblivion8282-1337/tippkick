@@ -28,6 +28,9 @@ export function AppNav({ userName, isAdmin }: { userName: string; isAdmin: boole
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <LinkButton href="/einstellungen" variant="outline" size="sm">
+            Einstellungen
+          </LinkButton>
           {isAdmin && (
             <LinkButton href="/admin" variant="outline" size="sm">
               Admin

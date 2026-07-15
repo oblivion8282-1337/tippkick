@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# hochgeladene Profilbilder (nur lokal)
+/public/avatars/*
+!/public/avatars/.gitkeep
