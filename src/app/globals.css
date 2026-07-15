@@ -188,26 +188,14 @@
 }
 
 /*
- * Stage-Hintergrund: Anthrazit mit zwei weichen radialen Verläufen.
- * - Weißer Glow oben links (Spotlight-Effekt)
- * - Blauer Glow unten rechts (sehr dezent, gibt der Seite eine subtile Tiefe)
- * Beide fixiert (background-attachment: fixed) damit sie beim Scrollen
- * stehen bleiben — die Seite fühlt sich dadurch räumlich an.
+ * Stage-Hintergrund: einfarbig (keine Verläufe/Glows).
  */
 .bg-stage {
   background-color: var(--background);
-  background-image:
-    radial-gradient(ellipse 80% 60% at 20% 0%, oklch(1 0 0 / 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 45% at 100% 100%, oklch(0.7 0.16 250 / 0.06) 0%, transparent 55%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
 .bg-stage-soft {
   background-color: var(--background);
-  background-image: radial-gradient(ellipse 80% 60% at 20% 0%, oklch(1 0 0 / 0.04) 0%, transparent 60%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
 /* Akzent-Bar — Blau-Streifen (z. B. links neben Liga-Sektionen). */
