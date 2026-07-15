@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { LinkButton } from '@/components/link-button';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function AppNav({ userName, isAdmin }: { userName: string; isAdmin: boolean }) {
   const router = useRouter();
@@ -18,14 +19,15 @@ export function AppNav({ userName, isAdmin }: { userName: string; isAdmin: boole
 
   return (
     <header className="border-b">
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="font-semibold">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href="/dashboard" className="font-semibold whitespace-nowrap">
             Tippverein
           </Link>
-          <span className="text-muted-foreground text-sm">Angemeldet als {userName}</span>
+          <span className="text-muted-foreground hidden truncate text-sm sm:inline">Angemeldet als {userName}</span>
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {isAdmin && (
             <LinkButton href="/admin" variant="outline" size="sm">
               Admin
