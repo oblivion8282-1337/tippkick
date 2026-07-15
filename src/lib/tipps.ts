@@ -1,0 +1,65 @@
+import { prisma } from '@/lib/prisma';
+import { isTippable } from '@/lib/matchdays';
+
+const MIN_GOALS = 0;
+const MAX_GOALS = 99;
+
+function normalizeGoals(value: number): number {
+  return Math.min(MAX_GOALS, Math.max(MIN_GOALS, Number.isFinite(value) ? Math.trunc(value) : 0));
+}
+
+/** Spieltag + eigene Tipps (map fixtureId -> Tipp) für die Tipp-Maske. */
+export async function getMyTips(userId: string, matchdayId: string) {
+  const matchday = await prisma.matchday.findUnique({
+    where: { id: matchdayId },
+    include: { fixtures: { orderBy: { sortOrder: 'asc' } } },
+  });
+  if (!matchday) {
+    return null;
+  }
+
+  const tips = await prisma.tip.findMany({
+    where: { userId, fixture: { matchdayId } },
+  });
+  const tipsByFixture = new Map(tips.map((tip) => [tip.fixtureId, tip]));
+
+  return { matchday, tipsByFixture };
+}
+
+/**
+ * Speichert/überschreibt einen Tipp. SSOT-Erzwingung der Sicherheit:
+ * - nur für den eingeloggten Nutzer (userId vom Server, nie vom Client vertraut)
+ * - nur bis zur Deadline (server-seitig geprüft)
+ * - Tore normiert auf 0..99
+ */
+export async function saveTip(params: {
+  userId: string;
+  fixtureId: string;
+  homeGoals: number;
+  awayGoals: number;
+}): Promise<{ ok: true } | { ok: false; reason: 'deadline' | 'invalid' }> {
+  const { userId, fixtureId } = params;
+  const homeGoals = normalizeGoals(params.homeGoals);
+  const awayGoals = normalizeGoals(params.awayGoals);
+
+  const fixture = await prisma.fixture.findUnique({
+    where: { id: fixtureId },
+    include: { matchday: true },
+  });
+  if (!fixture) {
+    return { ok: false, reason: 'invalid' };
+  }
+
+  // Deadline server-seitig erzwingen – das UI ist nur Anzeige.
+  if (!isTippable(fixture.matchday.deadlineAt)) {
+    return { ok: false, reason: 'deadline' };
+  }
+
+  await prisma.tip.upsert({
+    where: { userId_fixtureId: { userId, fixtureId } },
+    update: { homeGoals, awayGoals },
+    create: { userId, fixtureId, homeGoals, awayGoals },
+  });
+
+  return { ok: true };
+}
