@@ -1,14 +1,28 @@
 import Link from 'next/link';
-import { CalendarClock, Download, Users } from 'lucide-react';
+import { CalendarClock, Check, Download, Users } from 'lucide-react';
 
 import { getManageableSeason } from '@/lib/matchdays';
-import { getCompetitionsOverview, getTipperList, getTipperStats, getUpcomingTipptage } from '@/lib/dashboard';
+import {
+  getCompetitionsOverview,
+  getTipperList,
+  getTipperStats,
+  getTipptagTippers,
+  getUpcomingTipptage,
+} from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/constants';
 import { formatCountdown, formatDateTime } from '@/lib/datetime';
+import { ConfirmButton } from '@/components/confirm-button';
 import { CreateSeasonForm } from '@/components/create-season-form';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
+import {
+  approveUserAction,
+  deleteUserAction,
+  rejectUserAction,
+  setUserRoleAction,
+} from '@/app/(admin)/admin/actions';
 
 export default async function AdminHomePage() {
   const season = await getManageableSeason();
@@ -33,6 +47,11 @@ export default async function AdminHomePage() {
     getTipperList(),
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
+  // Tipp-Status für den nächsten anstehenden Tipptag (✓ getippt / ausstehend).
+  const nextTipptag = upcoming[0];
+  const nextTipped = nextTipptag ? await getTipptagTippers(nextTipptag.id) : new Set<string>();
+  const pending = tippers.filter((u) => !u.approved);
+  const active = tippers.filter((u) => u.approved);
 
   return (
     <div className="space-y-8">
@@ -120,19 +139,73 @@ export default async function AdminHomePage() {
         <CardHeader className="border-b border-border/40">
           <CardTitle className="flex items-center gap-2">
             <Users className="h-4 w-4" /> Tipper · {tipperStats.tippers} (+{tipperStats.admins} Tippleitung)
+            {pending.length > 0 && (
+              <span className="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
+                {pending.length} wartet
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-0 pt-0">
-          {tippers.length === 0 ? (
-            <p className="text-muted-foreground px-6 py-8 text-sm">Noch keine Tipper angelegt.</p>
-          ) : (
-            <ul className="divide-y divide-border/40">
-              {tippers.map((u) => {
-                const isAdmin = u.role === 'admin';
-                return (
-                  <li key={u.id} className="flex items-center gap-3 px-6 py-3 text-sm">
+          {pending.length > 0 && (
+            <>
+              <p className="text-muted-foreground px-6 py-2 text-xs font-medium tracking-wide uppercase">
+                Wartet auf Freischaltung
+              </p>
+              <ul className="divide-y divide-border/40 border-t border-border/40">
+                {pending.map((u) => (
+                  <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
                     <span className="font-medium">{u.name}</span>
                     <span className="text-muted-foreground truncate">{u.email}</span>
+                    <span className="ml-auto flex gap-2">
+                      <form action={approveUserAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <Button type="submit" size="sm">
+                          Freischalten
+                        </Button>
+                      </form>
+                      <form action={rejectUserAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmButton confirm={`${u.name} ablehnen und löschen?`} variant="destructive" size="sm">
+                          Ablehnen
+                        </ConfirmButton>
+                      </form>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {active.length === 0 ? (
+            <p className="text-muted-foreground px-6 py-8 text-sm">Noch keine Tipper freigeschaltet.</p>
+          ) : (
+            <ul className="divide-y divide-border/40 border-t border-border/40">
+              {active.map((u) => {
+                const isAdmin = u.role === 'admin';
+                const tipped = nextTipptag ? nextTipped.has(u.id) : null;
+                return (
+                  <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
+                    <span className="font-medium">{u.name}</span>
+                    <span className="text-muted-foreground truncate">{u.email}</span>
+                    {nextTipptag && (
+                      <span
+                        className={
+                          tipped
+                            ? 'text-primary inline-flex items-center gap-1 text-xs'
+                            : 'text-muted-foreground text-xs'
+                        }
+                        title={`Tipptag ${nextTipptag.number}`}
+                      >
+                        {tipped ? (
+                          <>
+                            <Check className="h-3 w-3" /> getippt
+                          </>
+                        ) : (
+                          `Tipptag ${nextTipptag.number}: offen`
+                        )}
+                      </span>
+                    )}
                     <span
                       className={
                         isAdmin
@@ -141,6 +214,21 @@ export default async function AdminHomePage() {
                       }
                     >
                       {isAdmin ? 'Tippleitung' : 'Tipper'}
+                    </span>
+                    <span className="flex gap-2">
+                      <form action={setUserRoleAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <input type="hidden" name="role" value={isAdmin ? 'user' : 'admin'} />
+                        <Button type="submit" size="sm" variant="outline">
+                          {isAdmin ? 'Zum Tipper' : 'Zur Tippleitung'}
+                        </Button>
+                      </form>
+                      <form action={deleteUserAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmButton confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`} variant="destructive" size="sm">
+                          Entfernen
+                        </ConfirmButton>
+                      </form>
                     </span>
                   </li>
                 );

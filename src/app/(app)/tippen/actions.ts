@@ -12,7 +12,7 @@ export async function saveTipAction(params: {
   fixtureId: string;
   homeGoals: number;
   awayGoals: number;
-}): Promise<{ ok: true } | { ok: false; reason: 'unauth' | 'deadline' | 'invalid' }> {
+}): Promise<{ ok: true } | { ok: false; reason: 'unauth' | 'deadline' | 'invalid' | 'unapproved' }> {
   const session = await getSession();
   if (!session) {
     return { ok: false, reason: 'unauth' };

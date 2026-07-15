@@ -39,10 +39,15 @@ export async function saveTip(params: {
   fixtureId: string;
   homeGoals: number;
   awayGoals: number;
-}): Promise<{ ok: true } | { ok: false; reason: 'deadline' | 'invalid' }> {
+}): Promise<{ ok: true } | { ok: false; reason: 'deadline' | 'invalid' | 'unapproved' }> {
   const { userId, fixtureId } = params;
   const homeGoals = normalizeGoals(params.homeGoals);
   const awayGoals = normalizeGoals(params.awayGoals);
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { approved: true } });
+  if (!user?.approved) {
+    return { ok: false, reason: 'unapproved' };
+  }
 
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },

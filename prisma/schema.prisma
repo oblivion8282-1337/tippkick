@@ -171,6 +171,7 @@ model User {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   twoFactorEnabled Boolean?    @default(false)
+  approved         Boolean     @default(false) // Neu-Registrierung: Tippleitung muss freischalten
   role             String?
   banned           Boolean?    @default(false)
   banReason        String?

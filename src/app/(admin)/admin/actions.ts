@@ -116,6 +116,64 @@ function parseStatus(raw: string): FixtureStatus {
   return raw in FIXTURE_STATUS_LABELS ? (raw as FixtureStatus) : 'SCHEDULED';
 }
 
+// ─── Tipper-Verwaltung ────────────────────────────────────────────────────────
+
+/** Anzahl der Admins (für den „letzten Admin nicht absetzen/löschen"-Schutz). */
+async function adminCount(): Promise<number> {
+  return prisma.user.count({ where: { role: 'admin' } });
+}
+
+/** Ändert die Rolle eines Nutzers (Tipper <-> Tippleitung). Schützt den letzten Admin. */
+export async function setUserRoleAction(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const userId = String(formData.get('userId'));
+  const role = String(formData.get('role')) === 'admin' ? 'admin' : 'user';
+  if (userId === session.user.id) {
+    return; // sich selbst nicht ändern
+  }
+  if (role === 'user' && (await adminCount()) <= 1) {
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (target?.role === 'admin') {
+      return; // letzten Admin nicht absetzen
+    }
+  }
+  await prisma.user.update({ where: { id: userId }, data: { role } });
+  revalidatePath('/admin');
+}
+
+/** Löscht einen Nutzer (mitsamt Tipps/Sessions). Schützt sich selbst + letzten Admin. */
+export async function deleteUserAction(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const userId = String(formData.get('userId'));
+  if (userId === session.user.id) {
+    return;
+  }
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (target?.role === 'admin' && (await adminCount()) <= 1) {
+    return;
+  }
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath('/admin');
+}
+
+/** Schaltet einen wartenden Nutzer frei. */
+export async function approveUserAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await prisma.user.update({ where: { id: String(formData.get('userId')) }, data: { approved: true } });
+  revalidatePath('/admin');
+}
+
+/** Lehnt einen wartenden Nutzer ab (= löscht ihn, nur solange approved=false). */
+export async function rejectUserAction(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const userId = String(formData.get('userId'));
+  if (userId === session.user.id) {
+    return;
+  }
+  await prisma.user.deleteMany({ where: { id: userId, approved: false } });
+  revalidatePath('/admin');
+}
+
 /**
  * Setzt das Ergebnis einer Partie manuell. Markiert die Partie als resultSource=MANUAL
  * (ein OpenLigaDB-Re-Sync überschreibt sie nicht) und übernimmt alle Ergebnis-Felder –

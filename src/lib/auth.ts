@@ -48,4 +48,10 @@ export const auth = betterAuth({
       adminRole: 'admin',
     }),
   ],
+  user: {
+    additionalFields: {
+      // Neu-Registrierungen sind erst nach Freischaltung durch die Tippleitung tippbar.
+      approved: { type: 'boolean', defaultValue: false, input: false },
+    },
+  },
 });

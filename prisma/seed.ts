@@ -21,6 +21,7 @@ async function createUser(opts: { name: string; email: string; password: string;
       name,
       email,
       emailVerified: true, // Seed-Nutzer direkt verifiziert
+      approved: true, // Seed-Nutzer direkt freigeschaltet
       role,
       accounts: {
         create: {

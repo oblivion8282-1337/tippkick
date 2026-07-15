@@ -90,6 +90,16 @@ export async function getTipperStats(): Promise<TipperStats> {
 export async function getTipperList() {
   return prisma.user.findMany({
     orderBy: [{ role: 'asc' }, { name: 'asc' }],
-    select: { id: true, name: true, email: true, role: true, emailVerified: true },
+    select: { id: true, name: true, email: true, role: true, approved: true, emailVerified: true },
   });
+}
+
+/** Distincte Tipper-IDs, die für einen Tipptag mind. einen Tipp abgegeben haben. */
+export async function getTipptagTippers(matchdayId: string): Promise<Set<string>> {
+  const tips = await prisma.tip.findMany({
+    where: { fixture: { section: { matchdayId } } },
+    distinct: ['userId'],
+    select: { userId: true },
+  });
+  return new Set(tips.map((t) => t.userId));
 }
