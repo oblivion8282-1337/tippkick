@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { CalendarClock, Check, Download, Users } from 'lucide-react';
 
-import { getManageableSeason } from '@/lib/matchdays';
 import {
   getCompetitionsOverview,
   getTipperList,
@@ -11,6 +10,7 @@ import {
 } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/constants';
 import { formatCountdown, formatDateTime } from '@/lib/datetime';
+import { AdminSeasonPicker } from '@/components/admin-season-picker';
 import { ConfirmButton } from '@/components/confirm-button';
 import { CreateSeasonForm } from '@/components/create-season-form';
 import { RoleSelectForm } from '@/components/role-select-form';
@@ -19,10 +19,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/session';
+import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
 
-export default async function AdminHomePage() {
-  const season = await getManageableSeason();
+export default async function AdminHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ season?: string }>;
+}) {
+  const { season: seasonParam } = await searchParams;
+  const seasons = await getSeasons();
+
+  if (seasons.length === 0) {
+    return (
+      <div className="space-y-8">
+        <PageHeader eyebrow="Tippleitung" title="Admin" />
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-muted-foreground mb-4 text-sm">Noch keine Saison vorhanden.</p>
+            <CreateSeasonForm />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Gewählte Saison (aus Query) oder die vom System vorgeschlagene.
+  const season = seasons.find((s) => s.id === seasonParam) ?? (await getManageableSeason());
   if (!season) {
     return (
       <div className="space-y-8">
@@ -53,7 +76,12 @@ export default async function AdminHomePage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader eyebrow="Tippleitung" title="Admin" description={`Saison ${season.name}`} />
+      <PageHeader
+        eyebrow="Tippleitung"
+        title="Admin"
+        description={`Saison ${season.name}`}
+        actions={<AdminSeasonPicker seasons={seasons} activeId={season.id} />}
+      />
 
       {/* Nächste Deadlines (competitions-übergreifend) */}
       <Card>
