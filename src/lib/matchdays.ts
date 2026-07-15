@@ -16,21 +16,16 @@ export async function getCurrentSeason() {
 }
 
 /**
- * Saison für Admin-Seiten (Import + Spieltag-Gruppierung). Anders als
- * getCurrentSeason funktioniert sie auch OHNE zukünftigen Tipptag: bevorzugt die
- * Saison mit dem nächsten Tipp-Termin, sonst die mit importierten Spieltagen,
- * sonst die neueste Saison. Verhindert die Sackgasse „nichts importierbar".
+ * Saison für Admin-Seiten (Default-Auswahl). Primär die aktuell laufende Saison
+ * (die mit der nächsten Tipp-Deadline), sonst die neueste Saison. So wird immer
+ * die aktuelle Saison angezeigt, ohne dass der Admin sie jedes Mal auswählen muss.
  */
 export async function getManageableSeason() {
   const current = await getCurrentSeason();
   if (current) {
     return current;
   }
-  const withSections = await prisma.season.findFirst({
-    where: { competitions: { some: { sections: { some: {} } } } },
-    orderBy: { name: 'desc' },
-  });
-  return withSections ?? prisma.season.findFirst({ orderBy: { name: 'desc' } });
+  return prisma.season.findFirst({ orderBy: { name: 'desc' } });
 }
 
 /** Alle Saisons (absteigend), für den Saison-Wechsler im Admin. */
