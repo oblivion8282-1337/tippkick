@@ -107,7 +107,6 @@ async function main() {
       startDate: saturday,
       endDate: sunday,
       deadlineAt: friday,
-      isActive: false,
     },
     create: {
       competitionId: competition.id,
@@ -115,7 +114,6 @@ async function main() {
       startDate: saturday,
       endDate: sunday,
       deadlineAt: friday,
-      isActive: false,
     },
   });
 

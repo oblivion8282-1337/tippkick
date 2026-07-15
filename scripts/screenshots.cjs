@@ -54,6 +54,13 @@ async function main() {
   await page.goto('http://localhost:3000/admin', { waitUntil: 'networkidle' });
   await page.screenshot({ path: '/tmp/shot-admin.png', fullPage: true });
 
+  // Matchday-Detail (zweiter Tipptag, hat Sektionen + Partien)
+  const matchdayLink = await page.locator('a[href^="/admin/matchdays/"]').nth(1).getAttribute('href');
+  if (matchdayLink) {
+    await page.goto('http://localhost:3000' + matchdayLink, { waitUntil: 'networkidle' });
+    await page.screenshot({ path: '/tmp/shot-admin-detail.png', fullPage: true });
+  }
+
   await browser.close();
   console.log('Screenshots written to /tmp/shot-*.png');
 }

@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import {
-  activateMatchday,
   addFixture,
   createMatchday,
   deleteFixture,
@@ -33,13 +32,6 @@ export async function createMatchdayAction(formData: FormData): Promise<void> {
   revalidatePath('/admin');
   revalidatePath('/dashboard');
   redirect(`/admin/matchdays/${id}`);
-}
-
-export async function activateMatchdayAction(matchdayId: string): Promise<void> {
-  await requireAdmin();
-  await activateMatchday(matchdayId);
-  revalidatePath('/admin');
-  revalidatePath('/dashboard');
 }
 
 export async function addFixtureAction(matchdayId: string, formData: FormData): Promise<void> {

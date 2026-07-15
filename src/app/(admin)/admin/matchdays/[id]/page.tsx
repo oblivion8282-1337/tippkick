@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
-import { Download, Sparkles, Trash2 } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 
-import { activateMatchdayAction, addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
+import { addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
@@ -28,24 +28,10 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
         title={`${matchday.number}. Tipptag`}
         description={`${formatDateRange(matchday.startDate, matchday.endDate)} · Deadline ${formatDateTime(matchday.deadlineAt)}`}
         actions={
-          <>
-            {matchday.isActive ? (
-              <span className="bg-pitch/10 text-pitch inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium">
-                <Sparkles className="h-3.5 w-3.5" />
-                aktiv
-              </span>
-            ) : (
-              <form action={activateMatchdayAction.bind(null, matchday.id)}>
-                <Button type="submit" variant="outline" size="sm">
-                  Aktivieren
-                </Button>
-              </form>
-            )}
-            <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm">
-              <Download className="h-4 w-4" />
-              Als Excel
-            </LinkButton>
-          </>
+          <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm">
+            <Download className="h-4 w-4" />
+            Als Excel
+          </LinkButton>
         }
       />
 

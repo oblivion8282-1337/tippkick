@@ -50,27 +50,6 @@ function latestKickoff(fixtures: TaggedFixture[]): Date {
   );
 }
 
-/**
- * Setzt genau einen Spieltag im zugehörigen Wettbewerb aktiv (andere im selben
- * Wettbewerb werden inaktiv) – SSOT für "aktueller Spieltag je Wettbewerb".
- */
-export async function activateMatchday(matchdayId: string): Promise<void> {
-  const matchday = await prisma.matchday.findUnique({
-    where: { id: matchdayId },
-    select: { competitionId: true },
-  });
-  if (!matchday) {
-    return;
-  }
-  await prisma.$transaction([
-    prisma.matchday.updateMany({
-      where: { competitionId: matchday.competitionId, isActive: true },
-      data: { isActive: false },
-    }),
-    prisma.matchday.update({ where: { id: matchdayId }, data: { isActive: true } }),
-  ]);
-}
-
 /** Legt eine Liga-Sektion innerhalb einer Tipprunde an. Idempotent über (matchday, league, number). */
 export async function upsertSection(input: {
   matchdayId: string;
@@ -234,7 +213,6 @@ export async function importFixturesFromOpenLigaDb(
       startDate: earliest,
       endDate: latest,
       deadlineAt,
-      isActive: false,
     },
   });
 
@@ -298,7 +276,6 @@ export async function importSeasonFromOpenLigaDb(
         startDate: earliest,
         endDate: latest,
         deadlineAt: new Date(earliest.getTime() - DEADLINE_OFFSET_MS),
-        isActive: false,
       },
     });
 

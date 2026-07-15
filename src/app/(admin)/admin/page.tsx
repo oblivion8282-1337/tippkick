@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight, FileSpreadsheet, Sparkles } from 'lucide-react';
+import { ChevronRight, FileSpreadsheet } from 'lucide-react';
 
 import { getMatchdays } from '@/lib/matchdays';
 import { getCompetitionsAdmin } from '@/lib/admin';
@@ -50,12 +50,6 @@ export default async function AdminHomePage() {
                           {md.number}.
                         </span>
                         <span className="font-medium">{md.competition.name}</span>
-                        {md.isActive && (
-                          <span className="bg-pitch/10 text-pitch inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium">
-                            <Sparkles className="h-3 w-3" />
-                            aktiv
-                          </span>
-                        )}
                       </div>
                       <p className="text-muted-foreground text-sm">
                         {md.competition.season.name} · {formatDateRange(md.startDate, md.endDate)} ·{' '}

@@ -62,7 +62,6 @@ model Matchday {
   startDate     DateTime // = MIN(kickoff) aller Sektionen
   endDate       DateTime // = MAX(kickoff) aller Sektionen
   deadlineAt    DateTime // Tipp-Deadline, i. d. R. 1 Min vor frühestem Anstoß
-  isActive      Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   sections      MatchdaySection[]

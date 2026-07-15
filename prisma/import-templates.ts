@@ -260,7 +260,6 @@ async function main(): Promise<void> {
         startDate: minKickoff,
         endDate: maxKickoff,
         deadlineAt,
-        isActive: false,
       },
     });
     matchdays += 1;

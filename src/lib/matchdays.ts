@@ -27,31 +27,13 @@ export const matchdaySectionsInclude = {
   },
 } satisfies Prisma.MatchdayInclude;
 
-/** "Aktiver Spieltag, sonst letzter" – SSOT-Regel, mehrfach genutzt. */
-export function pickActiveMatchday<T extends { isActive: boolean }>(matchdays: T[]): T | undefined {
-  return matchdays.find((m) => m.isActive) ?? matchdays[matchdays.length - 1];
-}
-
 /**
- * Default-Spieltag für Tipper-Ansicht (sortiert nach Nummer aufsteigend):
- * 1. aktiver Spieltag, falls noch tippbar (Deadline in der Zukunft)
- * 2. sonst der früheste noch anstehende Spieltag (Deadline in der Zukunft)
- * 3. sonst der aktive Spieltag (auch wenn abgelaufen)
- * 4. sonst der letzte Spieltag
- * So landet der Tipper auf dem nächsten tippbaren Spieltag, nicht auf altem.
+ * Default-Spieltag für Tipper-Ansicht: der früheste nicht abgelaufene
+ * Matchday (sortiert nach Tipptag-Nummer). So landet der Tipper automatisch
+ * auf dem nächsten Wochenende, das er noch tippen kann.
  */
-export function pickDefaultMatchday<T extends { isActive: boolean; deadlineAt: Date }>(
-  matchdays: T[],
-): T | undefined {
-  if (matchdays.length === 0) {
-    return undefined;
-  }
-  const active = matchdays.find((m) => m.isActive);
-  if (active && isTippable(active.deadlineAt)) {
-    return active;
-  }
-  const upcoming = matchdays.find((m) => isTippable(m.deadlineAt));
-  return upcoming ?? active ?? matchdays[matchdays.length - 1];
+export function pickDefaultMatchday<T extends { deadlineAt: Date }>(matchdays: T[]): T | undefined {
+  return matchdays.find((m) => isTippable(m.deadlineAt));
 }
 
 /**
@@ -72,7 +54,6 @@ export async function getCompetitions() {
         orderBy: { number: 'asc' },
         select: {
           number: true,
-          isActive: true,
           deadlineAt: true,
           _count: { select: { sections: true } },
         },

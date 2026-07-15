@@ -27,8 +27,6 @@ export default async function DashboardPage() {
   }
 
   // Pro Wettbewerb: der nächste zu tippende Tipptag + Fortschritt des Nutzers.
-  // pickDefaultMatchday liefert den „richtigen" Matchday (aktiver wenn tippbar,
-  // sonst frühester nicht abgelaufener) — nicht einfach den letzten in der Liste.
   const rows = await Promise.all(
     competitions.map(async (c) => {
       const focus = pickDefaultMatchday(c.matchdays);
@@ -43,7 +41,6 @@ export default async function DashboardPage() {
           deadlineAt: true,
           startDate: true,
           endDate: true,
-          isActive: true,
           sections: {
             select: {
               league: true,
@@ -125,7 +122,6 @@ function WeekendHero({
       deadlineAt: Date;
       startDate: Date;
       endDate: Date;
-      isActive: boolean;
       sections: { league: 'BL' | 'L2' | null; number: number; fixtures: { id: string }[] }[];
     };
     tipped: number;
@@ -213,7 +209,7 @@ function CompetitionCard({
 }: {
   row: {
     c: { key: string; name: string; season: { name: string } };
-    md: { number: number; deadlineAt: Date; isActive: boolean };
+    md: { number: number; deadlineAt: Date };
     tipped: number;
     total: number;
     open: boolean;
