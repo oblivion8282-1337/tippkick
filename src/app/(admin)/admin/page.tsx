@@ -19,9 +19,14 @@ export default async function AdminHomePage() {
         title="Spieltage"
         description="Tipptage verwalten, Partien importieren und am Spieltag die Tipps als Excel exportieren."
         actions={
-          <LinkButton href="/admin/matchdays/new" variant="outline" size="sm">
-            Manuell anlegen
-          </LinkButton>
+          <>
+            <LinkButton href="/admin/spieltage" size="sm">
+              Spieltage gruppieren
+            </LinkButton>
+            <LinkButton href="/admin/matchdays/new" variant="outline" size="sm">
+              Manuell anlegen
+            </LinkButton>
+          </>
         }
       />
 

@@ -1,4 +1,4 @@
-import type { CompetitionKey, League } from '@/generated/prisma/client';
+import type { CompetitionKey, FixtureStatus, League } from '@/generated/prisma/client';
 
 /**
  * Zentrale Konstanten (SSOT). Bewusst ohne Prisma-Runtime-Import, damit dieses
@@ -34,14 +34,13 @@ export const COMPETITION_SHORT: Record<CompetitionKey, string> = {
 export const COMPETITION_ORDER: CompetitionKey[] = ['BL', 'CL', 'DFB', 'EM', 'WM'];
 
 /**
- * OpenLigaDB leagueShortcuts je Wettbewerb. Bundesliga ist hier leer — die
- * Tipptage werden aus den Excel-Vorlagen importiert (siehe scripts/import-
- * bundesliga-templates.ts), weil das OpenLigaDB-Schema nicht zum Liga-Versatz
- * und zu Doppel-Matchdays in einer Tipprunde passt (TT 1 = nur L2, TT 16 =
- * nur BL).
+ * OpenLigaDB leagueShortcuts je Wettbewerb. Bundesliga wird aus BL1+BL2 importiert;
+ * die importierten Spieltage liegen erst unzugeordnet und werden vom Admin in
+ * Tipptage gruppiert (siehe /admin/spieltage), weil das OpenLigaDB-Spieltag-Raster
+ * nicht 1:1 dem Vereinraster entspricht (TT 1 = nur L2 1+2, TT 2 = BL 1 + L2, …).
  */
 export const OPENLIGADB_SHORTCUTS: Record<CompetitionKey, string[]> = {
-  BL: [],
+  BL: ['bl1', 'bl2'],
   CL: ['cl'],
   DFB: ['dfb'],
   EM: [],
@@ -57,6 +56,11 @@ export const SHORTCUT_TO_LEAGUE: Record<string, League> = {
   bl2: 'L2',
 };
 
+/** Inverse zu SHORTCUT_TO_LEAGUE (einziges Mapping, hier abgeleitet). */
+export const LEAGUE_SHORTCUTS = Object.fromEntries(
+  Object.entries(SHORTCUT_TO_LEAGUE).map(([shortcut, league]) => [league, shortcut]),
+) as Record<League, string>;
+
 /** Sektions-Label + Reihenfolge innerhalb eines Bundesliga-Spieltags. */
 export const LEAGUE_SECTION_LABELS: Record<League, string> = {
   BL: '1. Liga',
@@ -66,6 +70,15 @@ export const LEAGUE_SECTION_ORDER: League[] = ['BL', 'L2'];
 
 /** Wettbewerbe mit vorlagenbasiertem Auswertungs-Export. */
 export const TEMPLATE_EXPORT_KEYS: ReadonlySet<CompetitionKey> = new Set(['BL']);
+
+/** Anzeige-Label je Spiel-Status (SSOT für Formulare + Parsing). */
+export const FIXTURE_STATUS_LABELS: Record<FixtureStatus, string> = {
+  SCHEDULED: 'geplant',
+  IN_PROGRESS: 'läuft',
+  FINISHED: 'beendet',
+  CANCELLED: 'abgesagt',
+  POSTPONED: 'verlegt',
+};
 
 /** Tipp-Deadline = frühester Anstoß minus diese Offset (1 Min, wie im Verein üblich). */
 export const DEADLINE_OFFSET_MS = 60_000;

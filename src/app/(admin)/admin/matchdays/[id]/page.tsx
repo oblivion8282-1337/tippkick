@@ -1,14 +1,13 @@
 import { notFound } from 'next/navigation';
 import { Download, Trash2 } from 'lucide-react';
 
-import { addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
+import { deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FixtureResultForm } from '@/components/fixture-result-form';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 
@@ -54,21 +53,21 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
               ) : (
                 <ul className="border-border/60 bg-card divide-y divide-border/40 overflow-hidden rounded-xl border">
                   {section.fixtures.map((f) => (
-                    <li key={f.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                      <span className="font-mono tabular-nums">
-                        {new Date(f.kickoff).toLocaleString('de-DE', {
-                          weekday: 'short',
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                      <span className="flex-1 truncate">
+                    <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                      <span className="font-mono tabular-nums">{formatDateTime(f.kickoff)}</span>
+                      <span className="flex min-w-0 flex-1 items-center justify-center truncate">
                         <span className="font-medium">{f.homeTeam}</span>
                         <span className="text-muted-foreground mx-2">:</span>
                         <span className="font-medium">{f.awayTeam}</span>
                       </span>
+                      <FixtureResultForm
+                        fixtureId={f.id}
+                        matchdayId={matchday.id}
+                        home={f.homeGoals}
+                        away={f.awayGoals}
+                        status={f.status}
+                        source={f.resultSource}
+                      />
                       <form action={deleteFixtureAction.bind(null, matchday.id, f.id)}>
                         <Button type="submit" variant="ghost" size="icon-sm" aria-label="Partie löschen">
                           <Trash2 />
@@ -80,27 +79,6 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
               )}
             </section>
           ))}
-
-          <form action={addFixtureAction.bind(null, matchday.id)} className="space-y-4 pt-2">
-            <h3 className="font-display text-lg font-semibold tracking-tight">Partie hinzufügen</h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="kickoff">Anstoß</Label>
-                <Input id="kickoff" name="kickoff" type="datetime-local" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="homeTeam">Heim</Label>
-                <Input id="homeTeam" name="homeTeam" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="awayTeam">Gast</Label>
-                <Input id="awayTeam" name="awayTeam" required />
-              </div>
-            </div>
-            <Button type="submit" size="sm">
-              Partie hinzufügen
-            </Button>
-          </form>
         </CardContent>
       </Card>
     </div>

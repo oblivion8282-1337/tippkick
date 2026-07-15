@@ -1,86 +1,76 @@
 import { prisma } from '@/lib/prisma';
-import { fetchMatchday, fetchSeason, seasonToYear, type ImportedFixture } from '@/lib/openligadb';
+import {
+  earliestKickoff,
+  fetchTaggedMatchday,
+  fetchTaggedSeason,
+  groupBy,
+  latestKickoff,
+  spanFromKickoffs,
+  type TaggedFixture,
+} from '@/lib/import-helpers';
+import { seasonToYear } from '@/lib/openligadb';
 import { getCurrentSeason, matchdaySectionsInclude } from '@/lib/matchdays';
-import { DEADLINE_OFFSET_MS, SHORTCUT_TO_LEAGUE } from '@/lib/constants';
+import { deriveFixtureFields } from '@/lib/result-sync';
+import { LEAGUE_SHORTCUTS } from '@/lib/constants';
 import type { League } from '@/generated/prisma/client';
 
-/** Partie inkl. Sektions-Tag (1./2. Liga bei Bundesliga; sonst null). */
-type TaggedFixture = ImportedFixture & { league: League | null };
-
-/** Holt einen Spieltag über alle Quellen eines Wettbewerbs, Partien getaggt. */
-async function fetchTaggedMatchday(shortcuts: string[], year: number, groupOrderId: number): Promise<TaggedFixture[]> {
-  const out: TaggedFixture[] = [];
-  for (const shortcut of shortcuts) {
-    const league = SHORTCUT_TO_LEAGUE[shortcut] ?? null;
-    const fixtures = await fetchMatchday(shortcut, year, groupOrderId);
-    out.push(...fixtures.map((f) => ({ ...f, league })));
-  }
-  return out;
-}
-
-/** Holt eine ganze Saison über alle Quellen, gruppiert + getaggt nach Spieltag. */
-async function fetchTaggedSeason(
-  shortcuts: string[],
-  year: number,
-): Promise<Map<number, TaggedFixture[]>> {
-  const merged = new Map<number, TaggedFixture[]>();
-  for (const shortcut of shortcuts) {
-    const league = SHORTCUT_TO_LEAGUE[shortcut] ?? null;
-    const seasonMap = await fetchSeason(shortcut, year);
-    for (const [group, fixtures] of seasonMap) {
-      const arr = merged.get(group) ?? [];
-      arr.push(...fixtures.map((f) => ({ ...f, league })));
-      merged.set(group, arr);
-    }
-  }
-  return merged;
-}
-
-function earliestKickoff(fixtures: TaggedFixture[]): Date {
-  return fixtures.reduce(
-    (min, f) => (f.kickoff < min ? f.kickoff : min),
-    fixtures[0].kickoff,
-  );
-}
-
-function latestKickoff(fixtures: TaggedFixture[]): Date {
-  return fixtures.reduce(
-    (max, f) => (f.kickoff > max ? f.kickoff : max),
-    fixtures[0].kickoff,
-  );
-}
-
-/** Legt eine Liga-Sektion innerhalb einer Tipprunde an. Idempotent über (matchday, league, number). */
+/**
+ * Legt eine kanonische Liga-Sektion (Spieltag) an oder liefert die existierende.
+ * Identität: (competitionId, league, number). Idempotent via findFirst-before-create
+ * (nullable Composite-Keys sind in Prisma 7 nicht typsicher; league=null bei CL/DFB
+ * ist durch NULL-Semantik in PG nur App-seitig eindeutig). Aktualisiert bei jedem
+ * Aufruf die Datumsspanne + Quelle (frisch halten).
+ */
 export async function upsertSection(input: {
-  matchdayId: string;
+  competitionId: string;
   league: League | null;
   number: number;
+  startDate: Date;
+  endDate: Date;
+  sourceShortcut?: string | null;
 }): Promise<{ id: string; created: boolean }> {
-  // findUnique mit nullable composite key wird von Prisma 7 nicht typtauglich
-  // unterstützt; findFirst mit gleichem Filter funktioniert und ist genauso
-  // exakt (Section ist über @@unique([matchdayId, league, number]) eindeutig).
   const existing = await prisma.matchdaySection.findFirst({
-    where: {
-      matchdayId: input.matchdayId,
-      league: input.league,
-      number: input.number,
-    },
+    where: { competitionId: input.competitionId, league: input.league, number: input.number },
     select: { id: true },
   });
   if (existing) {
+    await prisma.matchdaySection.update({
+      where: { id: existing.id },
+      data: {
+        startDate: input.startDate,
+        endDate: input.endDate,
+        ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
+      },
+    });
     return { id: existing.id, created: false };
   }
   const section = await prisma.matchdaySection.create({
     data: {
-      matchdayId: input.matchdayId,
+      competitionId: input.competitionId,
       league: input.league,
       number: input.number,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
     },
   });
   return { id: section.id, created: true };
 }
 
-/** Legt eine Tipprunde (Matchday) ohne Sektionen/Partien an. */
+/** Berechnet die Datumsspanne einer Sektion aus ihren Partien neu. */
+async function recalcSectionSpan(sectionId: string): Promise<void> {
+  const fixtures = await prisma.fixture.findMany({
+    where: { sectionId },
+    select: { kickoff: true },
+  });
+  const span = spanFromKickoffs(fixtures.map((f) => f.kickoff));
+  if (!span) {
+    return;
+  }
+  await prisma.matchdaySection.update({ where: { id: sectionId }, data: span });
+}
+
+/** Legt einen Tipptag (Matchday) ohne Sektionen/Partien an. */
 export async function createMatchday(input: {
   competitionId: string;
   number: number;
@@ -101,30 +91,25 @@ export async function createMatchday(input: {
 }
 
 /**
- * Legt eine Partie in einer Tipprunde an. Erstellt intern die passende Section
- * (idempotent über (matchday, league, number)): für Single-Liga-Competition
- * eine Section (league=null, number=matchday.number); für Bundesliga eine
- * Section (league=league, number=matchday.number).
+ * Legt eine Partie in einer bestehenden Sektion (Spieltag) an. Die Sektion muss
+ * existieren (Identität competitionId + league + number). Aktualisiert die
+ * Sektionsspanne.
  */
 export async function addFixture(input: {
-  matchdayId: string;
+  competitionId: string;
   league: League | null;
+  number: number;
   kickoff: Date;
   homeTeam: string;
   awayTeam: string;
 }): Promise<void> {
-  const matchday = await prisma.matchday.findUnique({
-    where: { id: input.matchdayId },
-    select: { number: true },
+  const section = await prisma.matchdaySection.findFirst({
+    where: { competitionId: input.competitionId, league: input.league, number: input.number },
+    select: { id: true },
   });
-  if (!matchday) {
-    throw new Error('Matchday nicht gefunden');
+  if (!section) {
+    throw new Error('Spieltag (Sektion) nicht gefunden');
   }
-  const section = await upsertSection({
-    matchdayId: input.matchdayId,
-    league: input.league,
-    number: matchday.number,
-  });
   const sortOrder = await prisma.fixture.count({ where: { sectionId: section.id } });
   await prisma.fixture.create({
     data: {
@@ -136,10 +121,18 @@ export async function addFixture(input: {
       sortOrder,
     },
   });
+  await recalcSectionSpan(section.id);
 }
 
 export async function deleteFixture(fixtureId: string): Promise<void> {
+  const fixture = await prisma.fixture.findUnique({
+    where: { id: fixtureId },
+    select: { sectionId: true },
+  });
   await prisma.fixture.delete({ where: { id: fixtureId } });
+  if (fixture) {
+    await recalcSectionSpan(fixture.sectionId);
+  }
 }
 
 /** Matchday inkl. Sektionen + Partien + Tipper-Anzahl. */
@@ -167,17 +160,15 @@ export async function getCompetitionsAdmin() {
 }
 
 export type ImportResult =
-  | { ok: true; matchdayId: string; count: number }
+  | { ok: true; sections: number; count: number }
   | { ok: false; reason: 'no-source' | 'empty' | 'error'; message?: string };
 
 /**
- * Importiert einen Spieltag aus OpenLigaDB in den Wettbewerb. Legt den Spieltag
- * (falls noch nicht vorhanden) + die Liga-Sektion(en) an und fügt die Partien
- * ein. Bestehende Partien werden nicht überschrieben (Idempotenz).
- *
- * Für Bundesliga: holt pro Liga (BL, L2) die OpenLigaDB-Group; jeder Group wird
- * eine eigene Sektion (league, number). Für Single-Liga-Wettbewerbe (CL/DFB):
- * eine Sektion mit league=null.
+ * Importiert einen Spieltag aus OpenLigaDB als **unzugeordnete** Sektion(en) in den
+ * Wettbewerb (noch keinem Tipptag zugeordnet — Gruppierung via /admin/spieltage).
+ * Pro Liga (BL/L2) eine eigene Sektion mit number=groupOrderId. Partien inkl.
+ * externalId + aktueller Ergebnisdaten. Idempotent: existierende Sektionen werden
+ * nicht neu befüllt, aber ihre Spanne/Quelle aktualisiert.
  */
 export async function importFixturesFromOpenLigaDb(
   competitionId: string,
@@ -200,52 +191,34 @@ export async function importFixturesFromOpenLigaDb(
     return { ok: false, reason: 'empty' };
   }
 
-  const earliest = earliestKickoff(fixtures);
-  const latest = latestKickoff(fixtures);
-  const deadlineAt = new Date(earliest.getTime() - DEADLINE_OFFSET_MS);
-
-  const matchday = await prisma.matchday.upsert({
-    where: { competitionId_number: { competitionId, number: matchdayNumber } },
-    update: {},
-    create: {
-      competitionId,
-      number: matchdayNumber,
-      startDate: earliest,
-      endDate: latest,
-      deadlineAt,
-    },
-  });
-
-  // Eine Sektion pro Liga-Group (pro Liga eine eigene Section.number=matchdayNumber).
   const byLeague = groupBy(fixtures, (f) => f.league);
+  let sections = 0;
   let totalInserted = 0;
   for (const [league, leagueFixtures] of byLeague) {
+    const shortcut = leagueFixtureShortcut(competition.sourceShortcuts, league);
     totalInserted += await populateSectionFixtures({
-      matchdayId: matchday.id,
+      competitionId,
       league,
       number: matchdayNumber,
+      sourceShortcut: shortcut,
       fixtures: leagueFixtures,
     });
+    sections++;
   }
 
-  return { ok: true, matchdayId: matchday.id, count: totalInserted };
+  return { ok: true, sections, count: totalInserted };
 }
 
 export type SeasonImportResult =
-  | { ok: true; matchdays: number; fixtures: number }
+  | { ok: true; sections: number; fixtures: number }
   | { ok: false; reason: 'no-source' | 'empty' | 'error'; message?: string };
 
 /**
- * Importiert eine komplette Saison aus OpenLigaDB. Pro Liga-Group (BL/L2 bzw.
- * Single-Liga) wird eine eigene MatchdaySection angelegt; alle Sections einer
- * groupOrderId landen unter demselben Matchday (Bundesliga: BL-Section N +
- * L2-Section N im gleichen Matchday mit number=N).
- *
- * Idempotent: bestehende Sektionen/Partien werden nicht überschrieben.
+ * Importiert eine komplette Saison aus OpenLigaDB als **unzugeordnete** Sektionen.
+ * Pro Liga-Group (BL/L2 bzw. Single-Liga) eine eigene Sektion mit number=groupOrderId.
+ * Partien inkl. externalId + Ergebnisdaten. Idempotent.
  */
-export async function importSeasonFromOpenLigaDb(
-  competitionId: string,
-): Promise<SeasonImportResult> {
+export async function importSeasonFromOpenLigaDb(competitionId: string): Promise<SeasonImportResult> {
   const competition = await prisma.competition.findUnique({
     where: { id: competitionId },
     include: { season: true },
@@ -262,81 +235,77 @@ export async function importSeasonFromOpenLigaDb(
     return { ok: false, reason: 'empty' };
   }
 
-  let matchdays = 0;
+  let sections = 0;
   let fixtures = 0;
   for (const [number, dayFixtures] of [...seasonMap.entries()].sort((a, b) => a[0] - b[0])) {
-    const earliest = earliestKickoff(dayFixtures);
-    const latest = latestKickoff(dayFixtures);
-    const matchday = await prisma.matchday.upsert({
-      where: { competitionId_number: { competitionId, number } },
-      update: {},
-      create: {
-        competitionId,
-        number,
-        startDate: earliest,
-        endDate: latest,
-        deadlineAt: new Date(earliest.getTime() - DEADLINE_OFFSET_MS),
-      },
-    });
-
     const byLeague = groupBy(dayFixtures, (f) => f.league);
     for (const [league, leagueFixtures] of byLeague) {
+      const shortcut = leagueFixtureShortcut(competition.sourceShortcuts, league);
       fixtures += await populateSectionFixtures({
-        matchdayId: matchday.id,
+        competitionId,
         league,
         number,
+        sourceShortcut: shortcut,
         fixtures: leagueFixtures,
       });
+      sections++;
     }
-    matchdays += 1;
   }
 
-  return { ok: true, matchdays, fixtures };
+  return { ok: true, sections, fixtures };
 }
 
-/** Gruppiert nach Schlüssel; null-Liga landet unter dem Schlüssel `null` (für Single-Liga). */
-function groupBy<T, K>(items: T[], keyFn: (t: T) => K): Map<K, T[]> {
-  const out = new Map<K, T[]>();
-  for (const item of items) {
-    const key = keyFn(item);
-    const arr = out.get(key);
-    if (arr) {
-      arr.push(item);
-    } else {
-      out.set(key, [item]);
-    }
+/** Liefert den OpenLigaDB-Shortcut für eine Liga (für sourceShortcut-Feld). */
+function leagueFixtureShortcut(shortcuts: string[], league: League | null): string | null {
+  if (!league) {
+    return shortcuts[0] ?? null;
   }
-  return out;
+  const wanted = LEAGUE_SHORTCUTS[league];
+  return shortcuts.find((s) => s === wanted) ?? null;
 }
 
 /**
- * Legt eine Sektion + ihre Partien idempotent an. Gibt die Anzahl der neu
- * angelegten Partien zurück (0, wenn die Sektion schon befüllt war).
+ * Legt eine Sektion + ihre Partien idempotent an. Gibt die Anzahl der neu angelegten
+ * Partien zurück (0, wenn die Sektion schon befüllt war). Partien inkl. externalId +
+ * Ergebnisdaten (falls OpenLigaDB schon welche liefert).
  */
 async function populateSectionFixtures(input: {
-  matchdayId: string;
+  competitionId: string;
   league: League | null;
   number: number;
+  sourceShortcut: string | null;
   fixtures: TaggedFixture[];
 }): Promise<number> {
+  const earliest = earliestKickoff(input.fixtures);
+  const latest = latestKickoff(input.fixtures);
   const section = await upsertSection({
-    matchdayId: input.matchdayId,
+    competitionId: input.competitionId,
     league: input.league,
     number: input.number,
+    startDate: earliest,
+    endDate: latest,
+    sourceShortcut: input.sourceShortcut,
   });
   const existing = await prisma.fixture.count({ where: { sectionId: section.id } });
   if (existing > 0) {
     return 0;
   }
   await prisma.fixture.createMany({
-    data: input.fixtures.map((f, sortOrder) => ({
-      sectionId: section.id,
-      league: f.league,
-      kickoff: f.kickoff,
-      homeTeam: f.homeTeam,
-      awayTeam: f.awayTeam,
-      sortOrder,
-    })),
+    data: input.fixtures.map((f, sortOrder) => {
+      const derived = deriveFixtureFields(f);
+      return {
+        sectionId: section.id,
+        league: f.league,
+        kickoff: f.kickoff,
+        homeTeam: f.homeTeam,
+        awayTeam: f.awayTeam,
+        sortOrder,
+        externalId: f.externalId,
+        ...derived,
+        resultSource: derived.status === 'FINISHED' ? ('SYNC' as const) : ('NONE' as const),
+        syncedAt: derived.status === 'FINISHED' ? new Date() : null,
+      };
+    }),
   });
   return input.fixtures.length;
 }

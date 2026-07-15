@@ -52,8 +52,14 @@ export async function saveTip(params: {
     return { ok: false, reason: 'invalid' };
   }
 
+  // Unzugeordnete Partie (Spieltag noch keinem Tipptag zugeordnet) → nicht tippbar.
+  const matchday = fixture.section.matchday;
+  if (!matchday) {
+    return { ok: false, reason: 'invalid' };
+  }
+
   // Deadline server-seitig erzwingen – das UI ist nur Anzeige.
-  if (!isTippable(fixture.section.matchday.deadlineAt)) {
+  if (!isTippable(matchday.deadlineAt)) {
     return { ok: false, reason: 'deadline' };
   }
 

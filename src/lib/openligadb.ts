@@ -6,21 +6,67 @@
 
 const BASE = 'https://api.openligadb.de';
 
+export type OpenLigaMatchResult = {
+  resultName: string; // "Endergebnis" | "Halbzeit" | … (stabil; nicht resultTypeID nutzen)
+  resultTypeID: number;
+  pointsTeam1: number;
+  pointsTeam2: number;
+};
+
 export type OpenLigaMatch = {
+  matchID: number; // OpenLigaDB-ID — Schlüssel für den Ergebnis-Sync (→ Fixture.externalId)
   matchDateTime: string; // lokales ISO, z. B. "2024-08-24T15:30:00"
   matchDateTimeUTC: string;
   group: { groupOrderID: number; groupName: string };
   team1: { teamName: string };
   team2: { teamName: string };
   matchIsFinished: boolean;
+  matchResults: OpenLigaMatchResult[];
 };
 
 export type ImportedFixture = {
+  externalId: string; // String(matchID)
   homeTeam: string;
   awayTeam: string;
   kickoff: Date;
   groupOrderId: number;
+  finished: boolean;
+  homeGoals?: number; // Endergebnis (falls schon gespielt)
+  awayGoals?: number;
+  htHomeGoals?: number; // Halbzeitstand (falls vorhanden)
+  htAwayGoals?: number;
 };
+
+/**
+ * Mappt matchResults → Endergebnis + Halbzeit. Schlüssel ist resultName (stabil),
+ * NICHT resultTypeID (dessen Bedeutung über Saisons/Daten-Ära schwankt).
+ */
+function extractResult(match: OpenLigaMatch): {
+  homeGoals?: number;
+  awayGoals?: number;
+  htHomeGoals?: number;
+  htAwayGoals?: number;
+} {
+  const final = match.matchResults.find((r) => r.resultName === 'Endergebnis');
+  const halftime = match.matchResults.find((r) => r.resultName === 'Halbzeit');
+  return {
+    ...(final ? { homeGoals: final.pointsTeam1, awayGoals: final.pointsTeam2 } : {}),
+    ...(halftime ? { htHomeGoals: halftime.pointsTeam1, htAwayGoals: halftime.pointsTeam2 } : {}),
+  };
+}
+
+/** Wandelt eine OpenLigaDB-Partie in eine importierte Partie (inkl. Ergebnis) um. */
+function toImported(match: OpenLigaMatch): ImportedFixture {
+  return {
+    externalId: String(match.matchID),
+    homeTeam: match.team1.teamName,
+    awayTeam: match.team2.teamName,
+    kickoff: new Date(match.matchDateTime),
+    groupOrderId: match.group.groupOrderID,
+    finished: match.matchIsFinished,
+    ...extractResult(match),
+  };
+}
 
 /** Holt alle Partien eines Spieltags (group) aus einem Wettbewerb + Saison. */
 export async function fetchMatchday(
@@ -42,12 +88,7 @@ export async function fetchMatchday(
   }
 
   const matches = (await response.json()) as OpenLigaMatch[];
-  return matches.map((m) => ({
-    homeTeam: m.team1.teamName,
-    awayTeam: m.team2.teamName,
-    kickoff: new Date(m.matchDateTime),
-    groupOrderId: m.group.groupOrderID,
-  }));
+  return matches.map(toImported);
 }
 
 /** Holt eine komplette Saison (ein API-Call), gruppiert nach Spieltag-Nummer. */
@@ -65,12 +106,7 @@ export async function fetchSeason(leagueShortcut: string, seasonYear: number): P
   const byGroup = new Map<number, ImportedFixture[]>();
   for (const m of matches) {
     const fixtures = byGroup.get(m.group.groupOrderID) ?? [];
-    fixtures.push({
-      homeTeam: m.team1.teamName,
-      awayTeam: m.team2.teamName,
-      kickoff: new Date(m.matchDateTime),
-      groupOrderId: m.group.groupOrderID,
-    });
+    fixtures.push(toImported(m));
     byGroup.set(m.group.groupOrderID, fixtures);
   }
   return byGroup;

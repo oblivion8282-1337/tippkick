@@ -70,18 +70,17 @@ async function main() {
     create: { name: '25/26' },
   });
 
-  // 2) Wettbewerb Bundesliga (1.+2. Liga zusammen). sourceShortcuts = [] → kein
-  // OpenLigaDB-Import; Tipptage werden aus den Vorlagen-XLSX angelegt (siehe
-  // scripts/import-bundesliga-templates.ts) oder manuell im Admin.
+  // 2) Wettbewerb Bundesliga (1.+2. Liga zusammen). OpenLigaDB-Quelle bl1+bl2;
+  // Spieltage werden importiert und vom Admin in Tipptage gruppiert (/admin/spieltage).
   const competition = await prisma.competition.upsert({
     where: { seasonId_key: { seasonId: season.id, key: 'BL' } },
-    update: { sourceShortcuts: [] },
+    update: { sourceShortcuts: ['bl1', 'bl2'] },
     create: {
       seasonId: season.id,
       key: 'BL',
       name: 'Bundesliga (1. + 2. Liga)',
       sortOrder: 0,
-      sourceShortcuts: [],
+      sourceShortcuts: ['bl1', 'bl2'],
     },
   });
 
@@ -117,12 +116,22 @@ async function main() {
     },
   });
 
-  // Sektionen + Fixtures idempotent.
+  // Sektionen (Spieltage) anlegen, dem Demo-Tipptag 34 zuordnen + Fixtures idempotent.
   for (const [league, fixtures] of [
     ['BL', BL_FIXTURES],
     ['L2', L2_FIXTURES],
   ] as const) {
-    const section = await upsertSection({ matchdayId: matchday.id, league, number: 34 });
+    const section = await upsertSection({
+      competitionId: competition.id,
+      league,
+      number: 34,
+      startDate: saturday,
+      endDate: saturday,
+    });
+    await prisma.matchdaySection.update({
+      where: { id: section.id },
+      data: { matchdayId: matchday.id },
+    });
     const existing = await prisma.fixture.count({ where: { sectionId: section.id } });
     if (existing === 0) {
       await prisma.fixture.createMany({

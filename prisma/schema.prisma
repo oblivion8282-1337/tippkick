@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -26,6 +25,26 @@ enum League {
   L2 // 2. Bundesliga
 }
 
+/**
+ * Spiel-Status (verlässlich aus OpenLigaDB: SCHEDULED + FINISHED; Rest manuell).
+ */
+enum FixtureStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+  POSTPONED
+}
+
+/**
+ * Herkunft eines Ergebnis-Eintrags. MANUAL gewinnt – Re-Sync überschreibt ihn nicht.
+ */
+enum ResultSource {
+  NONE // kein Ergebnis
+  SYNC // von OpenLigaDB übernommen
+  MANUAL // von der Tippleitung gesetzt
+}
+
 model Season {
   id           String        @id @default(cuid())
   name         String        @unique // z. B. "25/26"
@@ -34,15 +53,16 @@ model Season {
 }
 
 model Competition {
-  id             String      @id @default(cuid())
-  seasonId       String
-  season         Season      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  key            CompetitionKey
-  name           String // z. B. "Bundesliga (1. + 2. Liga)"
-  sortOrder      Int
+  id              String            @id @default(cuid())
+  seasonId        String
+  season          Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  key             CompetitionKey
+  name            String // z. B. "Bundesliga (1. + 2. Liga)"
+  sortOrder       Int
   sourceShortcuts String[] // OpenLigaDB leagueShortcuts, z. B. ["bl1","bl2"]
-  createdAt      DateTime    @default(now())
-  matchdays      Matchday[]
+  createdAt       DateTime          @default(now())
+  matchdays       Matchday[]
+  sections        MatchdaySection[]
 
   @@unique([seasonId, key])
   @@index([seasonId])
@@ -55,61 +75,87 @@ model Competition {
  * TT 1 = nur L2 1+2, kein BL; TT 16 = nur BL 15+16, kein L2).
  */
 model Matchday {
-  id            String   @id @default(cuid())
-  competitionId String
-  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  number        Int      // Tipptag-Nummer (1..34), fortlaufend im Wettbewerb pro Saison
-  startDate     DateTime // = MIN(kickoff) aller Sektionen
-  endDate       DateTime // = MAX(kickoff) aller Sektionen
-  deadlineAt    DateTime // Tipp-Deadline, i. d. R. 1 Min vor frühestem Anstoß
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  sections      MatchdaySection[]
+  id             String            @id @default(cuid())
+  competitionId  String
+  competition    Competition       @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  number         Int // Tipptag-Nummer (1..34), fortlaufend im Wettbewerb pro Saison
+  startDate      DateTime // = MIN(kickoff) aller Sektionen
+  endDate        DateTime // = MAX(kickoff) aller Sektionen
+  deadlineAt     DateTime // Tipp-Deadline, i. d. R. 1 Min vor frühestem Anstoß
+  deadlineManual Boolean           @default(false) // true: recalcMatchdaySpan überschreibt die Deadline nicht
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  sections       MatchdaySection[]
 
   @@unique([competitionId, number])
   @@index([competitionId])
 }
 
-/** Eine Liga-Spieltag-Runde innerhalb einer Tipprunde (z. B. "2. Liga · 1. Spieltag"). */
+/**
+ * Kanonischer Spieltag (Import-Baustein aus OpenLigaDB), z. B. "2. Liga · 1. Spieltag".
+ * Unabhängig vom Tipptag: matchdayId ist optional (null = noch keinem Tipptag zugeordnet).
+ * Ein Spieltag wird genau einmal getippt → gehört zu 0..1 Tipptagen. onDelete: SetNull
+ * bewirkt, dass beim Löschen eines Tipptags der Spieltag in den Pool zurückwandert statt
+ * gelöscht zu werden.
+ */
 model MatchdaySection {
-  id         String   @id @default(cuid())
-  matchdayId String
-  matchday   Matchday @relation(fields: [matchdayId], references: [id], onDelete: Cascade)
-  league     League?  // null für Nicht-Bundesliga-Wettbewerbe (CL/DFB/EM/WM)
-  number     Int      // Liga-Matchday-Nummer INNERHALB dieser Liga (1..34 für BL/L2)
-  fixtures   Fixture[]
+  id             String      @id @default(cuid())
+  competitionId  String
+  competition    Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  matchdayId     String?
+  matchday       Matchday?   @relation(fields: [matchdayId], references: [id], onDelete: SetNull)
+  league         League? // null für Nicht-Bundesliga-Wettbewerbe (CL/DFB/EM/WM)
+  number         Int // Liga-Spieltag-Nummer INNERHALB dieser Liga (1..34 für BL/L2) = OpenLigaDB groupOrderId
+  startDate      DateTime // = MIN(kickoff) der Partien
+  endDate        DateTime // = MAX(kickoff) der Partien
+  sourceShortcut String? // OpenLigaDB-Shortcut (bl1/bl2/cl/...), falls per Import angelegt
+  fixtures       Fixture[]
 
-  @@unique([matchdayId, league, number])
+  // Kanonische Identität pro Wettbewerb. Hinweis (Prisma 7): nullable Composite-Keys sind
+  // nicht typsicher → upsertSection nutzt findFirst-before-create. Für league=null (CL/DFB)
+  // ist die Eindeutigkeit durch NULL-Semantik in PG nur App-seitig durchgesetzt.
+  @@unique([competitionId, league, number])
+  @@index([competitionId])
   @@index([matchdayId])
 }
 
 model Fixture {
-  id        String          @id @default(cuid())
-  sectionId String
-  section   MatchdaySection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  league    League?         // redundant zu section.league (schnelles Filtern ohne JOIN)
-  kickoff   DateTime
-  homeTeam  String
-  awayTeam  String
-  sortOrder Int             // Reihenfolge innerhalb der Sektion
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  tips      Tip[]
+  id           String          @id @default(cuid())
+  sectionId    String
+  section      MatchdaySection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  league       League? // redundant zu section.league (schnelles Filtern ohne JOIN)
+  kickoff      DateTime
+  homeTeam     String
+  awayTeam     String
+  sortOrder    Int // Reihenfolge innerhalb der Sektion
+  externalId   String? // OpenLigaDB matchID — Schlüssel für verlässlichen Ergebnis-Sync
+  // Ergebnis (leer bis gesynct/manuell gepflegt)
+  homeGoals    Int? // Endergebnis Heim
+  awayGoals    Int? // Endergebnis Gast
+  htHomeGoals  Int? // Halbzeit Heim
+  htAwayGoals  Int? // Halbzeit Gast
+  status       FixtureStatus   @default(SCHEDULED)
+  resultSource ResultSource    @default(NONE) // MANUAL gewinnt – Re-Sync überschreibt nicht
+  syncedAt     DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  tips         Tip[]
 
   @@index([sectionId])
   @@index([sectionId, league])
+  @@index([externalId])
 }
 
 model Tip {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fixtureId  String
-  fixture    Fixture  @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
-  homeGoals  Int
-  awayGoals  Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fixtureId String
+  fixture   Fixture  @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  homeGoals Int
+  awayGoals Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Ein Tipper pro Partie genau ein Tipp (SSOT-Constraint).
   @@unique([userId, fixtureId])

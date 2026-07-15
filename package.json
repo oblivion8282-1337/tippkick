@@ -15,8 +15,8 @@
     "db:reset": "prisma migrate reset --force --skip-seed && pnpm db:migrate && pnpm db:seed",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "db:import-templates": "tsx prisma/import-templates.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "sync:results": "tsx scripts/sync-results.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

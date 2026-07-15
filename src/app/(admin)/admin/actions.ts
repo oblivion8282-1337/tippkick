@@ -10,7 +10,11 @@ import {
   importFixturesFromOpenLigaDb,
   importSeasonFromOpenLigaDb,
 } from '@/lib/admin';
+import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
+import { FIXTURE_STATUS_LABELS } from '@/lib/constants';
+import type { FixtureStatus, League } from '@/generated/prisma/client';
 
 function parseDate(value: string): Date {
   const date = new Date(value);
@@ -18,6 +22,10 @@ function parseDate(value: string): Date {
     throw new Error(`Ungültiges Datum: ${value}`);
   }
   return date;
+}
+
+function parseLeague(raw: string): League | null {
+  return raw === 'BL' ? 'BL' : raw === 'L2' ? 'L2' : null;
 }
 
 export async function createMatchdayAction(formData: FormData): Promise<void> {
@@ -34,36 +42,37 @@ export async function createMatchdayAction(formData: FormData): Promise<void> {
   redirect(`/admin/matchdays/${id}`);
 }
 
-export async function addFixtureAction(matchdayId: string, formData: FormData): Promise<void> {
+/**
+ * Legt eine einzelne Partie in einem bestehenden Spieltag (Sektion) an. Spieltag wird
+ * über Wettbewerb + Liga + Nummer identifiziert (aus dem Formular).
+ */
+export async function addFixtureAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  // league ist optional (Single-Liga-Competitions wie CL/DFB → null).
-  // Bei Bundesliga wird aktuell nicht manuell gepflegt; falls doch, später ergänzen.
-  const leagueRaw = String(formData.get('league') ?? '');
-  const league = leagueRaw === 'BL' ? 'BL' : leagueRaw === 'L2' ? 'L2' : null;
   await addFixture({
-    matchdayId,
-    league,
+    competitionId: String(formData.get('competitionId')),
+    league: parseLeague(String(formData.get('league') ?? '')),
+    number: Number(formData.get('number')),
     kickoff: parseDate(String(formData.get('kickoff'))),
     homeTeam: String(formData.get('homeTeam')).trim(),
     awayTeam: String(formData.get('awayTeam')).trim(),
   });
-  revalidatePath(`/admin/matchdays/${matchdayId}`);
+  revalidatePath('/admin/spieltage');
 }
 
 export async function deleteFixtureAction(matchdayId: string, fixtureId: string): Promise<void> {
   await requireAdmin();
   await deleteFixture(fixtureId);
   revalidatePath(`/admin/matchdays/${matchdayId}`);
+  revalidatePath('/admin/spieltage');
 }
 
 /**
- * Importiert einen Spieltag aus OpenLigaDB. Gibt ein Ergebnis zurück, das die UI
- * auswerten kann (kein automatisches Redirect, damit Fehler sichtbar werden).
+ * Importiert einen Spieltag aus OpenLigaDB (als unzugeordnete Sektion). Gibt ein
+ * Ergebnis zurück, das die UI auswerten kann (kein Redirect, damit Fehler sichtbar).
  */
 export async function importFixturesAction(formData: FormData): Promise<{
   ok: boolean;
   message: string;
-  matchdayId?: string;
 }> {
   await requireAdmin();
   const competitionId = String(formData.get('competitionId'));
@@ -71,10 +80,11 @@ export async function importFixturesAction(formData: FormData): Promise<{
 
   const result = await importFixturesFromOpenLigaDb(competitionId, matchdayNumber);
   revalidatePath('/admin');
+  revalidatePath('/admin/spieltage');
   revalidatePath('/dashboard');
 
   if (result.ok) {
-    return { ok: true, message: `${result.count} Partien importiert.`, matchdayId: result.matchdayId };
+    return { ok: true, message: `${result.sections} Spieltag(e), ${result.count} Partien importiert.` };
   }
   const messages = {
     'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
@@ -92,9 +102,10 @@ export async function importSeasonAction(competitionId: string): Promise<{
   await requireAdmin();
   const result = await importSeasonFromOpenLigaDb(competitionId);
   revalidatePath('/admin');
+  revalidatePath('/admin/spieltage');
   revalidatePath('/dashboard');
   if (result.ok) {
-    return { ok: true, message: `${result.matchdays} Spieltage, ${result.fixtures} Partien importiert.` };
+    return { ok: true, message: `${result.sections} Spieltage, ${result.fixtures} Partien importiert.` };
   }
   const messages = {
     'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
@@ -102,4 +113,115 @@ export async function importSeasonAction(competitionId: string): Promise<{
     error: 'Fehler beim Abruf.',
   } as const;
   return { ok: false, message: messages[result.reason] };
+}
+
+// ─── Tipptag-Gruppierung (Spieltage → Tipptage) ───────────────────────────────
+
+/**
+ * Legt einen leeren Tipptag an (Placeholder-Daten; werden via recalcMatchdaySpan
+ * gesetzt, sobald Spieltage zugeordnet werden). Nummer muss im Wettbewerb eindeutig.
+ */
+export async function createTipptagAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const competitionId = String(formData.get('competitionId'));
+  const number = Number(formData.get('number'));
+  const now = new Date();
+  await createMatchday({
+    competitionId,
+    number,
+    startDate: now,
+    endDate: now,
+    deadlineAt: now,
+  });
+  revalidatePath('/admin/spieltage');
+}
+
+/**
+ * Weist einen Spieltag einem Tipptag zu (oder entfernt die Zuordnung, wenn
+ * matchdayId leer). Start/Ende/Deadline beider beteiligten Tipptage werden (parallel)
+ * neu berechnet. Ein Spieltag ist immer in höchstens einem Tipptag (0..1) und darf
+ * nur in einen Tipptag seines eigenen Wettbewerbs wandern.
+ */
+export async function assignRoundAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const sectionId = String(formData.get('sectionId'));
+  const matchdayRaw = String(formData.get('matchdayId') ?? '');
+  const matchdayId = matchdayRaw === '' ? null : matchdayRaw;
+
+  const section = await prisma.matchdaySection.findUnique({
+    where: { id: sectionId },
+    select: { competitionId: true, matchdayId: true },
+  });
+  if (!section) {
+    return;
+  }
+
+  // Wettbewerb-Invariante: Spieltag darf nur in einen Tipptag seines Wettbewerbs.
+  if (matchdayId) {
+    const target = await prisma.matchday.findUnique({
+      where: { id: matchdayId },
+      select: { competitionId: true },
+    });
+    if (!target || target.competitionId !== section.competitionId) {
+      return;
+    }
+  }
+
+  const previousMatchdayId = section.matchdayId;
+  if (matchdayId !== previousMatchdayId) {
+    await prisma.matchdaySection.update({ where: { id: sectionId }, data: { matchdayId } });
+    const recalcIds = [previousMatchdayId, matchdayId].filter((id): id is string => Boolean(id));
+    await Promise.all(recalcIds.map((id) => recalcMatchdaySpan(id)));
+  }
+  revalidatePath('/admin/spieltage');
+}
+
+/** Setzt die Tipp-Deadline eines Tipptags manuell (und sperrt sie gegen Auto-Recompute). */
+export async function setTipptagDeadlineAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const matchdayId = String(formData.get('matchdayId'));
+  await prisma.matchday.update({
+    where: { id: matchdayId },
+    data: {
+      deadlineAt: parseDate(String(formData.get('deadlineAt'))),
+      deadlineManual: true,
+    },
+  });
+  revalidatePath('/admin/spieltage');
+}
+
+// ─── Manuelle Ergebnis-Erfassung ──────────────────────────────────────────────
+
+function parseStatus(raw: string): FixtureStatus {
+  return raw in FIXTURE_STATUS_LABELS ? (raw as FixtureStatus) : 'SCHEDULED';
+}
+
+/**
+ * Setzt das Ergebnis einer Partie manuell. Markiert die Partie als resultSource=MANUAL
+ * (ein OpenLigaDB-Re-Sync überschreibt sie nicht) und übernimmt alle Ergebnis-Felder –
+ * Halbzeitstand + syncedAt werden zurückgesetzt, damit MANUAL konsistent besitzt.
+ */
+export async function saveResultAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const fixtureId = String(formData.get('fixtureId'));
+  const homeGoals = Number(formData.get('homeGoals'));
+  const awayGoals = Number(formData.get('awayGoals'));
+  await prisma.fixture.update({
+    where: { id: fixtureId },
+    data: {
+      homeGoals: Number.isFinite(homeGoals) ? homeGoals : null,
+      awayGoals: Number.isFinite(awayGoals) ? awayGoals : null,
+      htHomeGoals: null,
+      htAwayGoals: null,
+      syncedAt: null,
+      status: parseStatus(String(formData.get('status'))),
+      resultSource: 'MANUAL',
+    },
+  });
+  // matchdayId wird für revalidate mitgereicht (falls vorhanden).
+  const matchdayId = String(formData.get('matchdayId') ?? '');
+  if (matchdayId) {
+    revalidatePath(`/admin/matchdays/${matchdayId}`);
+  }
+  revalidatePath('/admin/spieltage');
 }
