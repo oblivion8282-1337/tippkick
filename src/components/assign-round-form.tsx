@@ -29,10 +29,12 @@ export function AssignRoundForm({
   }
 
   return (
+    // stopPropagation: Klicks dürfen das umgebende <summary> nicht aufklappen.
     <select
       defaultValue={current ?? ''}
       disabled={pending}
       onChange={(e) => onChange(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
       className="border-input bg-background h-8 rounded-md border px-2 text-sm disabled:opacity-50"
       aria-label="Tipptag zuweisen"
     >

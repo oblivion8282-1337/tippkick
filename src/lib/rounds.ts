@@ -3,16 +3,26 @@ import { DEADLINE_OFFSET_MS } from '@/lib/constants';
 import { spanFromKickoffs } from '@/lib/import-helpers';
 import type { Prisma } from '@/generated/prisma/client';
 
-/** Include für die Spieltag-Übersicht (nur Zählwerte, keine Partien-Zeilen laden). */
+/** Include für die Spieltag-Übersicht (Partien für die Aufklapp-Detailansicht). */
 const roundOverviewInclude = {
   competition: { include: { season: true } },
   matchday: { select: { id: true } },
-  _count: { select: { fixtures: true } },
+  fixtures: {
+    orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }],
+    select: {
+      id: true,
+      homeTeam: true,
+      awayTeam: true,
+      kickoff: true,
+      status: true,
+      homeGoals: true,
+      awayGoals: true,
+      resultSource: true,
+    },
+  },
 } satisfies Prisma.MatchdaySectionInclude;
 
-export type RoundRow = Prisma.MatchdaySectionGetPayload<{ include: typeof roundOverviewInclude }> & {
-  finished: number; // Anzahl beendeter Partien (separat via groupBy ermittelt)
-};
+export type RoundRow = Prisma.MatchdaySectionGetPayload<{ include: typeof roundOverviewInclude }>;
 
 export type ResultState = 'none' | 'partial' | 'complete';
 
@@ -26,24 +36,15 @@ export function resultState(total: number, finished: number): ResultState {
 
 /**
  * Alle Spieltage (Sections) einer Saison, datum-sortiert, inkl. Zuordnung zu einem
- * Tipptag und Ergebnis-Fortschritt (Zählwerte statt geladener Partien). Die
- * Early-L2-only-Phase zeigt sich von selbst, da BL-Sections erst später beginnen.
+ * Tipptag und Partien (für die aufklappbare Detailansicht). Die Early-L2-only-Phase
+ * zeigt sich von selbst, da BL-Sections erst später beginnen.
  */
 export async function getRoundOverview(seasonId: string): Promise<RoundRow[]> {
-  const [sections, finishedGroups] = await Promise.all([
-    prisma.matchdaySection.findMany({
-      where: { competition: { seasonId } },
-      include: roundOverviewInclude,
-      orderBy: [{ startDate: 'asc' }, { league: 'asc' }, { number: 'asc' }],
-    }),
-    prisma.fixture.groupBy({
-      by: ['sectionId'],
-      where: { section: { competition: { seasonId } }, status: 'FINISHED' },
-      _count: { _all: true },
-    }),
-  ]);
-  const finishedBySection = new Map(finishedGroups.map((g) => [g.sectionId, g._count._all]));
-  return sections.map((s) => ({ ...s, finished: finishedBySection.get(s.id) ?? 0 }));
+  return prisma.matchdaySection.findMany({
+    where: { competition: { seasonId } },
+    include: roundOverviewInclude,
+    orderBy: [{ startDate: 'asc' }, { league: 'asc' }, { number: 'asc' }],
+  });
 }
 
 /** Alle Tipptage (Matchdays) einer Saison als Zuordnungsoptionen, sortiert nach Nummer. */

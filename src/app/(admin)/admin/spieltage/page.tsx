@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ChevronRight } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { getRoundOverview, getTipptageOverview, resultState } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
-import { formatDateRange } from '@/lib/datetime';
+import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
 import { CreateSeasonForm } from '@/components/create-season-form';
 import { Button } from '@/components/ui/button';
@@ -119,34 +119,55 @@ export default async function SpieltagePage({
                       </span>
                     )}
                   </div>
-                  <ul className="border-border/60 bg-card divide-y divide-border/40 overflow-hidden rounded-xl border">
-                    {cluster.rows.map((row) => (
-                      <li
-                        key={row.id}
-                        className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm"
-                      >
-                        <span
-                          className="font-medium"
-                          aria-hidden="true"
-                          style={{ color: row.league === 'BL' ? 'var(--primary)' : undefined }}
-                        >
-                          {COMPETITION_SHORT[row.competition.key]} ·{' '}
-                          {row.league ? LEAGUE_SECTION_LABELS[row.league] : 'Wettbewerb'}
-                        </span>
-                        <span className="text-muted-foreground">{row.number}. Spieltag</span>
-                        <span className="text-muted-foreground tabular-nums">
-                          {row._count.fixtures} Partien · {resultLabels[resultState(row._count.fixtures, row.finished)]}
-                        </span>
-                        <span className="ml-auto">
-                          <AssignRoundForm
-                            sectionId={row.id}
-                            tipptage={tipptage}
-                            current={row.matchday?.id ?? null}
-                          />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="border-border/60 bg-card overflow-hidden rounded-xl border">
+                    {cluster.rows.map((row) => {
+                      const total = row.fixtures.length;
+                      const finished = row.fixtures.filter((f) => f.status === 'FINISHED').length;
+                      return (
+                        <details key={row.id} className="group border-border/40 border-b last:border-b-0">
+                          <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-4 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+                            <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+                            <span
+                              className="font-medium"
+                              aria-hidden="true"
+                              style={{ color: row.league === 'BL' ? 'var(--primary)' : undefined }}
+                            >
+                              {COMPETITION_SHORT[row.competition.key]} ·{' '}
+                              {row.league ? LEAGUE_SECTION_LABELS[row.league] : 'Wettbewerb'}
+                            </span>
+                            <span className="text-muted-foreground">{row.number}. Spieltag</span>
+                            <span className="text-muted-foreground tabular-nums">
+                              {total} Partien · {resultLabels[resultState(total, finished)]}
+                            </span>
+                            <span className="ml-auto">
+                              <AssignRoundForm
+                                sectionId={row.id}
+                                tipptage={tipptage}
+                                current={row.matchday?.id ?? null}
+                              />
+                            </span>
+                          </summary>
+                          <ul className="border-border/40 divide-y divide-border/30 border-t">
+                            {row.fixtures.map((f) => (
+                              <li key={f.id} className="flex items-center gap-3 py-2 pr-4 pl-10 text-sm">
+                                <time className="text-muted-foreground w-40 shrink-0 font-mono tabular-nums">
+                                  {formatDateTime(f.kickoff)}
+                                </time>
+                                <span className="text-right font-medium truncate">{f.homeTeam}</span>
+                                <span className="text-muted-foreground shrink-0 font-mono tabular-nums">
+                                  {f.homeGoals ?? '–'} : {f.awayGoals ?? '–'}
+                                </span>
+                                <span className="flex-1 truncate font-medium">{f.awayTeam}</span>
+                                {f.resultSource === 'MANUAL' && (
+                                  <span className="text-muted-foreground shrink-0 text-xs">manuell</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })
