@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { CalendarDays, Layers } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { getRoundOverview, getTipptageOverview, resultState } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
-import { formatDateRange, formatDateTime } from '@/lib/datetime';
+import { formatDateRange } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
 import { CreateSeasonForm } from '@/components/create-season-form';
 import { Button } from '@/components/ui/button';
@@ -13,12 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/page-header';
-import { createTipptagAction, setTipptagDeadlineAction } from '@/app/(admin)/admin/actions';
-
-function toLocalInput(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+import { createTipptagAction } from '@/app/(admin)/admin/actions';
 
 /** ISO-Jahr-Woche als Gruppierungsschlüssel (für die Wochenend-Cluster). */
 function weekKey(date: Date): string {
@@ -56,7 +51,6 @@ export default async function SpieltagePage({
     getCompetitionsAdmin(season.id),
   ]);
 
-  const tipptagOptions = tipptage.map((t) => ({ id: t.id, number: t.number }));
   const resultLabels = { none: 'offen', partial: 'teilweise', complete: 'fertig' } as const;
 
   // Spieltage nach Woche clustern (Datumssortierung bleibt erhalten).
@@ -83,70 +77,29 @@ export default async function SpieltagePage({
 
       <Card>
         <CardHeader className="border-b border-border/40">
-          <CardTitle className="flex items-center gap-2">
-            <Layers className="h-4 w-4" /> Tipptage ({tipptage.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-5">
-          {tipptage.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Noch keine Tipptage. Unten Spieltage importieren und dann hier gruppieren.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {tipptage.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex flex-wrap items-center gap-3 border-border/60 rounded-lg border px-3 py-2 text-sm"
-                >
-                  <span className="font-display font-semibold">{t.number}. Tipptag</span>
-                  <span className="text-muted-foreground">
-                    {t._count.sections} Spieltag(e) · Deadline {formatDateTime(t.deadlineAt)}
-                  </span>
-                  <form action={setTipptagDeadlineAction} className="ml-auto flex items-center gap-2">
-                    <input type="hidden" name="matchdayId" value={t.id} />
-                    <Input
-                      key={toLocalInput(t.deadlineAt)}
-                      name="deadlineAt"
-                      type="datetime-local"
-                      defaultValue={toLocalInput(t.deadlineAt)}
-                      className="h-8 w-44"
-                      aria-label="Deadline"
-                    />
-                    <Button type="submit" size="sm" variant="outline">
-                      Deadline
-                    </Button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {competitions.length > 0 && (
-            <form action={createTipptagAction} className="flex flex-wrap items-end gap-3 pt-2">
-              <input type="hidden" name="competitionId" value={competitions[0].id} />
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="count">Anzahl Tipptage</Label>
-                <Input id="count" name="count" type="number" min={1} max={100} defaultValue={34} className="w-28" />
-              </div>
-              <Button type="submit" size="sm">
-                Tipptage anlegen
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="border-b border-border/40">
-          <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" /> Spieltage ({rounds.length})
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Spieltage ({rounds.length})
+            </CardTitle>
+            {competitions.length > 0 && (
+              <form action={createTipptagAction} className="flex items-center gap-2">
+                <input type="hidden" name="competitionId" value={competitions[0].id} />
+                <Label htmlFor="count" className="text-muted-foreground whitespace-nowrap text-xs">
+                  Tipptage anlegen:
+                </Label>
+                <Input id="count" name="count" type="number" min={1} max={100} defaultValue={34} className="h-8 w-20" />
+                <Button type="submit" size="sm">
+                  Anlegen
+                </Button>
+              </form>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6 pt-5">
           {clusters.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              Keine Spieltage. Erst über den OpenLigaDB-Import laden (Admin-Startseite).
+              Keine Spieltage für diese Saison. Der OpenLigaDB-Import läuft automatisch (Cron);
+              in Dev per <code className="font-mono">pnpm sync:results</code> anstoßen.
             </p>
           ) : (
             clusters.map((cluster) => {
@@ -187,7 +140,7 @@ export default async function SpieltagePage({
                         <span className="ml-auto">
                           <AssignRoundForm
                             sectionId={row.id}
-                            tipptage={tipptagOptions}
+                            tipptage={tipptage}
                             current={row.matchday?.id ?? null}
                           />
                         </span>

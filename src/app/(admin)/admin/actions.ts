@@ -124,20 +124,6 @@ export async function assignRoundAction(formData: FormData): Promise<void> {
   revalidatePath('/admin/spieltage');
 }
 
-/** Setzt die Tipp-Deadline eines Tipptags manuell (und sperrt sie gegen Auto-Recompute). */
-export async function setTipptagDeadlineAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-  const matchdayId = String(formData.get('matchdayId'));
-  await prisma.matchday.update({
-    where: { id: matchdayId },
-    data: {
-      deadlineAt: parseDate(String(formData.get('deadlineAt'))),
-      deadlineManual: true,
-    },
-  });
-  revalidatePath('/admin/spieltage');
-}
-
 // ─── Manuelle Ergebnis-Erfassung ──────────────────────────────────────────────
 
 function parseStatus(raw: string): FixtureStatus {
