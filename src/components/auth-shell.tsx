@@ -21,15 +21,6 @@ export function AuthShell({
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <aside className="from-card via-card to-pitch/8 relative hidden overflow-hidden bg-gradient-to-br p-12 lg:flex lg:flex-col lg:justify-between dark:bg-gradient-to-br dark:from-card dark:via-card dark:to-pitch/12">
-        {/* Subtile Pitch-Linien als Hintergrund-Akzent. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.08]"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(90deg, transparent 0, transparent 48px, currentColor 48px, currentColor 49px)',
-          }}
-        />
         <Link href="/" className="relative z-10 inline-flex">
           <Wordmark size="lg" />
         </Link>

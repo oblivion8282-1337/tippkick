@@ -53,35 +53,75 @@
 }
 
 /*
- * Licht: warmes Off-White (Papier) + Pitch-Green Akzent. Hintergrund-Ton ist
- * bewusst nicht reines Weiß — das Portal soll sich wie ein gedruckter Spieltag-
- * zettel anfühlen, nicht wie eine generische SaaS-App.
+ * Default = „Dark Stage": tiefer Anthrazit-Hintergrund mit zwei dezenten,
+ * weichen radialen Verläufen (weißer Glow oben links + Pitch-Green Glow
+ * unten rechts) — gibt der Seite Tiefe, ohne abzulenken. Buttons bleiben
+ * Pitch-Green (das ist die Signatur des Vereins).
  */
 :root {
-  --background: oklch(0.965 0.012 95); /* #F4F1E8 — warmes Off-White */
-  --foreground: oklch(0.21 0.018 160); /* #15201A — Schwarz mit Grün-Stich */
-  --card: oklch(0.985 0.008 95); /* #FBFAF3 — Paper, leicht erhöht */
+  --background: oklch(0.135 0.008 260); /* Anthrazit-Schwarz, leicht blau-stichig */
+  --foreground: oklch(0.94 0.008 90); /* warmes Off-White */
+  --card: oklch(0.19 0.008 260); /* eine Stufe heller als BG */
+  --card-foreground: oklch(0.94 0.008 90);
+  --popover: oklch(0.19 0.008 260);
+  --popover-foreground: oklch(0.94 0.008 90);
+  --primary: oklch(0.74 0.14 152); /* #46D693 — Pitch-Green */
+  --primary-foreground: oklch(0.135 0.008 260);
+  --secondary: oklch(0.24 0.008 260);
+  --secondary-foreground: oklch(0.94 0.008 90);
+  --muted: oklch(0.22 0.008 260);
+  --muted-foreground: oklch(0.68 0.012 155); /* gedämpftes Grau */
+  --accent: oklch(0.74 0.13 80); /* #D7B055 — Gold (Ocker) */
+  --accent-foreground: oklch(0.135 0.05 80);
+  --destructive: oklch(0.65 0.18 28); /* #E07263 */
+  --border: oklch(0.28 0.008 260); /* dunkles Grau */
+  --input: oklch(0.32 0.01 260);
+  --ring: oklch(0.74 0.14 152);
+  --chart-1: oklch(0.74 0.14 152);
+  --chart-2: oklch(0.74 0.13 80);
+  --chart-3: oklch(0.65 0.18 28);
+  --chart-4: oklch(0.55 0.04 160);
+  --chart-5: oklch(0.4 0.02 160);
+  --radius: 0.75rem;
+  --paper: oklch(0.19 0.008 260);
+  --paper-foreground: oklch(0.94 0.008 90);
+  --pitch: oklch(0.74 0.14 152);
+  --pitch-foreground: oklch(0.135 0.008 260);
+  --sidebar: oklch(0.18 0.008 260);
+  --sidebar-foreground: oklch(0.94 0.008 90);
+  --sidebar-primary: oklch(0.74 0.14 152);
+  --sidebar-primary-foreground: oklch(0.135 0.008 260);
+  --sidebar-accent: oklch(0.24 0.008 260);
+  --sidebar-accent-foreground: oklch(0.94 0.008 90);
+  --sidebar-border: oklch(0.28 0.008 260);
+  --sidebar-ring: oklch(0.6 0.02 160);
+}
+
+/* Heller Modus: wärmeres Off-White-Stage mit Pitch-Green-Akzent — wer es hell mag. */
+.light {
+  --background: oklch(0.96 0.012 95); /* warmes Off-White */
+  --foreground: oklch(0.21 0.018 160);
+  --card: oklch(0.985 0.008 95);
   --card-foreground: oklch(0.21 0.018 160);
   --popover: oklch(0.985 0.008 95);
   --popover-foreground: oklch(0.21 0.018 160);
-  --primary: oklch(0.5 0.11 152); /* #1F7A4D — Pitch-Green */
+  --primary: oklch(0.5 0.11 152); /* Pitch-Green, dunkler */
   --primary-foreground: oklch(0.985 0.008 95);
-  --secondary: oklch(0.92 0.018 90); /* #EAE6D9 — warmes Beige */
+  --secondary: oklch(0.92 0.018 90);
   --secondary-foreground: oklch(0.27 0.02 160);
   --muted: oklch(0.93 0.015 95);
-  --muted-foreground: oklch(0.48 0.015 155); /* #5A6357 */
-  --accent: oklch(0.72 0.13 80); /* #C49B3B — Ocker/Gold (Saison-Akzent) */
+  --muted-foreground: oklch(0.48 0.015 155);
+  --accent: oklch(0.72 0.13 80);
   --accent-foreground: oklch(0.21 0.05 80);
-  --destructive: oklch(0.5 0.16 28); /* #A6362B */
-  --border: oklch(0.88 0.018 90); /* #E1DCCB — warmes Hellgrau */
-  --input: oklch(0.84 0.02 88); /* #D4CDB7 */
+  --destructive: oklch(0.5 0.16 28);
+  --border: oklch(0.88 0.018 90);
+  --input: oklch(0.84 0.02 88);
   --ring: oklch(0.5 0.11 152);
   --chart-1: oklch(0.5 0.11 152);
   --chart-2: oklch(0.72 0.13 80);
   --chart-3: oklch(0.5 0.16 28);
   --chart-4: oklch(0.65 0.04 160);
   --chart-5: oklch(0.4 0.02 160);
-  --radius: 0.75rem;
   --paper: oklch(0.985 0.008 95);
   --paper-foreground: oklch(0.21 0.018 160);
   --pitch: oklch(0.5 0.11 152);
@@ -94,45 +134,6 @@
   --sidebar-accent-foreground: oklch(0.21 0.018 160);
   --sidebar-border: oklch(0.88 0.018 90);
   --sidebar-ring: oklch(0.7 0.02 95);
-}
-
-/* Dunkel: tiefes Grün-Schwarz (nicht pures Black) — wie ein Stadion bei Flutlicht. */
-.dark {
-  --background: oklch(0.18 0.015 165); /* #0E1A14 */
-  --foreground: oklch(0.93 0.01 100); /* #E8EAE3 */
-  --card: oklch(0.22 0.018 165); /* #16241B */
-  --card-foreground: oklch(0.93 0.01 100);
-  --popover: oklch(0.22 0.018 165);
-  --popover-foreground: oklch(0.93 0.01 100);
-  --primary: oklch(0.74 0.14 152); /* #46D693 — helleres Pitch-Green */
-  --primary-foreground: oklch(0.18 0.015 165);
-  --secondary: oklch(0.27 0.02 165); /* #1B2A20 */
-  --secondary-foreground: oklch(0.93 0.01 100);
-  --muted: oklch(0.27 0.02 165);
-  --muted-foreground: oklch(0.7 0.015 155); /* #A0AB9F */
-  --accent: oklch(0.74 0.13 80); /* #D7B055 */
-  --accent-foreground: oklch(0.18 0.05 80);
-  --destructive: oklch(0.65 0.18 28); /* #E07263 */
-  --border: oklch(0.32 0.025 165); /* #2A3A2E */
-  --input: oklch(0.36 0.03 165); /* #3A4B3D */
-  --ring: oklch(0.74 0.14 152);
-  --chart-1: oklch(0.74 0.14 152);
-  --chart-2: oklch(0.74 0.13 80);
-  --chart-3: oklch(0.65 0.18 28);
-  --chart-4: oklch(0.55 0.04 160);
-  --chart-5: oklch(0.4 0.02 160);
-  --paper: oklch(0.22 0.018 165);
-  --paper-foreground: oklch(0.93 0.01 100);
-  --pitch: oklch(0.74 0.14 152);
-  --pitch-foreground: oklch(0.18 0.015 165);
-  --sidebar: oklch(0.2 0.018 165);
-  --sidebar-foreground: oklch(0.93 0.01 100);
-  --sidebar-primary: oklch(0.74 0.14 152);
-  --sidebar-primary-foreground: oklch(0.18 0.015 165);
-  --sidebar-accent: oklch(0.27 0.02 165);
-  --sidebar-accent-foreground: oklch(0.93 0.01 100);
-  --sidebar-border: oklch(0.32 0.025 165);
-  --sidebar-ring: oklch(0.6 0.02 160);
 }
 
 @layer base {
@@ -178,29 +179,35 @@
 
 /* Selection in Pitch-Green — typografisches Detail. */
 ::selection {
+  background-color: oklch(0.74 0.14 152 / 0.4);
+  color: oklch(0.94 0.008 90);
+}
+.light ::selection {
   background-color: oklch(0.5 0.11 152 / 0.25);
   color: oklch(0.21 0.018 160);
 }
-.dark ::selection {
-  background-color: oklch(0.74 0.14 152 / 0.35);
-  color: oklch(0.93 0.01 100);
-}
 
 /*
- * Hintergrund-Substanz: dezente, fast unsichtbare Linienraster, die an ein
- * Notizbuch erinnern. Liegt unter dem Inhalt, lenkt nicht ab.
+ * Stage-Hintergrund: Anthrazit mit zwei weichen radialen Verläufen.
+ * - Weißer Glow oben links (Spotlight-Effekt)
+ * - Pitch-Green Glow unten rechts (sehr dezent, gibt der Seite eine subtile Wärme)
+ * Beide fixiert (background-attachment: fixed) damit sie beim Scrollen
+ * stehen bleiben — die Seite fühlt sich dadurch räumlich an.
  */
-.bg-paper {
+.bg-stage {
   background-color: var(--background);
   background-image:
-    linear-gradient(oklch(0.21 0.018 160 / 0.025) 1px, transparent 1px);
-  background-size: 100% 2.5rem;
-  background-position: 0 1.25rem;
+    radial-gradient(ellipse 80% 60% at 20% 0%, oklch(1 0 0 / 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 45% at 100% 100%, oklch(0.74 0.14 152 / 0.06) 0%, transparent 55%);
   background-attachment: fixed;
+  background-repeat: no-repeat;
 }
-.dark .bg-paper {
-  background-image:
-    linear-gradient(oklch(0.93 0.01 100 / 0.025) 1px, transparent 1px);
+
+.bg-stage-soft {
+  background-color: var(--background);
+  background-image: radial-gradient(ellipse 80% 60% at 20% 0%, oklch(1 0 0 / 0.04) 0%, transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 /* Akzent-Bar — Pitch-Green-Streifen (z. B. links neben Liga-Sektionen). */

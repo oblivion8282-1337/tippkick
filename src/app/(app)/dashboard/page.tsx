@@ -5,7 +5,6 @@ import { getCompetitions, isTippable, pickActiveMatchday, pickDefaultMatchday } 
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
-import { Button } from '@/components/ui/button';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 import { Wordmark } from '@/components/wordmark';
@@ -201,21 +200,17 @@ function WeekendHero({
         </div>
 
         <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          <Button
-            render={
-              <Link
-                href={{
-                  pathname: '/tippen',
-                  query: { competition: row.c.key, matchday: row.md.number },
-                }}
-              />
-            }
+          <LinkButton
+            href={{
+              pathname: '/tippen',
+              query: { competition: row.c.key, matchday: row.md.number },
+            }}
             size="lg"
             className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-12 px-6 text-base shadow-[0_8px_24px_-8px_oklch(0.5_0.11_152/0.6)]"
           >
-            {row.open ? 'Jetzt tippen' : finished ? 'Ansehen' : 'Ansehen'}
+            {row.open ? 'Jetzt tippen' : 'Ansehen'}
             <ChevronRight />
-          </Button>
+          </LinkButton>
           <p className="text-muted-foreground text-right text-xs">
             {row.open
               ? 'Tippspeicherung erfolgt automatisch beim Tippen.'
