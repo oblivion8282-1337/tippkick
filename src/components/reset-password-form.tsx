@@ -36,8 +36,8 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="space-y-2">
         <Label htmlFor="password">Neues Passwort</Label>
         <Input
           id="password"
@@ -45,12 +45,21 @@ export function ResetPasswordForm() {
           required
           minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
+          placeholder={`Mindestens ${MIN_PASSWORD_LENGTH} Zeichen`}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
-      {error && <p className="text-destructive text-sm">{error}</p>}
-      <Button type="submit" disabled={pending}>
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+      <Button
+        type="submit"
+        disabled={pending}
+        className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0.5_0.11_152/0.6)]"
+      >
         {pending ? 'Speichern …' : 'Passwort setzen'}
       </Button>
     </form>

@@ -5,11 +5,11 @@ import Link from 'next/link';
 
 import { authClient, requestVerificationEmail } from '@/lib/auth-client';
 import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
+import { AuthShell } from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LinkButton } from '@/components/link-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LinkButton } from '@/components/link-button';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -38,73 +38,81 @@ export default function RegisterPage() {
 
   if (done) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-8">
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Bestätige deine E-Mail</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground space-y-4 text-sm">
-            <p>
-              Wir haben dir einen Bestätigungs-Link geschickt (in der Entwicklung wird er in der Konsole ausgegeben).
-              Bitte klicke darauf, um dein Konto zu aktivieren.
-            </p>
-            <LinkButton href="/login" variant="outline" className="w-full">
-              Zum Login
-            </LinkButton>
-          </CardContent>
-        </Card>
-      </main>
+      <AuthShell eyebrow="Fast geschafft" title="Bestätige deine E-Mail" subtitle="Wir haben dir einen Link geschickt.">
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          Klicke auf den Bestätigungs-Link in der Mail, um dein Konto zu aktivieren. In der Entwicklung wird er
+          in der Konsole ausgegeben.
+        </p>
+        <LinkButton href="/login" variant="outline" className="mt-6 w-full">
+          Zum Login
+        </LinkButton>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Registrieren</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Name (dein Tipper-Name)</Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">E-Mail</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Passwort</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                autoComplete="new-password"
-                minLength={MIN_PASSWORD_LENGTH}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <AuthShell
+      eyebrow="Willkommen im Verein"
+      title="Konto erstellen"
+      subtitle="Tipper-Name, E-Mail, Passwort — fertig."
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            id="name"
+            required
+            autoComplete="nickname"
+            placeholder="So kennt dich die Tippleitung"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">E-Mail</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Passwort</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD_LENGTH}
+            placeholder={`Mindestens ${MIN_PASSWORD_LENGTH} Zeichen`}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-            {error && <p className="text-destructive text-sm">{error}</p>}
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
 
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Registriere …' : 'Konto erstellen'}
-            </Button>
+        <Button
+          type="submit"
+          disabled={pending}
+          className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0.5_0.11_152/0.6)]"
+        >
+          {pending ? 'Registriere …' : 'Konto erstellen'}
+        </Button>
 
-            <Link href="/login" className="text-muted-foreground text-center text-sm hover:underline">
-              Schon ein Konto? Einloggen.
-            </Link>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+        <p className="text-muted-foreground text-center text-sm">
+          <Link href="/login" className="hover:text-foreground hover:underline">
+            Schon ein Konto? Einloggen.
+          </Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }

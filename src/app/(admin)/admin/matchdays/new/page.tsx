@@ -4,13 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/page-header';
 
 export default async function NewMatchdayPage() {
   const competitions = await getCompetitionsAdmin();
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Spieltag anlegen</h1>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Tippleitung"
+        title="Spieltag anlegen"
+        description="Manuell anlegen — Partien kannst du auf der Detailseite ergänzen."
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Stammdaten</CardTitle>
@@ -22,13 +28,13 @@ export default async function NewMatchdayPage() {
             </p>
           ) : (
             <form action={createMatchdayAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="competitionId">Wettbewerb</Label>
                 <select
                   id="competitionId"
                   name="competitionId"
                   defaultValue={competitions[0].id}
-                  className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/40 h-9 w-full rounded-lg border px-3 text-sm shadow-sm outline-none focus-visible:ring-4"
                   required
                 >
                   {competitions.map((c) => (
@@ -38,12 +44,15 @@ export default async function NewMatchdayPage() {
                   ))}
                 </select>
               </div>
-              <Field label="Spieltag (Nr.)" name="number" type="number" defaultValue="1" />
+              <Field label="Tipptag (Nr.)" name="number" type="number" defaultValue="1" />
               <Field label="Startdatum" name="startDate" type="date" />
               <Field label="Enddatum" name="endDate" type="date" />
-              <Field label="Deadline (Tippschluss)" name="deadlineAt" type="datetime-local" />
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="deadlineAt">Deadline (Tippschluss)</Label>
+                <Input id="deadlineAt" name="deadlineAt" type="datetime-local" required />
+              </div>
               <div className="sm:col-span-2">
-                <Button type="submit">Anlegen & Partien erfassen</Button>
+                <Button type="submit">Anlegen</Button>
               </div>
             </form>
           )}
@@ -65,7 +74,7 @@ function Field({
   defaultValue?: string;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
       <Input id={name} name={name} type={type} defaultValue={defaultValue} required />
     </div>

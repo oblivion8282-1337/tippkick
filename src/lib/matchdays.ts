@@ -58,6 +58,7 @@ export async function getCompetitions() {
     where: { seasonId: season.id },
     orderBy: { sortOrder: 'asc' },
     include: {
+      season: { select: { name: true } },
       matchdays: {
         orderBy: { number: 'asc' },
         select: {

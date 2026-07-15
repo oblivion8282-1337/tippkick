@@ -27,7 +27,6 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 const DEBOUNCE_MS = 500;
 
 export function TipMaskForm({ sections, existingTips, open }: Props) {
-  // Flache Liste aller Fixtures (für State + Zähler) – behält Reihenfolge der Sektionen bei.
   const allFixtures = useMemo(() => sections.flatMap((s) => s.fixtures), [sections]);
 
   const [values, setValues] = useState<Record<string, { home: string; away: string }>>(() => {
@@ -58,7 +57,7 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
     setValues((prevValues) => ({ ...prevValues, [fixtureId]: updated }));
 
     if (!open) {
-      return; // nach Deadline keine Saves
+      return;
     }
 
     setSaveState('saving');
@@ -78,76 +77,128 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
   }
 
   // Sortiere Sections: Single-Liga zuerst (league=null), dann BL, dann L2.
-  const orderedSections = useMemo(
-    () =>
-      [...sections].sort((a, b) => {
-        const ka = a.league === null ? 0 : LEAGUE_SECTION_ORDER.indexOf(a.league) + 1;
-        const kb = b.league === null ? 0 : LEAGUE_SECTION_ORDER.indexOf(b.league) + 1;
-        return ka - kb;
-      }),
-    [sections],
-  );
+  const orderedSections = useMemo(() => {
+    const sortKey = (s: TipSection): number => {
+      if (s.league === null) {
+        return 0;
+      }
+      const idx = LEAGUE_SECTION_ORDER.indexOf(s.league);
+      return idx + 1;
+    };
+    return [...sections].sort((a, b) => sortKey(a) - sortKey(b));
+  }, [sections]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-muted-foreground text-sm">
-          {tippedCount} / {allFixtures.length} getippt
-        </span>
-        <SaveBadge state={saveState} />
-      </div>
+    <div className="space-y-6">
+      <SaveBadgeBar tippedCount={tippedCount} total={allFixtures.length} state={saveState} />
 
-      <div className="space-y-6">
-        {orderedSections.map((section) => (
-          <section key={`${section.league ?? 'none'}-${section.number}`} className="space-y-2">
-            <h2 className="font-medium">
-              {section.league ? LEAGUE_SECTION_LABELS[section.league] : 'Wettbewerb'} · {section.number}. Spieltag
-            </h2>
-            <div className="overflow-hidden rounded-lg border">
-              {section.fixtures.map((f) => (
-                <FixtureRow
-                  key={f.id}
-                  fixture={f}
-                  home={values[f.id]?.home ?? ''}
-                  away={values[f.id]?.away ?? ''}
-                  disabled={!open}
-                  onChange={(side, v) => handleChange(f.id, side, v)}
-                />
-              ))}
-            </div>
-          </section>
+      <div className="space-y-8">
+        {orderedSections.map((section, sectionIndex) => (
+          <LigaSection
+            key={`${section.league ?? 'none'}-${section.number}`}
+            section={section}
+            first={sectionIndex === 0}
+            values={values}
+            onChange={handleChange}
+            disabled={!open}
+          />
         ))}
       </div>
 
       {!open && (
-        <p className="text-destructive text-sm">
-          Die Deadline ist abgelaufen – Tipps können nicht mehr geändert werden.
+        <p className="text-muted-foreground border-border/60 bg-muted/40 rounded-lg border px-4 py-3 text-sm">
+          Die Deadline ist abgelaufen — Tipps können nicht mehr geändert werden.
         </p>
       )}
     </div>
   );
 }
 
+/** Eine Liga-Sektion (z. B. „1. Liga · 1. Spieltag") als klar abgegrenzter Block. */
+function LigaSection({
+  section,
+  first,
+  values,
+  onChange,
+  disabled,
+}: {
+  section: TipSection;
+  first: boolean;
+  values: Record<string, { home: string; away: string }>;
+  onChange: (fixtureId: string, side: 'home' | 'away', raw: string) => void;
+  disabled: boolean;
+}) {
+  const title = section.league ? LEAGUE_SECTION_LABELS[section.league] : 'Wettbewerb';
+  return (
+    <section className="relative">
+      {/* Pitch-Green Akzentstreifen links — Signatur des Designs. */}
+      <div
+        aria-hidden="true"
+        className="pitch-bar absolute top-2 bottom-2 left-0 w-1 rounded-full"
+      />
+      <div className="pl-5 sm:pl-7">
+        <header className="mb-3 flex items-baseline justify-between gap-4">
+          <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+            {title}
+            <span className="text-muted-foreground ml-3 font-display text-2xl font-normal sm:text-3xl">
+              · {section.number}. Spieltag
+            </span>
+          </h2>
+          <span className="text-muted-foreground font-mono text-xs tabular-nums">
+            {section.fixtures.length} {section.fixtures.length === 1 ? 'Partie' : 'Partien'}
+          </span>
+        </header>
+
+        <div className="bg-card ring-foreground/8 overflow-hidden rounded-2xl shadow-[0_1px_0_oklch(0.21_0.018_160/0.04),0_8px_24px_-12px_oklch(0.21_0.018_160/0.12)] ring-1 dark:shadow-[0_1px_0_oklch(0.93_0.01_100/0.04),0_8px_24px_-12px_oklch(0_0_0/0.4)]">
+          {section.fixtures.map((fixture, index) => (
+            <FixtureRow
+              key={fixture.id}
+              fixture={fixture}
+              home={values[fixture.id]?.home ?? ''}
+              away={values[fixture.id]?.away ?? ''}
+              disabled={disabled}
+              striped={!first && index % 2 === 0}
+              onChange={(side, v) => onChange(fixture.id, side, v)}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Eine einzelne Partie: Heim — Tipp-Heim : Tipp-Gast — Gast. Tipp-Zahlen in Mono. */
 function FixtureRow({
   fixture,
   home,
   away,
   disabled,
+  striped,
   onChange,
 }: {
   fixture: TipSectionFixture;
   home: string;
   away: string;
   disabled: boolean;
+  striped: boolean;
   onChange: (side: 'home' | 'away', value: string) => void;
 }) {
+  const complete = isFilled(home) && isFilled(away);
   return (
-    <div className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
-      <span className="flex-1 text-right text-base">{fixture.homeTeam}</span>
-      <TipInput value={home} disabled={disabled} onChange={(v) => onChange('home', v)} />
-      <span className="text-muted-foreground">:</span>
-      <TipInput value={away} disabled={disabled} onChange={(v) => onChange('away', v)} />
-      <span className="flex-1 text-base">{fixture.awayTeam}</span>
+    <div
+      className={cn(
+        'grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0 sm:gap-4 sm:px-6 sm:py-3.5',
+        striped && 'bg-muted/30',
+        complete && 'bg-pitch/[0.06] dark:bg-pitch/[0.08]',
+      )}
+    >
+      <span className="truncate text-right text-base font-medium sm:text-lg">{fixture.homeTeam}</span>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <TipInput value={home} disabled={disabled} placeholder="–" onChange={(v) => onChange('home', v)} aria-label={`Tipp ${fixture.homeTeam}`} />
+        <span className="text-muted-foreground font-mono text-base font-light select-none">:</span>
+        <TipInput value={away} disabled={disabled} placeholder="–" onChange={(v) => onChange('away', v)} aria-label={`Tipp ${fixture.awayTeam}`} />
+      </div>
+      <span className="truncate text-base font-medium sm:text-lg">{fixture.awayTeam}</span>
     </div>
   );
 }
@@ -155,11 +206,15 @@ function FixtureRow({
 function TipInput({
   value,
   disabled,
+  placeholder,
   onChange,
+  ...rest
 }: {
   value: string;
   disabled: boolean;
+  placeholder?: string;
   onChange: (value: string) => void;
+  'aria-label'?: string;
 }) {
   return (
     <Input
@@ -169,26 +224,106 @@ function TipInput({
       max={MAX_GOALS}
       value={value}
       disabled={disabled}
+      placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-14 text-center text-base"
+      className="font-mono w-12 border-transparent bg-muted/60 text-center text-base font-medium tabular-nums shadow-none transition-colors hover:bg-muted focus-visible:bg-background sm:w-14 sm:text-lg"
+      aria-label={rest['aria-label']}
     />
+  );
+}
+
+function SaveBadgeBar({
+  tippedCount,
+  total,
+  state,
+}: {
+  tippedCount: number;
+  total: number;
+  state: SaveState;
+}) {
+  const ratio = total === 0 ? 0 : tippedCount / total;
+  return (
+    <div className="border-border/40 bg-card/50 flex items-center justify-between rounded-2xl border px-4 py-3 sm:px-5">
+      <div className="flex items-center gap-3">
+        <span className="font-display text-2xl font-semibold tabular-nums">
+          {tippedCount}
+          <span className="text-muted-foreground">/{total}</span>
+        </span>
+        <span className="text-muted-foreground text-sm">getippt</span>
+        <div className="bg-muted ml-2 hidden h-1.5 w-24 overflow-hidden rounded-full sm:block" aria-hidden="true">
+          <div
+            className="bg-pitch h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${Math.round(ratio * 100)}%` }}
+          />
+        </div>
+      </div>
+      <SaveBadge state={state} />
+    </div>
   );
 }
 
 function SaveBadge({ state }: { state: SaveState }) {
   return (
     <span
+      role="status"
+      aria-live="polite"
       className={cn(
-        'text-sm',
+        'flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider',
         state === 'saving' && 'text-muted-foreground',
-        state === 'saved' && 'text-primary',
+        state === 'saved' && 'text-pitch',
         state === 'error' && 'text-destructive',
+        state === 'idle' && 'text-muted-foreground/70',
       )}
     >
+      {state === 'saving' && <Spinner />}
+      {state === 'saved' && <Check />}
+      {state === 'error' && (
+        <>
+          <Cross />
+          Fehler
+        </>
+      )}
+      {state === 'idle' && (
+        <>
+          <Pencil />
+          offen
+        </>
+      )}
       {state === 'saving' && 'speichert …'}
       {state === 'saved' && 'gespeichert'}
-      {state === 'error' && 'Fehler beim Speichern'}
     </span>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" className="animate-spin" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" fill="none" />
+      <path d="M22 12 A10 10 0 0 0 12 2" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+function Check() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function Cross() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
+      <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
+    </svg>
+  );
+}
+function Pencil() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M12 20h9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

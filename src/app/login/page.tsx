@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
+import { AuthShell } from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -34,53 +34,54 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Einloggen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">E-Mail</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Passwort</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <AuthShell eyebrow="Willkommen zurück" title="Einloggen" subtitle="Setze deine Tipps fürs Wochenende.">
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="email">E-Mail</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Passwort</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-            {error && <p className="text-destructive text-sm">{error}</p>}
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
 
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Einloggen …' : 'Einloggen'}
-            </Button>
+        <Button
+          type="submit"
+          disabled={pending}
+          className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0.5_0.11_152/0.6)]"
+        >
+          {pending ? 'Einloggen …' : 'Einloggen'}
+        </Button>
 
-            <div className="text-muted-foreground flex flex-col gap-1 text-sm">
-              <Link href="/forgot-password" className="hover:underline">
-                Passwort vergessen?
-              </Link>
-              <Link href="/register" className="hover:underline">
-                Noch kein Konto? Jetzt registrieren.
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+        <div className="text-muted-foreground flex flex-col gap-1 pt-2 text-sm">
+          <Link href="/forgot-password" className="hover:text-foreground hover:underline">
+            Passwort vergessen?
+          </Link>
+          <Link href="/register" className="hover:text-foreground hover:underline">
+            Noch kein Konto? Jetzt registrieren.
+          </Link>
+        </div>
+      </form>
+    </AuthShell>
   );
 }

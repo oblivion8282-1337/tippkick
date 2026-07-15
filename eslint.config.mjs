@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Lokale Dev-/Review-Tools — nicht Teil des App-Codes.
+    'scripts/**',
   ]),
 ]);
 

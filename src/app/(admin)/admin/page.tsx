@@ -1,47 +1,91 @@
+import Link from 'next/link';
+import { ChevronRight, FileSpreadsheet, Sparkles } from 'lucide-react';
+
 import { getMatchdays } from '@/lib/matchdays';
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImportFixturesForm } from '@/components/import-fixtures-form';
 import { LinkButton } from '@/components/link-button';
+import { PageHeader } from '@/components/page-header';
+import { formatDateRange } from '@/lib/datetime';
 
 export default async function AdminHomePage() {
   const [matchdays, competitions] = await Promise.all([getMatchdays(), getCompetitionsAdmin()]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Spieltage</h1>
-        <LinkButton href="/admin/matchdays/new">Neuer Spieltag (manuell)</LinkButton>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Spieltag aus OpenLigaDB laden</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ImportFixturesForm competitions={competitions} />
-        </CardContent>
-      </Card>
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow="Tippleitung"
+        title="Spieltage"
+        description="Tipptage verwalten, Partien importieren und am Spieltag die Tipps als Excel exportieren."
+        actions={
+          <LinkButton href="/admin/matchdays/new" variant="outline" size="sm">
+            Manuell anlegen
+          </LinkButton>
+        }
+      />
 
       {matchdays.length === 0 ? (
-        <p className="text-muted-foreground">Noch keine Spieltage angelegt.</p>
+        <Card>
+          <CardContent className="text-muted-foreground py-12 text-center text-sm">
+            Noch keine Spieltage angelegt.
+          </CardContent>
+        </Card>
       ) : (
-        <ul className="divide-y rounded-lg border">
-          {matchdays.map((md) => (
-            <li key={md.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <span className="font-medium">
-                  {md.competition.name} – {md.number}. Tipptag
-                  {md.isActive && <span className="text-primary ml-2 text-sm">(aktiv)</span>}
-                </span>
-                <span className="text-muted-foreground ml-2 text-sm">{md.competition.season.name}</span>
-              </div>
-              <LinkButton href={`/admin/matchdays/${md.id}`} variant="outline" size="sm">
-                {md._count.sections} {md._count.sections === 1 ? 'Sektion' : 'Sektionen'} →
-              </LinkButton>
-            </li>
-          ))}
-        </ul>
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle>Alle Tipptage</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
+            <ul className="divide-y divide-border/40">
+              {matchdays.map((md) => (
+                <li key={md.id}>
+                  <Link
+                    href={`/admin/matchdays/${md.id}`}
+                    className="hover:bg-muted/40 group flex items-center justify-between gap-4 px-6 py-4 transition-colors"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-baseline gap-3">
+                        <span className="font-display text-2xl font-semibold tabular-nums">
+                          {md.number}.
+                        </span>
+                        <span className="font-medium">{md.competition.name}</span>
+                        {md.isActive && (
+                          <span className="bg-pitch/10 text-pitch inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium">
+                            <Sparkles className="h-3 w-3" />
+                            aktiv
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-sm">
+                        {md.competition.season.name} · {formatDateRange(md.startDate, md.endDate)} ·{' '}
+                        {md._count.sections} {md._count.sections === 1 ? 'Sektion' : 'Sektionen'}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-muted-foreground hidden text-xs sm:inline">Öffnen</span>
+                      <ChevronRight className="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors" />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {competitions.some((c) => c.sourceShortcuts.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="text-pitch h-4 w-4" />
+              Aus OpenLigaDB laden
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ImportFixturesForm competitions={competitions} />
+          </CardContent>
+        </Card>
       )}
     </div>
   );
