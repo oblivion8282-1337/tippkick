@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
@@ -7,11 +6,12 @@ import { getRoundOverview, getTipptageOverview } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
-import { CreateSeasonForm } from '@/components/create-season-form';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 import { createTipptagAction } from '@/app/(admin)/admin/actions';
 
@@ -37,7 +37,14 @@ export default async function SpieltagePage({
     return (
       <div className="space-y-8">
         <PageHeader eyebrow="Admin" title="Spieltage & Tipptage" />
-        <CreateSeasonForm />
+        <Card>
+          <CardContent className="text-muted-foreground py-8 text-sm">
+            Noch keine Saison vorhanden.{' '}
+            <LinkButton href="/admin" size="sm">
+              Im Admin anlegen
+            </LinkButton>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -65,13 +72,15 @@ export default async function SpieltagePage({
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow="Admin"
-        title="Spieltage & Tipptage"
-        description="Importierte Spieltage nach Datum, gruppiert in Tipptage. BL startet später als die 2. Liga – die Anfangsphase zeigt nur L2."
-      />
-
-      <SeasonSwitcher seasons={seasons} activeId={season.id} />
+      <div className="space-y-3">
+        <Breadcrumb
+          items={[
+            { label: 'Admin', href: `/admin?season=${season.id}` },
+            { label: 'Spieltage & Tipptage' },
+          ]}
+        />
+        <PageHeader title={`${season.name} · Spieltage & Tipptage`} />
+      </div>
 
       <Card>
         <CardHeader className="border-b border-border/40">
@@ -173,35 +182,5 @@ export default async function SpieltagePage({
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-/** Saison-Wechsler (Tabs) + Formular zum Anlegen einer neuen Saison. */
-function SeasonSwitcher({ seasons, activeId }: { seasons: { id: string; name: string }[]; activeId: string }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground mr-1 text-sm">Saison:</span>
-          {seasons.map((s) => {
-            const active = s.id === activeId;
-            return (
-              <Link
-                key={s.id}
-                href={`/admin/spieltage?season=${s.id}`}
-                className={
-                  active
-                    ? 'bg-primary text-primary-foreground rounded-md px-3 py-1 text-sm font-medium'
-                    : 'hover:bg-muted rounded-md px-3 py-1 text-sm transition-colors'
-                }
-              >
-                {s.name}
-              </Link>
-            );
-          })}
-        </div>
-        <CreateSeasonForm />
-      </CardContent>
-    </Card>
   );
 }

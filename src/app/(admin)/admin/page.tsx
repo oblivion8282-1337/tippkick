@@ -144,7 +144,7 @@ export default async function AdminHomePage({
                       <span className="text-muted-foreground tabular-nums">
                         {c._count.matchdays} Tipptage · {c._count.sections} Spieltage importiert
                       </span>
-                      <LinkButton href="/admin/spieltage" size="sm" className="ml-auto">
+                      <LinkButton href={`/admin/spieltage?season=${season.id}`} size="sm" className="ml-auto">
                         Spieltage gruppieren
                       </LinkButton>
                     </>
