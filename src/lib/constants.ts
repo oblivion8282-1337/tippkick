@@ -42,3 +42,9 @@ export const OPENLIGADB_SHORTCUTS: Partial<Record<CompetitionKey, string>> = {
   DFB: 'dfb',
   CL: 'cl',
 };
+
+/** Wettbewerbe mit vorlagenbasiertem Auswertungs-Export (BL+L2 in einem Blatt). */
+export const TEMPLATE_EXPORT_KEYS: ReadonlySet<CompetitionKey> = new Set(['BL', 'L2']);
+
+/** Tipp-Deadline = earliest kickoff minus diese Offset (1 Min, wie im Verein üblich). */
+export const DEADLINE_OFFSET_MS = 60_000;

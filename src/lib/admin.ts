@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { fetchMatchday, seasonToYear } from '@/lib/openligadb';
+import { getCurrentSeason } from '@/lib/matchdays';
+import { DEADLINE_OFFSET_MS } from '@/lib/constants';
 
 /**
  * Setzt genau einen Spieltag im zugehörigen Wettbewerb aktiv (andere im selben
@@ -65,7 +67,7 @@ export async function getMatchdayAdmin(matchdayId: string) {
 
 /** Wettbewerbe der aktuellen Saison (Admin-Auswahl). */
 export async function getCompetitionsAdmin() {
-  const season = await prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
+  const season = await getCurrentSeason();
   if (!season) {
     return [];
   }
@@ -107,7 +109,7 @@ export async function importFixturesFromOpenLigaDb(
 
   // Spieltag anlegen (falls nicht vorhanden) + Deadline = 1 Min vor frühestem Anstoß.
   const earliest = fixtures.reduce((min, f) => (f.kickoff < min ? f.kickoff : min), fixtures[0].kickoff);
-  const deadlineAt = new Date(earliest.getTime() - 60 * 1000);
+  const deadlineAt = new Date(earliest.getTime() - DEADLINE_OFFSET_MS);
 
   const matchday = await prisma.matchday.upsert({
     where: { competitionId_number: { competitionId, number: matchdayNumber } },

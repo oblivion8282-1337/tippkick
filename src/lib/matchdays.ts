@@ -1,17 +1,36 @@
 import { prisma } from '@/lib/prisma';
 import type { CompetitionKey } from '@/generated/prisma/client';
 
-/** Wettbewerbe der aktuellen Saison (sortiert) inkl. ihrer Spieltage. */
+/** Aktuelle Saison = die neueste nach createdAt (SSOT für diese Regel). */
+export async function getCurrentSeason() {
+  return prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
+}
+
+/** "Aktiver Spieltag, sonst letzter" – SSOT-Regel, mehrfach genutzt. */
+export function pickActiveMatchday<T extends { isActive: boolean }>(matchdays: T[]): T | undefined {
+  return matchdays.find((m) => m.isActive) ?? matchdays[matchdays.length - 1];
+}
+
+/** Wettbewerbe der aktuellen Saison (sortiert) inkl. Spieltage + Partieanzahl. */
 export async function getCompetitions() {
-  // Aktuelle Saison = die mit den jüngsten Spieltagen; wir nehmen die neueste Season.
-  const season = await prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
+  const season = await getCurrentSeason();
   if (!season) {
     return [];
   }
   return prisma.competition.findMany({
     where: { seasonId: season.id },
     orderBy: { sortOrder: 'asc' },
-    include: { matchdays: { orderBy: { number: 'asc' }, select: { number: true, isActive: true, deadlineAt: true } } },
+    include: {
+      matchdays: {
+        orderBy: { number: 'asc' },
+        select: {
+          number: true,
+          isActive: true,
+          deadlineAt: true,
+          _count: { select: { fixtures: true } },
+        },
+      },
+    },
   });
 }
 
@@ -23,14 +42,6 @@ export async function getMatchdayByNumber(competitionKey: CompetitionKey, number
       competition: true,
       fixtures: { orderBy: { sortOrder: 'asc' } },
     },
-  });
-}
-
-/** Aktiver Spieltag eines Wettbewerbs (für Default-Auswahl im Tipper-Bereich). */
-export async function getActiveMatchdayForCompetition(competitionKey: CompetitionKey) {
-  return prisma.matchday.findFirst({
-    where: { competition: { key: competitionKey }, isActive: true },
-    include: { competition: true, fixtures: { orderBy: { sortOrder: 'asc' } } },
   });
 }
 

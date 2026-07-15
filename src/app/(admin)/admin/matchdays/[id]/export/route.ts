@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/session';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
 import { formatDateRange } from '@/lib/datetime';
+import { TEMPLATE_EXPORT_KEYS } from '@/lib/constants';
 import { buildMatchdayExcel } from '@/lib/excel/export-matchday';
 import { buildBundesligaExcel } from '@/lib/excel/export-bundesliga';
 
@@ -25,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     select: { id: true, name: true },
   });
 
-  const isBundesliga = matchday.competition.key === 'BL' || matchday.competition.key === 'L2';
+  const isBundesliga = TEMPLATE_EXPORT_KEYS.has(matchday.competition.key);
 
   const buffer = isBundesliga
     ? await buildBundesligaExport(matchday, tippers)

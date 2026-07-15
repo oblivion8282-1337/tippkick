@@ -1,5 +1,7 @@
 import ExcelJS from 'exceljs';
 
+import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/types';
+
 /**
  * Generischer Excel-Export für einen Spieltag (eine Sektion, ein Wettbewerb).
  * Pro Tipper ein 6-Spalten-Block (Tipp Heim : Gast + leere Pkt.-Spalten).
@@ -9,14 +11,11 @@ import ExcelJS from 'exceljs';
  * ab, für die es keine passende Vorlage gibt (CL/DFB/EM/WM).
  */
 
-const COL_HOME = 2; // B
-const COL_AWAY = 4; // D
 const FIRST_TIPPER_COL = 13; // M
 const TIPPER_BLOCK_WIDTH = 6;
 
 export type ExportTipper = { id: string; name: string };
-export type ExportFixture = { id: string; homeTeam: string; awayTeam: string };
-type TipMap = Map<string, { homeGoals: number; awayGoals: number }>; // fixtureId -> tip
+export type ExportFixture = FixtureRow;
 
 export async function buildMatchdayExcel(params: {
   title: string; // z. B. "BL 34. Spieltag"

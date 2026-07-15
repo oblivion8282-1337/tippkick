@@ -55,17 +55,31 @@ pnpm dev               # http://localhost:3000
 
 ## Bereiche
 
-- **Tipper** (`/dashboard`, `/tippen/[matchdayId]`): aktiver Spieltag, Tipp-Maske mit
-  Autosave, Deadline-Lock (server-seitig erzwungen).
-- **Tippleitung/Admin** (`/admin`): Spieltage + Partien verwalten, Spieltag aktivieren,
-  **Tipps als Excel** herunterladen (`/admin/matchdays/[id]/export`) – im Layout der
-  gewohnten Auswertung, eine Spalte pro Tipper.
+- **Tipper** (`/dashboard`, `/tippen`): Dashboard listet Wettbewerbe je mit aktivem
+  Spieltag + Tipp-Fortschritt. `/tippen` mit **Wettbewerbs-Tabs** (BL, L2, …) und
+  **Spieltag-Pagination**; Tipp-Maske mit Autosave, Deadline-Lock (serverseitig).
+- **Tippleitung/Admin** (`/admin`): Spieltage **aus OpenLigaDB laden** (BL/L2/CL/DFB),
+  manuell anlegen, Partien verwalten, Spieltag aktivieren. **Tipps als Excel**:
+  BL/L2 im Original-Auswertungsformat inkl. aller **1386 Formeln** (Punkte/Rangliste
+  rechnen automatisch, sobald die Tippleitung die Ergebnisse einträgt); andere
+  Wettbewerbe im generischen Layout.
+- **Einstellungen** (`/einstellungen`): Profilbild-Upload, E-Mail-Änderung (mit
+  Neu-Verifizierung), Passwort-Änderung.
+- **Dark Mode** über den Umschalter in der Nav.
+
+## Datenmodell (Phase 2)
+
+`Season → Competition → Matchday → Fixture`, `Tip`. Wettbewerbs-Keys
+(BL/L2/CL/DFB/EM/WM) und OpenLigaDB-Shortcuts sind SSOT in `src/lib/constants.ts`.
+Excel-Master-Vorlage: `src/lib/excel/template/auswertung-template.xlsx`.
 
 ## Architektur-Hinweise
 
 - `src/lib/` = Geschäftslogik (SSOT): `tipps.ts`, `matchdays.ts`, `admin.ts`,
-  `session.ts`, `auth.ts`, `excel/`.
+  `openligadb.ts`, `constants.ts`, `datetime.ts`, `session.ts`, `auth.ts`, `excel/`.
 - `src/app/` = Routing/Seiten; `src/components/` = reine UI.
-- Sicherheit (Deadline, Admin/Rollen) wird server-seitig erzwungen, nie nur im UI.
-- Auth-Tabellen gehören better-auth; Domain-Tabellen (Season/Matchday/Fixture/Tip)
-  liegen im selben Schema (`prisma/schema.prisma`).
+- Sicherheit (Deadline, Admin/Rollen) wird serverseitig erzwogen, nie nur im UI.
+- Auth-Tabellen gehören better-auth; Domain-Tabellen (Season/Competition/Matchday/
+  Fixture/Tip) liegen im selben Schema (`prisma/schema.prisma`).
+- Dev-DB wird per `prisma db push` synchronisiert (keine Migrationshistorie);
+  für Prod später `migrate diff`/`migrate deploy` anlegen.

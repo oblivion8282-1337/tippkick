@@ -1,4 +1,4 @@
-import { getCompetitions, isTippable } from '@/lib/matchdays';
+import { getCompetitions, isTippable, pickActiveMatchday } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatDateTime } from '@/lib/datetime';
@@ -19,20 +19,15 @@ export default async function DashboardPage() {
   // Pro Wettbewerb: aktueller (aktiver) Spieltag + Tipp-Fortschritt des Nutzers.
   const rows = await Promise.all(
     competitions.map(async (c) => {
-      const active = c.matchdays.find((m) => m.isActive) ?? c.matchdays[c.matchdays.length - 1];
+      const active = pickActiveMatchday(c.matchdays);
       if (!active) {
         return null;
       }
-      const matchday = await prisma.matchday.findFirst({
-        where: { competitionId: c.id, number: active.number },
-        include: { _count: { select: { fixtures: true } } },
-      });
       const tipped = await prisma.tip.count({
         where: { userId: session.user.id, fixture: { matchday: { competitionId: c.id, number: active.number } } },
       });
-      const total = matchday?._count.fixtures ?? 0;
-      const open = isTippable(active.deadlineAt);
-      return { c, active, tipped, total, open };
+      const total = active._count.fixtures;
+      return { c, active, tipped, total, open: isTippable(active.deadlineAt) };
     }),
   );
 

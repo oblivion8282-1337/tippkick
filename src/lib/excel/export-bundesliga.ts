@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ExcelJS from 'exceljs';
 
+import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/types';
+
 /**
  * Vorlagenbasierter Export für die BL+L2-Auswertung (das Originalformat).
  * Lädt die Master-Vorlage (mit allen 1386 Formeln + TW-Blatt), schreibt nur
@@ -12,14 +14,11 @@ import ExcelJS from 'exceljs';
  */
 
 const TEMPLATE_PATH = path.join(process.cwd(), 'src/lib/excel/template/auswertung-template.xlsx');
-const COL_HOME = 2;
-const COL_AWAY = 4;
 const BL_FIRST_ROW = 6;
 const L2_FIRST_ROW = 18;
 
-export type BLFixture = { id: string; homeTeam: string; awayTeam: string };
+export type BLFixture = FixtureRow;
 export type BLTipper = { id: string; name: string };
-type TipMap = Map<string, { homeGoals: number; awayGoals: number }>;
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase();
