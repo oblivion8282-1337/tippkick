@@ -36,12 +36,12 @@ async function createUser(opts: { name: string; email: string; password: string;
 
 async function main() {
   // 1) Saison + Wettbewerb Bundesliga (1.+2. Liga) als Import-Ziel. OpenLigaDB-Quelle
-  //    bl1+bl2; Spieltage werden importiert und vom Admin in Tipptage gruppiert
-  //    (/admin/spieltage). Kein Demo-Tipptag mehr — sauberer Start.
+  //    bl1+bl2; Spieltage werden vom Cron automatisch importiert und vom Admin in
+  //    Tipptage gruppiert (/admin/spieltage). 26/27 = kommende echte Saison.
   const season = await prisma.season.upsert({
-    where: { name: '25/26' },
+    where: { name: '26/27' },
     update: {},
-    create: { name: '25/26' },
+    create: { name: '26/27' },
   });
   await prisma.competition.upsert({
     where: { seasonId_key: { seasonId: season.id, key: 'BL' } },
