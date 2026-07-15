@@ -90,29 +90,23 @@ export async function createMatchday(input: {
 }
 
 /**
- * Legt `count` Tipptage auf einmal an, fortlaufend nummeriert ab der höchsten
- * existierenden Nummer + 1 (erste Anlage also 1..count). Platzhalter-Daten; Span/
- * Deadline werden via recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet sind.
+ * Stellt sicher, dass Tipptage 1..count existieren (idempotent): es werden nur
+ * noch fehlende Nummern angelegt. Wiederholtes „Anlegen" mit derselben Anzahl
+ * ändert also nichts. Platzhalter-Daten; Span/Deadline werden via
+ * recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet sind.
  */
 export async function createTipptageBatch(competitionId: string, count: number): Promise<number> {
-  const n = Math.max(1, Math.min(100, Math.trunc(count)));
-  const latest = await prisma.matchday.findFirst({
-    where: { competitionId },
-    orderBy: { number: 'desc' },
-    select: { number: true },
-  });
-  const start = (latest?.number ?? 0) + 1;
+  const target = Math.max(1, Math.min(100, Math.trunc(count)));
+  const existing = await prisma.matchday.findMany({ where: { competitionId }, select: { number: true } });
+  const have = new Set(existing.map((m) => m.number));
   const now = new Date();
-  await prisma.matchday.createMany({
-    data: Array.from({ length: n }, (_, i) => ({
-      competitionId,
-      number: start + i,
-      startDate: now,
-      endDate: now,
-      deadlineAt: now,
-    })),
-  });
-  return n;
+  const toCreate = Array.from({ length: target }, (_, i) => i + 1)
+    .filter((number) => !have.has(number))
+    .map((number) => ({ competitionId, number, startDate: now, endDate: now, deadlineAt: now }));
+  if (toCreate.length > 0) {
+    await prisma.matchday.createMany({ data: toCreate });
+  }
+  return toCreate.length;
 }
 
 /**
