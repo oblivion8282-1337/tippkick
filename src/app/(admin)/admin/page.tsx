@@ -5,7 +5,7 @@ import {
   getCompetitionsOverview,
   getTipperList,
   getTipperStats,
-  getTipptagTippers,
+  getTipptagProgress,
   getUpcomingTipptage,
 } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/constants';
@@ -68,11 +68,8 @@ export default async function AdminHomePage({
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
   const selfId = (await getSession())?.user.id;
-  // Tipp-Sets je anstehendem Tipptag (für die aufklappbare „wer hat getippt"-Liste).
-  const upcomingTipped = await Promise.all(upcoming.map((u) => getTipptagTippers(u.id)));
-  // Tipp-Status für den nächsten anstehenden Tipptag (Badge in der Tipper-Karte).
-  const nextTipptag = upcoming[0];
-  const nextTipped = nextTipptag ? upcomingTipped[0] : new Set<string>();
+  // Tipp-Fortschritt je anstehendem Tipptag (für die aufklappbare Deadlines-Liste).
+  const upcomingProgress = await Promise.all(upcoming.map((u) => getTipptagProgress(u.id)));
   const pending = tippers.filter((u) => !u.approved);
   const active = tippers.filter((u) => u.approved);
 
@@ -103,8 +100,9 @@ export default async function AdminHomePage({
           ) : (
             <div className="divide-y divide-border/40">
               {upcoming.map((u, i) => {
-                const tipped = upcomingTipped[i];
-                const outstanding = active.filter((t) => !tipped.has(t.id));
+                const prog = upcomingProgress[i];
+                const isDone = (userId: string) => prog.total > 0 && (prog.tippedByUser.get(userId) ?? 0) >= prog.total;
+                const outstanding = active.filter((t) => !isDone(t.id));
                 return (
                   <details key={u.id} className="group">
                     <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm [&::-webkit-details-marker]:hidden">
@@ -117,7 +115,7 @@ export default async function AdminHomePage({
                       </Link>
                       <span className="text-muted-foreground tabular-nums">{u.fixtureCount} Partien</span>
                       <span className="text-muted-foreground tabular-nums">
-                        {u.tippersTipped}/{active.length} getippt
+                        {u.tippersTipped}/{active.length} vollständig
                         {outstanding.length > 0 && <span className="text-destructive"> · {outstanding.length} offen</span>}
                       </span>
                       <span className="text-muted-foreground ml-auto tabular-nums">
@@ -130,16 +128,28 @@ export default async function AdminHomePage({
                     </summary>
                     <ul className="border-border/40 border-t">
                       {active.map((t) => {
-                        const done = tipped.has(t.id);
+                        const cnt = prog.tippedByUser.get(t.id) ?? 0;
+                        const done = isDone(t.id);
+                        const partial = cnt > 0 && !done;
                         return (
                           <li key={t.id} className="flex items-center gap-2 py-2 pr-6 pl-12 text-sm">
                             <span className="font-medium">{t.name}</span>
                             {t.role === 'admin' && <span className="text-muted-foreground text-xs">Tippleitung</span>}
-                            <span className={done ? 'text-primary ml-auto inline-flex items-center gap-1' : 'text-muted-foreground ml-auto'}>
+                            <span
+                              className={
+                                done
+                                  ? 'text-primary ml-auto inline-flex items-center gap-1'
+                                  : partial
+                                    ? 'text-amber-500 ml-auto'
+                                    : 'text-muted-foreground ml-auto'
+                              }
+                            >
                               {done ? (
                                 <>
-                                  <Check className="h-3 w-3" /> getippt
+                                  <Check className="h-3 w-3" /> vollständig
                                 </>
+                              ) : partial ? (
+                                `teilweise (${cnt}/${prog.total})`
                               ) : (
                                 'noch offen'
                               )}
@@ -240,7 +250,6 @@ export default async function AdminHomePage({
               {active.map((u) => {
                 const isAdmin = u.role === 'admin';
                 const isSelf = u.id === selfId;
-                const tipped = nextTipptag ? nextTipped.has(u.id) : null;
                 return (
                   <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
                     <span className="font-medium">
@@ -248,20 +257,6 @@ export default async function AdminHomePage({
                       {isSelf && <span className="text-muted-foreground ml-1 text-xs">(du)</span>}
                     </span>
                     <span className="text-muted-foreground truncate">{u.email}</span>
-                    {nextTipptag && (
-                      <span
-                        className={tipped ? 'text-primary inline-flex items-center gap-1 text-xs' : 'text-muted-foreground text-xs'}
-                        title={`Tipptag ${nextTipptag.number}`}
-                      >
-                        {tipped ? (
-                          <>
-                            <Check className="h-3 w-3" /> getippt
-                          </>
-                        ) : (
-                          `Tipptag ${nextTipptag.number}: offen`
-                        )}
-                      </span>
-                    )}
                     {isSelf ? (
                       <span
                         className={

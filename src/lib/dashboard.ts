@@ -17,12 +17,13 @@ export type UpcomingTipptag = {
   competitionKey: CompetitionKey;
   competitionName: string;
   fixtureCount: number;
-  tippersTipped: number; //distincte Tipper mit ≥1 Tipp in diesem Tipptag
+  tippersTipped: number; //Tipper, die ALLE Partien dieses Tipptags getippt haben
 };
 
 /**
- * Nächste offene Tipptage einer Saison (deadline > jetzt), competitions-übergreifend,
- * mit Tipp-Fortschritt (X distincte Tipper mit mind. einem Tipp).
+ * Nächste offene Tipptage einer Saison (deadline > jetzt), competitions-übergreifend.
+ * tippersTipped = Anzahl Tipper, die den Tipptag VOLLSTÄNDIG getippt haben (nicht
+ * nur ≥1 Tipp).
  */
 export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<UpcomingTipptag[]> {
   const matchdays = await prisma.matchday.findMany({
@@ -38,9 +39,11 @@ export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<
     return [];
   }
 
-  // Section -> Matchday + distincte Tipper pro Matchday (≥1 Tipp).
+  // Partien-Zahl je Tipptag + Section -> Matchday.
+  const fixtureCountByMatchday = new Map<string, number>();
   const sectionToMatchday = new Map<string, string>();
   for (const md of matchdays) {
+    fixtureCountByMatchday.set(md.id, md.sections.reduce((sum, s) => sum + s._count.fixtures, 0));
     for (const s of md.sections) {
       sectionToMatchday.set(s.id, md.id);
     }
@@ -49,29 +52,42 @@ export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<
     where: { fixture: { sectionId: { in: [...sectionToMatchday.keys()] } } },
     select: { userId: true, fixture: { select: { sectionId: true } } },
   });
-  const usersByMatchday = new Map<string, Set<string>>();
+  // Tippanzahl je (Matchday, User); vollständig = Tippanzahl == fixtureCount.
+  const countsByMatchday = new Map<string, Map<string, number>>();
   for (const tip of tips) {
     const matchdayId = sectionToMatchday.get(tip.fixture.sectionId);
     if (!matchdayId) {
       continue;
     }
-    const set = usersByMatchday.get(matchdayId);
-    if (set) {
-      set.add(tip.userId);
+    const counts = countsByMatchday.get(matchdayId);
+    if (counts) {
+      counts.set(tip.userId, (counts.get(tip.userId) ?? 0) + 1);
     } else {
-      usersByMatchday.set(matchdayId, new Set([tip.userId]));
+      countsByMatchday.set(matchdayId, new Map([[tip.userId, 1]]));
     }
   }
 
-  return matchdays.map((md) => ({
-    id: md.id,
-    number: md.number,
-    deadlineAt: md.deadlineAt,
-    competitionKey: md.competition.key,
-    competitionName: md.competition.name,
-    fixtureCount: md.sections.reduce((sum, s) => sum + s._count.fixtures, 0),
-    tippersTipped: usersByMatchday.get(md.id)?.size ?? 0,
-  }));
+  return matchdays.map((md) => {
+    const total = fixtureCountByMatchday.get(md.id) ?? 0;
+    const counts = total > 0 ? countsByMatchday.get(md.id) : undefined;
+    let complete = 0;
+    if (counts) {
+      for (const c of counts.values()) {
+        if (c >= total) {
+          complete++;
+        }
+      }
+    }
+    return {
+      id: md.id,
+      number: md.number,
+      deadlineAt: md.deadlineAt,
+      competitionKey: md.competition.key,
+      competitionName: md.competition.name,
+      fixtureCount: total,
+      tippersTipped: complete,
+    };
+  });
 }
 
 export type TipperStats = { total: number; tippers: number; admins: number };
@@ -94,12 +110,29 @@ export async function getTipperList() {
   });
 }
 
-/** Distincte Tipper-IDs, die für einen Tipptag mind. einen Tipp abgegeben haben. */
-export async function getTipptagTippers(matchdayId: string): Promise<Set<string>> {
-  const tips = await prisma.tip.findMany({
-    where: { fixture: { section: { matchdayId } } },
-    distinct: ['userId'],
-    select: { userId: true },
+export type TipptagProgress = { total: number; tippedByUser: Map<string, number> };
+
+/**
+ * Tipp-Fortschritt je User für einen Tipptag: Gesamtzahl der Partien + Map
+ * userId -> Anzahl getippter Partien. Vollständig = Tippanzahl == total.
+ */
+export async function getTipptagProgress(matchdayId: string): Promise<TipptagProgress> {
+  const sections = await prisma.matchdaySection.findMany({
+    where: { matchdayId },
+    select: { id: true, _count: { select: { fixtures: true } } },
   });
-  return new Set(tips.map((t) => t.userId));
+  const total = sections.reduce((sum, s) => sum + s._count.fixtures, 0);
+  const sectionIds = sections.map((s) => s.id);
+  const tips =
+    total > 0
+      ? await prisma.tip.findMany({
+          where: { fixture: { sectionId: { in: sectionIds } } },
+          select: { userId: true },
+        })
+      : [];
+  const tippedByUser = new Map<string, number>();
+  for (const tip of tips) {
+    tippedByUser.set(tip.userId, (tippedByUser.get(tip.userId) ?? 0) + 1);
+  }
+  return { total, tippedByUser };
 }
