@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { getCompetitions, getMatchdayByNumber, isTippable, pickActiveMatchday } from '@/lib/matchdays';
+import { getCompetitions, getMatchdayByNumber, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
 import { getMyTips } from '@/lib/tipps';
 import { requireUser } from '@/lib/session';
 import { formatDateTime } from '@/lib/datetime';
@@ -35,7 +35,7 @@ export default async function TippenPage({
   const requestedNumber = sp.matchday ? Number.parseInt(sp.matchday, 10) : Number.NaN;
   const selectedNumber = numbers.includes(requestedNumber)
     ? requestedNumber
-    : (pickActiveMatchday(competition.matchdays)?.number ?? numbers[numbers.length - 1]);
+    : (pickDefaultMatchday(competition.matchdays)?.number ?? numbers[numbers.length - 1]);
 
   const matchday = await getMatchdayByNumber(selectedKey, selectedNumber);
   if (!matchday) {
@@ -61,7 +61,7 @@ export default async function TippenPage({
       <nav className="flex flex-wrap gap-2">
         {competitions.map((c) => {
           const active = c.key === selectedKey;
-          const target = active ? selectedNumber : pickActiveMatchday(c.matchdays)?.number;
+          const target = active ? selectedNumber : pickDefaultMatchday(c.matchdays)?.number;
           return (
             <Link
               key={c.key}

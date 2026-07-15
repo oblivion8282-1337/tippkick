@@ -1,4 +1,4 @@
-import { getCompetitions, isTippable, pickActiveMatchday } from '@/lib/matchdays';
+import { getCompetitions, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatDateTime } from '@/lib/datetime';
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   // Pro Wettbewerb: aktueller (aktiver) Spieltag + Tipp-Fortschritt des Nutzers.
   const rows = await Promise.all(
     competitions.map(async (c) => {
-      const active = pickActiveMatchday(c.matchdays);
+      const active = pickDefaultMatchday(c.matchdays);
       if (!active) {
         return null;
       }

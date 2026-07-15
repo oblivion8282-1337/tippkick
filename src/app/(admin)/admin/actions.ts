@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { activateMatchday, addFixture, createMatchday, deleteFixture, importFixturesFromOpenLigaDb } from '@/lib/admin';
+import {
+  activateMatchday,
+  addFixture,
+  createMatchday,
+  deleteFixture,
+  importFixturesFromOpenLigaDb,
+  importSeasonFromOpenLigaDb,
+} from '@/lib/admin';
 import { requireAdmin } from '@/lib/session';
 
 function parseDate(value: string): Date {
@@ -75,6 +82,26 @@ export async function importFixturesAction(formData: FormData): Promise<{
   const messages = {
     'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
     empty: 'Keine Partien gefunden (Spieltag existiert noch nicht?).',
+    error: 'Fehler beim Abruf.',
+  } as const;
+  return { ok: false, message: messages[result.reason] };
+}
+
+/** Importiert eine komplette Saison für einen Wettbewerb aus OpenLigaDB. */
+export async function importSeasonAction(competitionId: string): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  await requireAdmin();
+  const result = await importSeasonFromOpenLigaDb(competitionId);
+  revalidatePath('/admin');
+  revalidatePath('/dashboard');
+  if (result.ok) {
+    return { ok: true, message: `${result.matchdays} Spieltage, ${result.fixtures} Partien importiert.` };
+  }
+  const messages = {
+    'no-source': 'Wettbewerb hat keine OpenLigaDB-Quelle.',
+    empty: 'Keine Partien gefunden.',
     error: 'Fehler beim Abruf.',
   } as const;
   return { ok: false, message: messages[result.reason] };

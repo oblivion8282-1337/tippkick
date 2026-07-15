@@ -50,6 +50,32 @@ export async function fetchMatchday(
   }));
 }
 
+/** Holt eine komplette Saison (ein API-Call), gruppiert nach Spieltag-Nummer. */
+export async function fetchSeason(leagueShortcut: string, seasonYear: number): Promise<Map<number, ImportedFixture[]>> {
+  const url = `${BASE}/getmatchdata/${leagueShortcut}/${seasonYear}`;
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+    next: { revalidate: 0 },
+  });
+  if (!response.ok) {
+    throw new Error(`OpenLigaDB-Fehler ${response.status} für ${url}`);
+  }
+  const matches = (await response.json()) as OpenLigaMatch[];
+
+  const byGroup = new Map<number, ImportedFixture[]>();
+  for (const m of matches) {
+    const fixtures = byGroup.get(m.group.groupOrderID) ?? [];
+    fixtures.push({
+      homeTeam: m.team1.teamName,
+      awayTeam: m.team2.teamName,
+      kickoff: new Date(m.matchDateTime),
+      groupOrderId: m.group.groupOrderID,
+    });
+    byGroup.set(m.group.groupOrderID, fixtures);
+  }
+  return byGroup;
+}
+
 /**
  * Wandelt unseren Saisonnamen ("25/26" oder "2025/26" oder "2025") in die
  * OpenLigaDB-Saison (Startjahr, 4-stellig) um.

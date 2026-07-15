@@ -11,6 +11,26 @@ export function pickActiveMatchday<T extends { isActive: boolean }>(matchdays: T
   return matchdays.find((m) => m.isActive) ?? matchdays[matchdays.length - 1];
 }
 
+/**
+ * Default-Spieltag für Tipper-Ansicht (sortiert nach Nummer aufsteigend):
+ * 1. aktiver Spieltag, falls noch tippbar (Deadline in der Zukunft)
+ * 2. sonst der früheste noch anstehende Spieltag (Deadline in der Zukunft)
+ * 3. sonst der aktive Spieltag (auch wenn abgelaufen)
+ * 4. sonst der letzte Spieltag
+ * So landet der Tipper auf dem nächsten tippbaren Spieltag, nicht auf altem.
+ */
+export function pickDefaultMatchday<T extends { isActive: boolean; deadlineAt: Date }>(matchdays: T[]): T | undefined {
+  if (matchdays.length === 0) {
+    return undefined;
+  }
+  const active = matchdays.find((m) => m.isActive);
+  if (active && isTippable(active.deadlineAt)) {
+    return active;
+  }
+  const upcoming = matchdays.find((m) => isTippable(m.deadlineAt));
+  return upcoming ?? active ?? matchdays[matchdays.length - 1];
+}
+
 /** Wettbewerbe der aktuellen Saison (sortiert) inkl. Spieltage + Partieanzahl. */
 export async function getCompetitions() {
   const season = await getCurrentSeason();
