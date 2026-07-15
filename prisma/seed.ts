@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { hashPassword } from 'better-auth/crypto';
 
 import { prisma } from '../src/lib/prisma';
+import { upsertSection } from '../src/lib/admin';
 
 // ─── Spieltag 34, Saison 25/26 — Paarungen aus Vorlagen/34.TT.xlsx ───────────
 // Datum/Anstoß sind DEMO-Werte (relativ zur aktuellen Saisonphase), damit die
@@ -69,20 +70,22 @@ async function main() {
     create: { name: '25/26' },
   });
 
-  // 2) Wettbewerb Bundesliga (1.+2. Liga zusammen, mit OpenLigaDB-Quellen)
+  // 2) Wettbewerb Bundesliga (1.+2. Liga zusammen). sourceShortcuts = [] → kein
+  // OpenLigaDB-Import; Tipptage werden aus den Vorlagen-XLSX angelegt (siehe
+  // scripts/import-bundesliga-templates.ts) oder manuell im Admin.
   const competition = await prisma.competition.upsert({
     where: { seasonId_key: { seasonId: season.id, key: 'BL' } },
-    update: {},
+    update: { sourceShortcuts: [] },
     create: {
       seasonId: season.id,
       key: 'BL',
       name: 'Bundesliga (1. + 2. Liga)',
       sortOrder: 0,
-      sourceShortcuts: ['bl1', 'bl2'],
+      sourceShortcuts: [],
     },
   });
 
-  // 3) Spieltag 34 (Demo: 9 BL + 9 L2 in einem Spieltag, tippbar)
+  // 3) Demo-Tipptag 34 (9 BL + 9 L2 in zwei Sektionen, tippbar)
   const saturday = nextSaturday();
   const friday = new Date(saturday);
   friday.setDate(friday.getDate() - 1);
@@ -105,25 +108,25 @@ async function main() {
       },
     }));
 
-  const hasFixtures = await prisma.fixture.count({ where: { matchdayId: matchday.id } });
-  if (hasFixtures === 0) {
-    const bl = BL_FIXTURES.map(([homeTeam, awayTeam], sortOrder) => ({
-      matchdayId: matchday.id,
-      league: 'BL' as const,
-      kickoff: saturday,
-      homeTeam,
-      awayTeam,
-      sortOrder,
-    }));
-    const l2 = L2_FIXTURES.map(([homeTeam, awayTeam], sortOrder) => ({
-      matchdayId: matchday.id,
-      league: 'L2' as const,
-      kickoff: saturday,
-      homeTeam,
-      awayTeam,
-      sortOrder: sortOrder + BL_FIXTURES.length,
-    }));
-    await prisma.fixture.createMany({ data: [...bl, ...l2] });
+  // Sektionen + Fixtures idempotent.
+  for (const [league, fixtures] of [
+    ['BL', BL_FIXTURES],
+    ['L2', L2_FIXTURES],
+  ] as const) {
+    const section = await upsertSection({ matchdayId: matchday.id, league, number: 34 });
+    const existing = await prisma.fixture.count({ where: { sectionId: section.id } });
+    if (existing === 0) {
+      await prisma.fixture.createMany({
+        data: fixtures.map(([homeTeam, awayTeam], sortOrder) => ({
+          sectionId: section.id,
+          league,
+          kickoff: saturday,
+          homeTeam,
+          awayTeam,
+          sortOrder,
+        })),
+      });
+    }
   }
 
   // 4) Bootstrap-Admin + Demo-Tipper

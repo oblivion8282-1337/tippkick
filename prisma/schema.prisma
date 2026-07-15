@@ -48,37 +48,57 @@ model Competition {
   @@index([seasonId])
 }
 
+/**
+ * Eine Tipprunde des Vereins (entspricht 1.TT … 34.TT). Für Bundesliga kann
+ * sie 1–2 Liga-Sektionen enthalten (BL-Spieltag N, L2-Spieltag M, …), deren
+ * Liga-Matchday-Nummern verschieden sind und Versatz aufweisen können (z. B.
+ * TT 1 = nur L2 1+2, kein BL; TT 16 = nur BL 15+16, kein L2).
+ */
 model Matchday {
-  id            String       @id @default(cuid())
+  id            String   @id @default(cuid())
   competitionId String
-  competition   Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  number        Int // z. B. 34
-  startDate     DateTime
-  endDate       DateTime
-  deadlineAt    DateTime // Tipp-Deadline, i. d. R. Freitag 19:00
-  isActive      Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  fixtures      Fixture[]
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  number        Int      // Tipptag-Nummer (1..34), fortlaufend im Wettbewerb pro Saison
+  startDate     DateTime // = MIN(kickoff) aller Sektionen
+  endDate       DateTime // = MAX(kickoff) aller Sektionen
+  deadlineAt    DateTime // Tipp-Deadline, i. d. R. 1 Min vor frühestem Anstoß
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  sections      MatchdaySection[]
 
   @@unique([competitionId, number])
   @@index([competitionId])
 }
 
-model Fixture {
+/** Eine Liga-Spieltag-Runde innerhalb einer Tipprunde (z. B. "2. Liga · 1. Spieltag"). */
+model MatchdaySection {
   id         String   @id @default(cuid())
   matchdayId String
   matchday   Matchday @relation(fields: [matchdayId], references: [id], onDelete: Cascade)
-  league     League? // Sektion (1./2. Liga) bei Bundesliga-Spieltagen; sonst null
-  kickoff    DateTime
-  homeTeam   String
-  awayTeam   String
-  sortOrder  Int // Reihenfolge innerhalb des Spieltags
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  tips       Tip[]
+  league     League?  // null für Nicht-Bundesliga-Wettbewerbe (CL/DFB/EM/WM)
+  number     Int      // Liga-Matchday-Nummer INNERHALB dieser Liga (1..34 für BL/L2)
+  fixtures   Fixture[]
 
+  @@unique([matchdayId, league, number])
   @@index([matchdayId])
+}
+
+model Fixture {
+  id        String          @id @default(cuid())
+  sectionId String
+  section   MatchdaySection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  league    League?         // redundant zu section.league (schnelles Filtern ohne JOIN)
+  kickoff   DateTime
+  homeTeam  String
+  awayTeam  String
+  sortOrder Int             // Reihenfolge innerhalb der Sektion
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  tips      Tip[]
+
+  @@index([sectionId])
+  @@index([sectionId, league])
 }
 
 model Tip {

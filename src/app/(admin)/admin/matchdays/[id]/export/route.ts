@@ -44,45 +44,60 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 type MinimalMatchday = Awaited<ReturnType<typeof getMatchdayAdmin>>;
 type Tipper = { id: string; name: string };
 
-/** Bundesliga: vorlagenbasierter Export aus dem einen (kombinierten) Spieltag. */
-async function buildBundesligaExport(matchday: NonNullable<MinimalMatchday>, tippers: Tipper[]): Promise<Buffer> {
-  const tipsByUser = await loadTipsByUser([matchday.id]);
+/** Bundesliga: vorlagenbasierter Export aus den Liga-Sektionen. */
+async function buildBundesligaExport(
+  matchday: NonNullable<MinimalMatchday>,
+  tippers: Tipper[],
+): Promise<Buffer> {
+  // Tipps für ALLE Sections dieses Tipptags laden.
+  const fixtureIds = matchday.sections.flatMap((s) => s.fixtures.map((f) => f.id));
+  const tipsByUser = await loadTipsByUser(fixtureIds);
 
   return buildBundesligaExcel({
     matchdayNumber: matchday.number,
     dateRange: formatDateRange(matchday.startDate, matchday.endDate),
-    fixtures: matchday.fixtures.map((f) => ({
-      id: f.id,
-      league: f.league ?? 'BL',
-      homeTeam: f.homeTeam,
-      awayTeam: f.awayTeam,
-    })),
+    sections: matchday.sections
+      .filter((s): s is typeof s & { league: NonNullable<typeof s.league> } => s.league !== null)
+      .map((s) => ({
+        league: s.league,
+        number: s.number,
+        fixtures: s.fixtures.map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
+      })),
     tippers,
     tipsByUser,
   });
 }
 
 /** Andere Wettbewerbe: generische Einzel-Sektion. */
-async function buildGenericExport(matchday: NonNullable<MinimalMatchday>, tippers: Tipper[]): Promise<Buffer> {
-  const tipsByUser = await loadTipsByUser([matchday.id]);
+async function buildGenericExport(
+  matchday: NonNullable<MinimalMatchday>,
+  tippers: Tipper[],
+): Promise<Buffer> {
+  const fixtureIds = matchday.sections.flatMap((s) => s.fixtures.map((f) => f.id));
+  const tipsByUser = await loadTipsByUser(fixtureIds);
   return buildMatchdayExcel({
-    title: `${matchday.competition.name} – ${matchday.number}. Spieltag`,
+    title: `${matchday.competition.name} – ${matchday.number}. Tipptag`,
     dateRange: formatDateRange(matchday.startDate, matchday.endDate),
     tippers,
-    fixtures: matchday.fixtures.map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
+    fixtures: matchday.sections
+      .flatMap((s) => s.fixtures)
+      .map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
     tipsByUser,
   });
 }
 
-/** Lädt Tipps mehrerer Spieltage, gruppiert nach userId -> fixtureId -> tip. */
+/** Lädt Tipps für eine Fixture-Liste, gruppiert nach userId -> fixtureId -> tip. */
 async function loadTipsByUser(
-  matchdayIds: string[],
+  fixtureIds: string[],
 ): Promise<Map<string, Map<string, { homeGoals: number; awayGoals: number }>>> {
+  const tipsByUser = new Map<string, Map<string, { homeGoals: number; awayGoals: number }>>();
+  if (fixtureIds.length === 0) {
+    return tipsByUser;
+  }
   const tips = await prisma.tip.findMany({
-    where: { fixture: { matchdayId: { in: matchdayIds } } },
+    where: { fixtureId: { in: fixtureIds } },
     select: { userId: true, fixtureId: true, homeGoals: true, awayGoals: true },
   });
-  const tipsByUser = new Map<string, Map<string, { homeGoals: number; awayGoals: number }>>();
   for (const tip of tips) {
     let perUser = tipsByUser.get(tip.userId);
     if (!perUser) {

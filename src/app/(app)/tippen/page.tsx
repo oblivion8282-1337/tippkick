@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { getCompetitions, getMatchdayByNumber, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
 import { getMyTips } from '@/lib/tipps';
 import { requireUser } from '@/lib/session';
-import { formatDateTime } from '@/lib/datetime';
+import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { COMPETITION_SHORT } from '@/lib/constants';
-import { TipMaskForm } from '@/components/tip-mask-form';
+import { TipMaskForm, type TipSection } from '@/components/tip-mask-form';
 import { LinkButton } from '@/components/link-button';
 import { Button } from '@/components/ui/button';
 
@@ -30,7 +30,7 @@ export default async function TippenPage({
     : competitions[0].key;
   const competition = competitions.find((c) => c.key === selectedKey)!;
 
-  // Ausgewählter Spieltag (Default: aktiver, sonst letzter).
+  // Ausgewählter Tipptag (Default: aktiver, sonst letzter).
   const numbers = competition.matchdays.map((m) => m.number);
   const requestedNumber = sp.matchday ? Number.parseInt(sp.matchday, 10) : Number.NaN;
   const selectedNumber = numbers.includes(requestedNumber)
@@ -53,11 +53,14 @@ export default async function TippenPage({
   const prev = idx > 0 ? numbers[idx - 1] : null;
   const next = idx < numbers.length - 1 ? numbers[idx + 1] : null;
 
-  const fixtures = matchday.fixtures.map((f) => ({
-    id: f.id,
-    league: f.league,
-    homeTeam: f.homeTeam,
-    awayTeam: f.awayTeam,
+  const sections: TipSection[] = matchday.sections.map((s) => ({
+    league: s.league,
+    number: s.number,
+    fixtures: s.fixtures.map((f) => ({
+      id: f.id,
+      homeTeam: f.homeTeam,
+      awayTeam: f.awayTeam,
+    })),
   }));
 
   return (
@@ -82,12 +85,13 @@ export default async function TippenPage({
         })}
       </nav>
 
-      {/* Spieltag-Pagination */}
+      {/* Tipptag-Pagination */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">{matchday.number}. Spieltag</h1>
+          <h1 className="text-2xl font-semibold">{matchday.number}. Tipptag</h1>
           <p className="text-muted-foreground text-sm">
-            {competition.name} · Deadline {formatDateTime(matchday.deadlineAt)}
+            {competition.name} · {formatDateRange(matchday.startDate, matchday.endDate)} · Deadline{' '}
+            {formatDateTime(matchday.deadlineAt)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -112,7 +116,7 @@ export default async function TippenPage({
         </div>
       </div>
 
-      <TipMaskForm fixtures={fixtures} existingTips={existing} open={open} />
+      <TipMaskForm sections={sections} existingTips={existing} open={open} />
     </div>
   );
 }

@@ -33,9 +33,15 @@ export const COMPETITION_SHORT: Record<CompetitionKey, string> = {
 /** Wettbewerbs-Reihenfolge. */
 export const COMPETITION_ORDER: CompetitionKey[] = ['BL', 'CL', 'DFB', 'EM', 'WM'];
 
-/** OpenLigaDB leagueShortcuts je Wettbewerb (Bundesliga = 1.+2. Liga zusammen). */
+/**
+ * OpenLigaDB leagueShortcuts je Wettbewerb. Bundesliga ist hier leer — die
+ * Tipptage werden aus den Excel-Vorlagen importiert (siehe scripts/import-
+ * bundesliga-templates.ts), weil das OpenLigaDB-Schema nicht zum Liga-Versatz
+ * und zu Doppel-Matchdays in einer Tipprunde passt (TT 1 = nur L2, TT 16 =
+ * nur BL).
+ */
 export const OPENLIGADB_SHORTCUTS: Record<CompetitionKey, string[]> = {
-  BL: ['bl1', 'bl2'],
+  BL: [],
   CL: ['cl'],
   DFB: ['dfb'],
   EM: [],

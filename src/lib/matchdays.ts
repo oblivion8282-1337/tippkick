@@ -1,10 +1,22 @@
 import { prisma } from '@/lib/prisma';
-import type { CompetitionKey } from '@/generated/prisma/client';
+import type { CompetitionKey, Prisma } from '@/generated/prisma/client';
 
 /** Aktuelle Saison = die neueste nach createdAt (SSOT für diese Regel). */
 export async function getCurrentSeason() {
   return prisma.season.findFirst({ orderBy: { createdAt: 'desc' } });
 }
+
+/**
+ * SSOT für den `sections`-Include-Shaped von Matchday. Sortiert nach Liga (BL vor L2
+ * bzw. Single-Liga `null` zuerst) + Liga-Spieltags-Nummer; Fixtures nach sortOrder.
+ * Wird in getMatchdayAdmin / getMatchdayByNumber / getMyTips wiederverwendet.
+ */
+export const matchdaySectionsInclude = {
+  sections: {
+    orderBy: [{ league: 'asc' }, { number: 'asc' }],
+    include: { fixtures: { orderBy: { sortOrder: 'asc' } } },
+  },
+} satisfies Prisma.MatchdayInclude;
 
 /** "Aktiver Spieltag, sonst letzter" – SSOT-Regel, mehrfach genutzt. */
 export function pickActiveMatchday<T extends { isActive: boolean }>(matchdays: T[]): T | undefined {
@@ -19,7 +31,9 @@ export function pickActiveMatchday<T extends { isActive: boolean }>(matchdays: T
  * 4. sonst der letzte Spieltag
  * So landet der Tipper auf dem nächsten tippbaren Spieltag, nicht auf altem.
  */
-export function pickDefaultMatchday<T extends { isActive: boolean; deadlineAt: Date }>(matchdays: T[]): T | undefined {
+export function pickDefaultMatchday<T extends { isActive: boolean; deadlineAt: Date }>(
+  matchdays: T[],
+): T | undefined {
   if (matchdays.length === 0) {
     return undefined;
   }
@@ -31,7 +45,10 @@ export function pickDefaultMatchday<T extends { isActive: boolean; deadlineAt: D
   return upcoming ?? active ?? matchdays[matchdays.length - 1];
 }
 
-/** Wettbewerbe der aktuellen Saison (sortiert) inkl. Spieltage + Partieanzahl. */
+/**
+ * Wettbewerbe der aktuellen Saison (sortiert) inkl. Spieltage + Partieanzahl.
+ * Partieanzahl = Summe über alle Sections des Spieltags.
+ */
 export async function getCompetitions() {
   const season = await getCurrentSeason();
   if (!season) {
@@ -47,29 +64,32 @@ export async function getCompetitions() {
           number: true,
           isActive: true,
           deadlineAt: true,
-          _count: { select: { fixtures: true } },
+          _count: { select: { sections: true } },
         },
       },
     },
   });
 }
 
-/** Spieltag nach Wettbewerbs-Key + Nummer (in der aktuellen Saison). */
+/** Spieltag nach Wettbewerbs-Key + Tipptag-Nummer (in der aktuellen Saison). */
 export async function getMatchdayByNumber(competitionKey: CompetitionKey, number: number) {
   return prisma.matchday.findFirst({
     where: { competition: { key: competitionKey }, number },
     include: {
       competition: true,
-      fixtures: { orderBy: { sortOrder: 'asc' } },
+      ...matchdaySectionsInclude,
     },
   });
 }
 
-/** Alle Spieltage (Admin-Übersicht), mit Wettbewerb + Partieanzahl. */
+/** Alle Spieltage (Admin-Übersicht), mit Wettbewerb + Section-Anzahl. */
 export async function getMatchdays() {
   return prisma.matchday.findMany({
     orderBy: [{ competition: { sortOrder: 'asc' } }, { number: 'asc' }],
-    include: { competition: { include: { season: true } }, _count: { select: { fixtures: true } } },
+    include: {
+      competition: { include: { season: true } },
+      _count: { select: { sections: true } },
+    },
   });
 }
 

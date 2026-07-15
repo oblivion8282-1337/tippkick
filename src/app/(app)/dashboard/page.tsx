@@ -23,10 +23,18 @@ export default async function DashboardPage() {
       if (!active) {
         return null;
       }
-      const tipped = await prisma.tip.count({
-        where: { userId: session.user.id, fixture: { matchday: { competitionId: c.id, number: active.number } } },
+      const activeMatchday = await prisma.matchday.findFirst({
+        where: { competitionId: c.id, number: active.number },
+        select: { id: true },
       });
-      const total = active._count.fixtures;
+      if (!activeMatchday) {
+        return null;
+      }
+      const fixtureFilter = { section: { matchdayId: activeMatchday.id } };
+      const [tipped, total] = await Promise.all([
+        prisma.tip.count({ where: { userId: session.user.id, fixture: fixtureFilter } }),
+        prisma.fixture.count({ where: fixtureFilter }),
+      ]);
       return { c, active, tipped, total, open: isTippable(active.deadlineAt) };
     }),
   );

@@ -44,8 +44,13 @@ export async function activateMatchdayAction(matchdayId: string): Promise<void> 
 
 export async function addFixtureAction(matchdayId: string, formData: FormData): Promise<void> {
   await requireAdmin();
+  // league ist optional (Single-Liga-Competitions wie CL/DFB → null).
+  // Bei Bundesliga wird aktuell nicht manuell gepflegt; falls doch, später ergänzen.
+  const leagueRaw = String(formData.get('league') ?? '');
+  const league = leagueRaw === 'BL' ? 'BL' : leagueRaw === 'L2' ? 'L2' : null;
   await addFixture({
     matchdayId,
+    league,
     kickoff: parseDate(String(formData.get('kickoff'))),
     homeTeam: String(formData.get('homeTeam')).trim(),
     awayTeam: String(formData.get('awayTeam')).trim(),

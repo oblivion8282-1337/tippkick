@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { activateMatchdayAction, addFixtureAction, deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { formatDateTime } from '@/lib/datetime';
+import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,12 +17,14 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
+  const allFixtures = matchday.sections.flatMap((s) => s.fixtures);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">
-            {matchday.competition.name} – {matchday.number}. Spieltag
+            {matchday.competition.name} – {matchday.number}. Tipptag
           </h1>
           <p className="text-muted-foreground text-sm">
             {matchday.competition.season.name} · Deadline {formatDateTime(matchday.deadlineAt)}
@@ -45,26 +48,38 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
 
       <Card>
         <CardHeader>
-          <CardTitle>Partien ({matchday.fixtures.length})</CardTitle>
+          <CardTitle>Partien ({allFixtures.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {matchday.fixtures.length === 0 && (
+          {allFixtures.length === 0 && (
             <p className="text-muted-foreground text-sm">Noch keine Partien erfasst.</p>
           )}
-          <ul className="divide-y rounded-lg border">
-            {matchday.fixtures.map((f) => (
-              <li key={f.id} className="flex items-center justify-between px-3 py-2">
-                <span className="text-sm">
-                  {f.homeTeam} : {f.awayTeam}
-                </span>
-                <form action={deleteFixtureAction.bind(null, matchday.id, f.id)}>
-                  <Button type="submit" variant="ghost" size="sm">
-                    Löschen
-                  </Button>
-                </form>
-              </li>
-            ))}
-          </ul>
+          {matchday.sections.map((section) => (
+            <section key={section.id} className="space-y-2">
+              <h3 className="text-sm font-medium">
+                {section.league ? LEAGUE_SECTION_LABELS[section.league] : 'Wettbewerb'} ·{' '}
+                {section.number}. Spieltag
+              </h3>
+              {section.fixtures.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Keine Partien.</p>
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {section.fixtures.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-sm">
+                        {f.homeTeam} : {f.awayTeam}
+                      </span>
+                      <form action={deleteFixtureAction.bind(null, matchday.id, f.id)}>
+                        <Button type="submit" variant="ghost" size="sm">
+                          Löschen
+                        </Button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
 
           <form
             action={addFixtureAction.bind(null, matchday.id)}

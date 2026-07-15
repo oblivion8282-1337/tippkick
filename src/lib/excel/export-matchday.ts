@@ -8,25 +8,33 @@ import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/ty
  *
  * Hinweis: Für die BL/L2-Auswertung gibt es in #6 einen vorlagenbasierten Export
  * (inkl. der 1386 Formeln der Originalvorlage). Diese Variante deckt Wettbewerbe
- * ab, für die es keine passende Vorlage gibt (CL/DFB/EM/WM).
+ * ab, für die es keine passende Vorlage gibt (CL/DFB/EM/WM), und bildet im
+ * Bundesliga-Sonderfall (TT 1 / TT 16) pro Sektion ein eigenes Sheet.
  */
 
 const FIRST_TIPPER_COL = 13; // M
 const TIPPER_BLOCK_WIDTH = 6;
+const HEADER_ROW = 5;
 
 export type ExportTipper = { id: string; name: string };
 export type ExportFixture = FixtureRow;
 
-export async function buildMatchdayExcel(params: {
-  title: string; // z. B. "BL 34. Spieltag"
+/**
+ * Schreibt ein Tipps-Sheet in ein bestehendes Workbook. Wird sowohl von
+ * buildMatchdayExcel (einzelnes Sheet) als auch vom Bundesliga-Sonderfall
+ * (mehrere Sheets, eines pro Liga-Sektion) genutzt.
+ */
+export async function addTipperSheetToWorkbook(args: {
+  workbook: ExcelJS.Workbook;
+  sheetName: string;
+  title: string;
   dateRange: string;
   tippers: ExportTipper[];
   fixtures: ExportFixture[];
   tipsByUser: Map<string, TipMap>; // userId -> fixtureId -> tip
-}): Promise<Buffer> {
-  const { title, dateRange, tippers, fixtures, tipsByUser } = params;
-  const workbook = new ExcelJS.Workbook();
-  const ws = workbook.addWorksheet('Tipps');
+}): Promise<void> {
+  const { workbook, sheetName, title, dateRange, tippers, fixtures, tipsByUser } = args;
+  const ws = workbook.addWorksheet(sheetName);
 
   ws.getColumn(COL_HOME).width = 24;
   ws.getColumn(COL_AWAY).width = 24;
@@ -43,16 +51,15 @@ export async function buildMatchdayExcel(params: {
   }
 
   // Kopfzeile
-  const headerRow = 5;
-  ws.getCell(headerRow, COL_HOME).value = 'Heim';
-  ws.getCell(headerRow, COL_AWAY).value = 'Gast';
+  ws.getCell(HEADER_ROW, COL_HOME).value = 'Heim';
+  ws.getCell(HEADER_ROW, COL_AWAY).value = 'Gast';
   for (let i = 0; i < tippers.length; i++) {
     const start = FIRST_TIPPER_COL + i * TIPPER_BLOCK_WIDTH;
-    ws.getCell(headerRow, start).value = 'Tipp';
+    ws.getCell(HEADER_ROW, start).value = 'Tipp';
   }
 
   // Partie-Zeilen
-  let row = headerRow + 1;
+  let row = HEADER_ROW + 1;
   for (const fixture of fixtures) {
     ws.getCell(row, COL_HOME).value = fixture.homeTeam;
     ws.getCell(row, COL_HOME + 1).value = ':';
@@ -70,7 +77,17 @@ export async function buildMatchdayExcel(params: {
     }
     row += 1;
   }
+}
 
+export async function buildMatchdayExcel(params: {
+  title: string; // z. B. "BL 34. Spieltag"
+  dateRange: string;
+  tippers: ExportTipper[];
+  fixtures: ExportFixture[];
+  tipsByUser: Map<string, TipMap>; // userId -> fixtureId -> tip
+}): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  await addTipperSheetToWorkbook({ workbook, sheetName: 'Tipps', ...params });
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
 }

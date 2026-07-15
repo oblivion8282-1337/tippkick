@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { isTippable } from '@/lib/matchdays';
+import { isTippable, matchdaySectionsInclude } from '@/lib/matchdays';
 import { MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 
 function normalizeGoals(value: number): number {
@@ -10,15 +10,19 @@ function normalizeGoals(value: number): number {
 export async function getMyTips(userId: string, matchdayId: string) {
   const matchday = await prisma.matchday.findUnique({
     where: { id: matchdayId },
-    include: { competition: true, fixtures: { orderBy: { sortOrder: 'asc' } } },
+    include: {
+      competition: true,
+      ...matchdaySectionsInclude,
+    },
   });
   if (!matchday) {
     return null;
   }
 
-  const tips = await prisma.tip.findMany({
-    where: { userId, fixture: { matchdayId } },
-  });
+  const fixtureIds = matchday.sections.flatMap((s) => s.fixtures.map((f) => f.id));
+  const tips = fixtureIds.length
+    ? await prisma.tip.findMany({ where: { userId, fixtureId: { in: fixtureIds } } })
+    : [];
   const tipsByFixture = new Map(tips.map((tip) => [tip.fixtureId, tip]));
 
   return { matchday, tipsByFixture };
@@ -27,7 +31,7 @@ export async function getMyTips(userId: string, matchdayId: string) {
 /**
  * Speichert/überschreibt einen Tipp. SSOT-Erzwingung der Sicherheit:
  * - nur für den eingeloggten Nutzer (userId vom Server, nie vom Client vertraut)
- * - nur bis zur Deadline (server-seitig geprüft)
+ * - nur bis zur Deadline (server-seitig geprüft; über Section -> Matchday)
  * - Tore normiert auf 0..99
  */
 export async function saveTip(params: {
@@ -42,14 +46,14 @@ export async function saveTip(params: {
 
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
-    include: { matchday: true },
+    include: { section: { include: { matchday: true } } },
   });
   if (!fixture) {
     return { ok: false, reason: 'invalid' };
   }
 
   // Deadline server-seitig erzwingen – das UI ist nur Anzeige.
-  if (!isTippable(fixture.matchday.deadlineAt)) {
+  if (!isTippable(fixture.section.matchday.deadlineAt)) {
     return { ok: false, reason: 'deadline' };
   }
 

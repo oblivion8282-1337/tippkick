@@ -6,13 +6,19 @@ import type { League } from '@/generated/prisma/client';
 
 import { saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
-import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER, MAX_GOALS, MIN_GOALS } from '@/lib/constants';
+import {
+  LEAGUE_SECTION_LABELS,
+  LEAGUE_SECTION_ORDER,
+  MAX_GOALS,
+  MIN_GOALS,
+} from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
-type Fixture = { id: string; league: League | null; homeTeam: string; awayTeam: string };
+export type TipSectionFixture = { id: string; homeTeam: string; awayTeam: string };
+export type TipSection = { league: League | null; number: number; fixtures: TipSectionFixture[] };
 
 type Props = {
-  fixtures: Fixture[];
+  sections: TipSection[];
   existingTips: Record<string, { homeGoals: number; awayGoals: number }>;
   open: boolean;
 };
@@ -20,11 +26,13 @@ type Props = {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 const DEBOUNCE_MS = 500;
 
-export function TipMaskForm({ fixtures, existingTips, open }: Props) {
-  // Werte als Strings (leere Eingabe = noch nicht getippt).
+export function TipMaskForm({ sections, existingTips, open }: Props) {
+  // Flache Liste aller Fixtures (für State + Zähler) – behält Reihenfolge der Sektionen bei.
+  const allFixtures = useMemo(() => sections.flatMap((s) => s.fixtures), [sections]);
+
   const [values, setValues] = useState<Record<string, { home: string; away: string }>>(() => {
     const init: Record<string, { home: string; away: string }> = {};
-    for (const f of fixtures) {
+    for (const f of allFixtures) {
       const existing = existingTips[f.id];
       init[f.id] = {
         home: existing ? String(existing.homeGoals) : '',
@@ -38,21 +46,10 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const tippedCount = useMemo(
-    () => fixtures.filter((f) => isFilled(values[f.id]?.home) && isFilled(values[f.id]?.away)).length,
-    [fixtures, values],
+    () =>
+      allFixtures.filter((f) => isFilled(values[f.id]?.home) && isFilled(values[f.id]?.away)).length,
+    [allFixtures, values],
   );
-
-  // Sektionen: 1. Liga, 2. Liga (Bundesliga); Wettbewerbe ohne Liga in einer Sektion.
-  const sections = useMemo(() => {
-    const hasLeagues = fixtures.some((f) => f.league !== null);
-    if (!hasLeagues) {
-      return [{ league: null, items: fixtures }];
-    }
-    return LEAGUE_SECTION_ORDER.map((league) => ({
-      league,
-      items: fixtures.filter((f) => f.league === league),
-    })).filter((s) => s.items.length > 0);
-  }, [fixtures]);
 
   function handleChange(fixtureId: string, side: 'home' | 'away', raw: string) {
     const next = sanitize(raw);
@@ -80,21 +77,34 @@ export function TipMaskForm({ fixtures, existingTips, open }: Props) {
     setSaveState(result.ok ? 'saved' : 'error');
   }
 
+  // Sortiere Sections: Single-Liga zuerst (league=null), dann BL, dann L2.
+  const orderedSections = useMemo(
+    () =>
+      [...sections].sort((a, b) => {
+        const ka = a.league === null ? 0 : LEAGUE_SECTION_ORDER.indexOf(a.league) + 1;
+        const kb = b.league === null ? 0 : LEAGUE_SECTION_ORDER.indexOf(b.league) + 1;
+        return ka - kb;
+      }),
+    [sections],
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground text-sm">
-          {tippedCount} / {fixtures.length} getippt
+          {tippedCount} / {allFixtures.length} getippt
         </span>
         <SaveBadge state={saveState} />
       </div>
 
-      <div className="space-y-4">
-        {sections.map(({ league, items }) => (
-          <section key={league ?? 'all'} className="space-y-2">
-            {league && <h2 className="font-medium">{LEAGUE_SECTION_LABELS[league]}</h2>}
+      <div className="space-y-6">
+        {orderedSections.map((section) => (
+          <section key={`${section.league ?? 'none'}-${section.number}`} className="space-y-2">
+            <h2 className="font-medium">
+              {section.league ? LEAGUE_SECTION_LABELS[section.league] : 'Wettbewerb'} · {section.number}. Spieltag
+            </h2>
             <div className="overflow-hidden rounded-lg border">
-              {items.map((f) => (
+              {section.fixtures.map((f) => (
                 <FixtureRow
                   key={f.id}
                   fixture={f}
@@ -125,7 +135,7 @@ function FixtureRow({
   disabled,
   onChange,
 }: {
-  fixture: Fixture;
+  fixture: TipSectionFixture;
   home: string;
   away: string;
   disabled: boolean;
