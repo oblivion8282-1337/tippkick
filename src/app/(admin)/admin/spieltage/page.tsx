@@ -1,7 +1,7 @@
 import { CalendarDays, Layers } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
-import { getCurrentSeason } from '@/lib/matchdays';
+import { getManageableSeason } from '@/lib/matchdays';
 import { getRoundOverview, getTipptageOverview, resultState } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
@@ -29,7 +29,7 @@ function weekKey(date: Date): string {
 }
 
 export default async function SpieltagePage() {
-  const season = await getCurrentSeason();
+  const season = await getManageableSeason();
   if (!season) {
     return <p className="text-muted-foreground text-sm">Keine Saison vorhanden.</p>;
   }

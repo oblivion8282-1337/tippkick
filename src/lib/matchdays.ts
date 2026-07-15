@@ -16,6 +16,24 @@ export async function getCurrentSeason() {
 }
 
 /**
+ * Saison für Admin-Seiten (Import + Spieltag-Gruppierung). Anders als
+ * getCurrentSeason funktioniert sie auch OHNE zukünftigen Tipptag: bevorzugt die
+ * Saison mit dem nächsten Tipp-Termin, sonst die mit importierten Spieltagen,
+ * sonst die neueste Saison. Verhindert die Sackgasse „nichts importierbar".
+ */
+export async function getManageableSeason() {
+  const current = await getCurrentSeason();
+  if (current) {
+    return current;
+  }
+  const withSections = await prisma.season.findFirst({
+    where: { competitions: { some: { sections: { some: {} } } } },
+    orderBy: { name: 'desc' },
+  });
+  return withSections ?? prisma.season.findFirst({ orderBy: { name: 'desc' } });
+}
+
+/**
  * SSOT für den `sections`-Include-Shaped von Matchday. Sortiert nach Liga (BL vor L2
  * bzw. Single-Liga `null` zuerst) + Liga-Spieltags-Nummer; Fixtures nach sortOrder.
  * Wird in getMatchdayAdmin / getMatchdayByNumber / getMyTips wiederverwendet.

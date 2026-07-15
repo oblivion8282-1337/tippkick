@@ -9,7 +9,7 @@ import {
   type TaggedFixture,
 } from '@/lib/import-helpers';
 import { seasonToYear } from '@/lib/openligadb';
-import { getCurrentSeason, matchdaySectionsInclude } from '@/lib/matchdays';
+import { getManageableSeason, matchdaySectionsInclude } from '@/lib/matchdays';
 import { deriveFixtureFields } from '@/lib/result-sync';
 import { LEAGUE_SHORTCUTS } from '@/lib/constants';
 import type { League } from '@/generated/prisma/client';
@@ -147,9 +147,9 @@ export async function getMatchdayAdmin(matchdayId: string) {
   });
 }
 
-/** Wettbewerbe der aktuellen Saison (Admin-Auswahl). */
+/** Wettbewerbe der admin-managbaren Saison (Import-Auswahl). */
 export async function getCompetitionsAdmin() {
-  const season = await getCurrentSeason();
+  const season = await getManageableSeason();
   if (!season) {
     return [];
   }
