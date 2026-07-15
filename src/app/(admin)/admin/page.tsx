@@ -1,75 +1,133 @@
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { CalendarClock, Download, Users } from 'lucide-react';
 
-import { getMatchdays } from '@/lib/matchdays';
+import { getManageableSeason } from '@/lib/matchdays';
+import { getCompetitionsOverview, getTipperStats, getUpcomingTipptage } from '@/lib/dashboard';
+import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/constants';
+import { formatCountdown, formatDateTime } from '@/lib/datetime';
+import { CreateSeasonForm } from '@/components/create-season-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
-import { formatDateRange } from '@/lib/datetime';
 
 export default async function AdminHomePage() {
-  const matchdays = await getMatchdays();
-
-  return (
-    <div className="space-y-10">
-      <PageHeader
-        eyebrow="Tippleitung"
-        title="Tipptage"
-        description="Spieltage werden automatisch aus OpenLigaDB importiert. Hier gruppierst du sie zu Tipptagen und exportierst die Tipps als Excel."
-        actions={
-          <>
-            <LinkButton href="/admin/spieltage" size="sm">
-              Spieltage gruppieren
-            </LinkButton>
-            <LinkButton href="/admin/matchdays/new" variant="outline" size="sm">
-              Manuell anlegen
-            </LinkButton>
-          </>
-        }
-      />
-
-      {matchdays.length === 0 ? (
+  const season = await getManageableSeason();
+  if (!season) {
+    return (
+      <div className="space-y-8">
+        <PageHeader eyebrow="Tippleitung" title="Admin" />
         <Card>
-          <CardContent className="text-muted-foreground py-12 text-center text-sm">
-            Noch keine Spieltage angelegt.
+          <CardContent className="py-8">
+            <p className="text-muted-foreground mb-4 text-sm">Noch keine Saison vorhanden.</p>
+            <CreateSeasonForm />
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle>Alle Tipptage</CardTitle>
-          </CardHeader>
-          <CardContent className="px-0">
+      </div>
+    );
+  }
+
+  const [competitions, upcoming, tipperStats] = await Promise.all([
+    getCompetitionsOverview(season.id),
+    getUpcomingTipptage(season.id),
+    getTipperStats(),
+  ]);
+  const compByKey = new Map(competitions.map((c) => [c.key, c]));
+
+  return (
+    <div className="space-y-8">
+      <PageHeader eyebrow="Tippleitung" title="Admin" description={`Saison ${season.name}`} />
+
+      {/* Nächste Deadlines (competitions-übergreifend) */}
+      <Card>
+        <CardHeader className="border-b border-border/40">
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4" /> Nächste Deadlines
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-0 pt-0">
+          {upcoming.length === 0 ? (
+            <p className="text-muted-foreground px-6 py-8 text-sm">
+              Keine offenen Tipptage. Spieltage noch gruppieren?{' '}
+              <Link href="/admin/spieltage" className="text-primary underline">
+                Zur Gruppierung
+              </Link>
+            </p>
+          ) : (
             <ul className="divide-y divide-border/40">
-              {matchdays.map((md) => (
-                <li key={md.id}>
-                  <Link
-                    href={`/admin/matchdays/${md.id}`}
-                    className="hover:bg-muted/40 group flex items-center justify-between gap-4 px-6 py-4 transition-colors"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-baseline gap-3">
-                        <span className="font-display text-2xl font-semibold tabular-nums">
-                          {md.number}.
-                        </span>
-                        <span className="font-medium">{md.competition.name}</span>
-                      </div>
-                      <p className="text-muted-foreground text-sm">
-                        {md.competition.season.name} · {formatDateRange(md.startDate, md.endDate)} ·{' '}
-                        {md._count.sections} {md._count.sections === 1 ? 'Sektion' : 'Sektionen'}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-muted-foreground hidden text-xs sm:inline">Öffnen</span>
-                      <ChevronRight className="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors" />
-                    </div>
+              {upcoming.map((u) => (
+                <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-4 text-sm">
+                  <span className="bg-muted rounded px-2 py-0.5 text-xs font-semibold">
+                    {COMPETITION_SHORT[u.competitionKey]}
+                  </span>
+                  <Link href={`/admin/matchdays/${u.id}`} className="hover:underline">
+                    <span className="font-display font-semibold">Tipptag {u.number}</span>
                   </Link>
+                  <span className="text-muted-foreground tabular-nums">{u.fixtureCount} Partien</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {u.tippersTipped}/{tipperStats.tippers} getippt
+                  </span>
+                  <span className="text-muted-foreground ml-auto tabular-nums">
+                    {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
+                  </span>
+                  <LinkButton href={`/admin/matchdays/${u.id}/export`} size="sm" variant="outline">
+                    <Download className="h-4 w-4" />
+                    Excel
+                  </LinkButton>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Wettbewerbe */}
+      <Card>
+        <CardHeader className="border-b border-border/40">
+          <CardTitle>Wettbewerbe</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0 pt-0">
+          <ul className="divide-y divide-border/40">
+            {COMPETITION_ORDER.map((key) => {
+              const c = compByKey.get(key);
+              const active = Boolean(c && c.sourceShortcuts.length > 0);
+              return (
+                <li key={key} className="flex flex-wrap items-center gap-3 px-6 py-4 text-sm">
+                  <span className="font-medium">{COMPETITION_LABELS[key]}</span>
+                  {active && c ? (
+                    <>
+                      <span className="text-muted-foreground tabular-nums">
+                        {c._count.matchdays} Tipptage · {c._count.sections} Spieltage importiert
+                      </span>
+                      <LinkButton href="/admin/spieltage" size="sm" className="ml-auto">
+                        Spieltage gruppieren
+                      </LinkButton>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground ml-auto text-xs">
+                      {c ? 'ohne Quelle' : 'deaktiviert'}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Tipper */}
+      <Card>
+        <CardHeader className="border-b border-border/40">
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Tipper
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-5 text-sm">
+          <p className="text-muted-foreground">
+            <span className="text-foreground font-semibold">{tipperStats.tippers}</span> Tipper ·{' '}
+            <span className="text-foreground font-semibold">{tipperStats.admins}</span> Tippleitung
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

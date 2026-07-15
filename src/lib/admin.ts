@@ -69,26 +69,6 @@ async function recalcSectionSpan(sectionId: string): Promise<void> {
   await prisma.matchdaySection.update({ where: { id: sectionId }, data: span });
 }
 
-/** Legt einen Tipptag (Matchday) ohne Sektionen/Partien an. */
-export async function createMatchday(input: {
-  competitionId: string;
-  number: number;
-  startDate: Date;
-  endDate: Date;
-  deadlineAt: Date;
-}): Promise<string> {
-  const matchday = await prisma.matchday.create({
-    data: {
-      competitionId: input.competitionId,
-      number: input.number,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      deadlineAt: input.deadlineAt,
-    },
-  });
-  return matchday.id;
-}
-
 /**
  * Setzt die Tipptage eines Wettbewerbs auf exakt 1..count (idempotent): fehlende
  * Nummern werden angelegt, Tipptage mit Nummer > count gelöscht (deren Spieltage

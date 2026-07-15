@@ -96,17 +96,6 @@ export async function getMatchdayByNumber(competitionKey: CompetitionKey, number
   });
 }
 
-/** Alle Spieltage (Admin-Übersicht), mit Wettbewerb + Section-Anzahl. */
-export async function getMatchdays() {
-  return prisma.matchday.findMany({
-    orderBy: [{ competition: { sortOrder: 'asc' } }, { number: 'asc' }],
-    include: {
-      competition: { include: { season: true } },
-      _count: { select: { sections: true } },
-    },
-  });
-}
-
 /**
  * Deadline-Logik (SSOT): Tipps sind nur bis zur Deadline möglich.
  * Wird server-seitig im Service erzwungen, UI zeigt nur den Zustand.

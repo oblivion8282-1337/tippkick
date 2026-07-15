@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { addFixture, createMatchday, createSeasonWithBundesliga, createTipptageBatch, deleteFixture } from '@/lib/admin';
+import { addFixture, createSeasonWithBundesliga, createTipptageBatch, deleteFixture } from '@/lib/admin';
 import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -20,20 +20,6 @@ function parseDate(value: string): Date {
 
 function parseLeague(raw: string): League | null {
   return raw === 'BL' ? 'BL' : raw === 'L2' ? 'L2' : null;
-}
-
-export async function createMatchdayAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-  const id = await createMatchday({
-    competitionId: String(formData.get('competitionId')),
-    number: Number(formData.get('number')),
-    startDate: parseDate(String(formData.get('startDate'))),
-    endDate: parseDate(String(formData.get('endDate'))),
-    deadlineAt: parseDate(String(formData.get('deadlineAt'))),
-  });
-  revalidatePath('/admin');
-  revalidatePath('/dashboard');
-  redirect(`/admin/matchdays/${id}`);
 }
 
 /**
