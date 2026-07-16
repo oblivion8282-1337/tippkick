@@ -8,6 +8,7 @@ export type OpenLigaDbSyncSummary = {
   fixtures: number;
   resultsUpdated: number;
   resultsSkipped: number;
+  failures?: { competitionId: string; reason: string; message?: string }[];
 };
 
 /**
@@ -26,20 +27,49 @@ export async function syncOpenLigaDb(): Promise<OpenLigaDbSyncSummary> {
 
   let sections = 0;
   let fixtures = 0;
+  const failures: { competitionId: string; reason: string; message?: string }[] = [];
   for (const competition of competitions) {
-    const result = await importSeasonFromOpenLigaDb(competition.id);
-    if (result.ok) {
-      sections += result.sections;
-      fixtures += result.fixtures;
+    try {
+      const result = await importSeasonFromOpenLigaDb(competition.id);
+      if (result.ok) {
+        sections += result.sections;
+        fixtures += result.fixtures;
+      } else {
+        failures.push({ competitionId: competition.id, reason: result.reason, message: result.message });
+        console.warn(
+          `[syncOpenLigaDb] Wettbewerb ${competition.id} ohne Import: ${result.reason}` +
+            (result.message ? ` (${result.message})` : ''),
+        );
+      }
+    } catch (error) {
+      // throws (z. B. fetchJson nach erschöpften Retries, JSON-Parse-Fehler) →
+      // einzelne Wettbewerbe isolieren, statt den ganzen Cron zu kippen.
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push({ competitionId: competition.id, reason: 'error', message });
+      console.warn(`[syncOpenLigaDb] Wettbewerb ${competition.id} wirft: ${message}`);
     }
   }
+  if (failures.length > 0) {
+    console.warn(`[syncOpenLigaDb] ${failures.length} Wettbewerb(e) ohne Import – Cron-Report folgt.`);
+  }
 
-  const sync = await syncResults();
+  // syncResults selbst hat eine per-Wettbewerbs-Isolation (try/catch in der
+  // for-Schleife). Falls es trotzdem wirft, fängt der äußere Wrapper hier auf.
+  let sync = { updated: 0, skipped: 0 };
+  try {
+    sync = await syncResults();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    failures.push({ competitionId: '*sync*', reason: 'error', message });
+    console.warn(`[syncOpenLigaDb] syncResults wirft: ${message}`);
+  }
+
   return {
     competitions: competitions.length,
     sections,
     fixtures,
     resultsUpdated: sync.updated,
     resultsSkipped: sync.skipped,
+    ...(failures.length > 0 ? { failures } : {}),
   };
 }
