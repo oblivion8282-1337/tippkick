@@ -1,10 +1,14 @@
 import { prisma } from '@/lib/prisma';
+import { getUserGate } from '@/lib/session';
 import { isTippable, matchdaySectionsInclude } from '@/lib/matchdays';
 import { MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 
 function normalizeGoals(value: number): number {
   return Math.min(MAX_GOALS, Math.max(MIN_GOALS, Number.isFinite(value) ? Math.trunc(value) : 0));
 }
+
+/** Vollständiger Grund-Typ – wird in saveTipAction (Superset) und im UI geteilt. */
+export type TipFailureReason = 'unauth' | 'deadline' | 'invalid' | 'unapproved' | 'banned' | 'closed' | 'error';
 
 /** Spieltag + eigene Tipps (map fixtureId -> Tipp) für die Tipp-Maske. */
 export async function getMyTips(userId: string, matchdayId: string) {
@@ -20,9 +24,7 @@ export async function getMyTips(userId: string, matchdayId: string) {
   }
 
   const fixtureIds = matchday.sections.flatMap((s) => s.fixtures.map((f) => f.id));
-  const tips = fixtureIds.length
-    ? await prisma.tip.findMany({ where: { userId, fixtureId: { in: fixtureIds } } })
-    : [];
+  const tips = fixtureIds.length ? await prisma.tip.findMany({ where: { userId, fixtureId: { in: fixtureIds } } }) : [];
   const tipsByFixture = new Map(tips.map((tip) => [tip.fixtureId, tip]));
 
   return { matchday, tipsByFixture };
@@ -33,46 +35,53 @@ export async function getMyTips(userId: string, matchdayId: string) {
  * - nur für den eingeloggten Nutzer (userId vom Server, nie vom Client vertraut)
  * - nur bis zur Deadline (server-seitig geprüft; über Section -> Matchday)
  * - Tore normiert auf 0..99
+ * - User muss approved sein und darf nicht gebannt sein (frisch aus DB,
+ *   die Session allein reicht nicht: better-auth cached den Wert)
  */
 export async function saveTip(params: {
   userId: string;
   fixtureId: string;
   homeGoals: number;
   awayGoals: number;
-}): Promise<{ ok: true } | { ok: false; reason: 'deadline' | 'invalid' | 'unapproved' }> {
+}): Promise<{ ok: true } | { ok: false; reason: Exclude<TipFailureReason, 'unauth' | 'error'> }> {
   const { userId, fixtureId } = params;
   const homeGoals = normalizeGoals(params.homeGoals);
   const awayGoals = normalizeGoals(params.awayGoals);
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { approved: true } });
+  const user = await getUserGate(userId);
   if (!user?.approved) {
     return { ok: false, reason: 'unapproved' };
   }
+  if (user.banned) {
+    return { ok: false, reason: 'banned' };
+  }
 
-  const fixture = await prisma.fixture.findUnique({
-    where: { id: fixtureId },
-    include: { section: { include: { matchday: true } } },
+  // Atomarer Schreib-Pfad: Status + Deadline werden IN der TX frisch gelesen
+  // (nicht aus einem Cache-Fixture). Damit kann ein Tip nicht über die
+  // Deadline-Grenze hinweg persistiert werden, und CANCELLED/POSTPONED sind hart gesperrt.
+  return prisma.$transaction(async (tx) => {
+    const fixture = await tx.fixture.findUnique({
+      where: { id: fixtureId },
+      select: {
+        status: true,
+        section: { select: { matchday: { select: { deadlineAt: true } } } },
+      },
+    });
+    if (!fixture?.section.matchday) {
+      return { ok: false, reason: 'invalid' as const };
+    }
+    if (fixture.status === 'CANCELLED' || fixture.status === 'POSTPONED') {
+      return { ok: false, reason: 'closed' as const };
+    }
+    if (!isTippable(fixture.section.matchday.deadlineAt)) {
+      return { ok: false, reason: 'deadline' as const };
+    }
+
+    await tx.tip.upsert({
+      where: { userId_fixtureId: { userId, fixtureId } },
+      update: { homeGoals, awayGoals },
+      create: { userId, fixtureId, homeGoals, awayGoals },
+    });
+    return { ok: true as const };
   });
-  if (!fixture) {
-    return { ok: false, reason: 'invalid' };
-  }
-
-  // Unzugeordnete Partie (Spieltag noch keinem Tipptag zugeordnet) → nicht tippbar.
-  const matchday = fixture.section.matchday;
-  if (!matchday) {
-    return { ok: false, reason: 'invalid' };
-  }
-
-  // Deadline server-seitig erzwingen – das UI ist nur Anzeige.
-  if (!isTippable(matchday.deadlineAt)) {
-    return { ok: false, reason: 'deadline' };
-  }
-
-  await prisma.tip.upsert({
-    where: { userId_fixtureId: { userId, fixtureId } },
-    update: { homeGoals, awayGoals },
-    create: { userId, fixtureId, homeGoals, awayGoals },
-  });
-
-  return { ok: true };
 }

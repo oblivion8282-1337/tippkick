@@ -1,12 +1,26 @@
 import 'dotenv/config';
 import { hashPassword } from 'better-auth/crypto';
 
+import { ROLE_ADMIN, ROLE_USER, type Role } from '../src/lib/constants';
 import { prisma } from '../src/lib/prisma';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@tippkick.local';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'changeme';
 
-async function createUser(opts: { name: string; email: string; password: string; role: 'admin' | 'user' }) {
+/** Bootstrap-Admin-Passwort: MUSS gesetzt sein. Kein Default – sonst öffentlich bekannt. */
+function requireAdminPassword(): string {
+  const pw = process.env.ADMIN_PASSWORD;
+  if (!pw || pw.length < 12) {
+    throw new Error(
+      'ADMIN_PASSWORD fehlt oder ist zu kurz (mind. 12 Zeichen). ' +
+        'In .env setzen, z. B. `openssl rand -base64 18 | tr -d "\\n"`.',
+    );
+  }
+  return pw;
+}
+
+const ADMIN_PASSWORD = requireAdminPassword();
+
+async function createUser(opts: { name: string; email: string; password: string; role: Role }) {
   const { name, email, password, role } = opts;
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -57,8 +71,8 @@ async function main() {
   });
 
   // 2) Bootstrap-Admin + Demo-Tipper
-  await createUser({ name: 'Tippleitung', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: 'admin' });
-  await createUser({ name: 'Cordoba', email: 'cordoba@tippkick.local', password: 'demo1234', role: 'user' });
+  await createUser({ name: 'Tippleitung', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: ROLE_ADMIN });
+  await createUser({ name: 'Cordoba', email: 'cordoba@tippkick.local', password: 'demo1234', role: ROLE_USER });
 
   console.log('Seed fertig. Admin-Login:', ADMIN_EMAIL);
 }
