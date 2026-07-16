@@ -4,18 +4,22 @@ import { useTransition } from 'react';
 
 import { assignRoundAction } from '@/app/(admin)/admin/actions';
 
-type Tipptag = { id: string; number: number };
+type Tipptag = { id: string; number: number; competitionId: string };
 
 /**
  * Dropdown, um einen Spieltag einem Tipptag zuzuordnen (oder abzuhängen).
  * Wechselt beim Ändern sofort per Server-Action ('' = keinem Tipptag zugeordnet).
+ * Filtert auf Tipptage der gleichen Competition – der Server lehnt fremde
+ * zwar ab, der Admin sieht aber kein verwirrendes Dropdown.
  */
 export function AssignRoundForm({
   sectionId,
+  competitionId,
   tipptage,
   current,
 }: {
   sectionId: string;
+  competitionId: string;
   tipptage: Tipptag[];
   current: string | null;
 }) {
@@ -28,6 +32,8 @@ export function AssignRoundForm({
     start(() => assignRoundAction(fd));
   }
 
+  const sameComp = tipptage.filter((t) => t.competitionId === competitionId);
+
   return (
     // stopPropagation: Klicks dürfen das umgebende <summary> nicht aufklappen.
     <select
@@ -39,7 +45,7 @@ export function AssignRoundForm({
       aria-label="Tipptag zuweisen"
     >
       <option value="">— keiner —</option>
-      {tipptage.map((t) => (
+      {sameComp.map((t) => (
         <option key={t.id} value={t.id}>
           {t.number}. Tipptag
         </option>

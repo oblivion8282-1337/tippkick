@@ -19,9 +19,18 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setError(null);
     setPending(true);
-    await requestPasswordReset(email, '/reset-password');
-    setPending(false);
-    setDone(true); // bewusst immer Bestätigung zeigen (kein User-Enumeration-Leak)
+    try {
+      await requestPasswordReset(email, '/reset-password');
+      setDone(true); // bewusst immer Bestätigung zeigen (kein User-Enumeration-Leak)
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? `Mail-Versand fehlgeschlagen: ${submitError.message}`
+          : 'Mail-Versand fehlgeschlagen. Bitte erneut versuchen.',
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -32,20 +41,14 @@ export default function ForgotPasswordPage() {
     >
       {done ? (
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Falls ein Konto mit dieser Adresse existiert, ist gleich eine Mail unterwegs (in der Entwicklung landet
-          der Link in der Konsole).
+          Falls ein Konto mit dieser Adresse existiert, ist gleich eine Mail unterwegs (in der Entwicklung landet der
+          Link in der Konsole).
         </p>
       ) : (
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email">E-Mail</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           {error && (
             <p role="alert" className="text-destructive text-sm">

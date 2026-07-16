@@ -46,12 +46,14 @@ export const matchdaySectionsInclude = {
 } satisfies Prisma.MatchdayInclude;
 
 /**
- * Default-Spieltag für Tipper-Ansicht: der früheste nicht abgelaufene
- * Matchday (sortiert nach Tipptag-Nummer). So landet der Tipper automatisch
- * auf dem nächsten Wochenende, das er noch tippen kann.
+ * Default-Spieltag für Tipper-Ansicht: der nächstliegende noch nicht abgelaufene
+ * Matchday (sortiert nach deadlineAt aufsteigend, nicht nach Tipptag-Nummer).
+ * So landet der Tipper automatisch auf dem Wochenende mit der frühesten Deadline.
  */
 export function pickDefaultMatchday<T extends { deadlineAt: Date }>(matchdays: T[]): T | undefined {
-  return matchdays.find((m) => isTippable(m.deadlineAt));
+  return matchdays
+    .filter((m) => isTippable(m.deadlineAt))
+    .sort((a, b) => a.deadlineAt.getTime() - b.deadlineAt.getTime())[0];
 }
 
 /**
@@ -80,10 +82,16 @@ export async function getCompetitions() {
   });
 }
 
-/** Spieltag nach Wettbewerbs-Key + Tipptag-Nummer (in der aktuellen Saison). */
-export async function getMatchdayByNumber(competitionKey: CompetitionKey, number: number) {
+/**
+ * Spieltag nach Wettbewerbs-Key + Tipptag-Nummer.
+ *
+ * Footgun vermeiden: ohne `seasonId` wuerde findFirst bei zwei parallelen Saisons
+ * mit gleichem CompetitionKey + number non-deterministisch zurueckliefern. Caller
+ * muessen daher explizit die Saison mitsetzen (id-Rueckgabe von getCurrentSeason).
+ */
+export async function getMatchdayByNumber(competitionKey: CompetitionKey, number: number, seasonId: string) {
   return prisma.matchday.findFirst({
-    where: { competition: { key: competitionKey }, number },
+    where: { competition: { key: competitionKey, seasonId }, number },
     include: {
       competition: true,
       ...matchdaySectionsInclude,

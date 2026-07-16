@@ -1,17 +1,13 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { League } from '@/generated/prisma/client';
 
 import { saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
-import {
-  LEAGUE_SECTION_LABELS,
-  LEAGUE_SECTION_ORDER,
-  MAX_GOALS,
-  MIN_GOALS,
-} from '@/lib/constants';
+import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER, MAX_GOALS, MIN_GOALS } from '@/lib/constants';
+import type { TipFailureReason } from '@/lib/tipps';
 import { cn } from '@/lib/utils';
 
 export type TipSectionFixture = { id: string; homeTeam: string; awayTeam: string };
@@ -23,8 +19,20 @@ type Props = {
   open: boolean;
 };
 
-type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+/** Grund des Fehlschlags differenziert: User sieht nicht nur "Fehler", sondern warum. */
+type SaveState = 'idle' | 'saving' | 'saved' | { error: TipFailureReason };
 const DEBOUNCE_MS = 500;
+
+/** Lesbare Meldung je Grund – vermeidet generisches "Fehler". */
+const REASON_MESSAGE: Record<TipFailureReason, string> = {
+  unauth: 'Sitzung abgelaufen – bitte neu einloggen.',
+  deadline: 'Deadline überschritten – Tipps können nicht mehr geändert werden.',
+  invalid: 'Partie nicht gefunden oder noch keinem Tipptag zugeordnet.',
+  unapproved: 'Noch nicht freigeschaltet – bitte warten bis die Tippleitung deinen Account freigibt.',
+  banned: 'Dein Account ist gesperrt.',
+  closed: 'Diese Partie wurde abgesagt oder verlegt – Tipps nicht möglich.',
+  error: 'Speichern fehlgeschlagen – bitte erneut versuchen.',
+};
 
 export function TipMaskForm({ sections, existingTips, open }: Props) {
   const allFixtures = useMemo(() => sections.flatMap((s) => s.fixtures), [sections]);
@@ -43,10 +51,23 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
 
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const mounted = useRef(true);
+
+  // Debounce-Timer beim Unmount abräumen, sonst läuft persist() nach Navigation
+  // weiter und feuert setState auf einer unmounted Komponente.
+  useEffect(() => {
+    mounted.current = true;
+    const timersRef = timers.current;
+    return () => {
+      mounted.current = false;
+      for (const id of Object.keys(timersRef)) {
+        clearTimeout(timersRef[id]);
+      }
+    };
+  }, []);
 
   const tippedCount = useMemo(
-    () =>
-      allFixtures.filter((f) => isFilled(values[f.id]?.home) && isFilled(values[f.id]?.away)).length,
+    () => allFixtures.filter((f) => isFilled(values[f.id]?.home) && isFilled(values[f.id]?.away)).length,
     [allFixtures, values],
   );
 
@@ -60,20 +81,36 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
       return;
     }
 
-    setSaveState('saving');
     clearTimeout(timers.current[fixtureId]);
+    // Nur persistieren, wenn BEIDE Felder gefüllt sind – ein leeres Feld ist
+    // "noch nicht getippt" (oder gerade gelöscht), kein valides 0:0.
+    if (updated.home === '' || updated.away === '') {
+      setSaveState('idle');
+      return;
+    }
+    setSaveState('saving');
     timers.current[fixtureId] = setTimeout(() => {
       void persist(fixtureId, updated);
     }, DEBOUNCE_MS);
   }
 
   async function persist(fixtureId: string, vals: { home: string; away: string }) {
+    if (!mounted.current) {
+      return;
+    }
     const result = await saveTipAction({
       fixtureId,
-      homeGoals: vals.home === '' ? 0 : Number(vals.home),
-      awayGoals: vals.away === '' ? 0 : Number(vals.away),
+      homeGoals: Number(vals.home),
+      awayGoals: Number(vals.away),
     });
-    setSaveState(result.ok ? 'saved' : 'error');
+    if (!mounted.current) {
+      return;
+    }
+    if (result.ok) {
+      setSaveState('saved');
+      return;
+    }
+    setSaveState({ error: result.reason });
   }
 
   // Sortiere Sections: Single-Liga zuerst (league=null), dann BL, dann L2.
@@ -132,15 +169,12 @@ function LigaSection({
   return (
     <section className="relative">
       {/* Pitch-Green Akzentstreifen links — Signatur des Designs. */}
-      <div
-        aria-hidden="true"
-        className="pitch-bar absolute top-2 bottom-2 left-0 w-1 rounded-full"
-      />
+      <div aria-hidden="true" className="pitch-bar absolute top-2 bottom-2 left-0 w-1 rounded-full" />
       <div className="pl-5 sm:pl-7">
         <header className="mb-3 flex items-baseline justify-between gap-4">
           <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
             {title}
-            <span className="text-muted-foreground ml-3 font-display text-2xl font-normal sm:text-3xl">
+            <span className="text-muted-foreground font-display ml-3 text-2xl font-normal sm:text-3xl">
               · {section.number}. Spieltag
             </span>
           </h2>
@@ -194,9 +228,21 @@ function FixtureRow({
     >
       <span className="truncate text-right text-base font-medium sm:text-lg">{fixture.homeTeam}</span>
       <div className="flex items-center gap-1.5 sm:gap-2">
-        <TipInput value={home} disabled={disabled} placeholder="–" onChange={(v) => onChange('home', v)} aria-label={`Tipp ${fixture.homeTeam}`} />
+        <TipInput
+          value={home}
+          disabled={disabled}
+          placeholder="–"
+          onChange={(v) => onChange('home', v)}
+          aria-label={`Tipp ${fixture.homeTeam}`}
+        />
         <span className="text-muted-foreground font-mono text-base font-light select-none">:</span>
-        <TipInput value={away} disabled={disabled} placeholder="–" onChange={(v) => onChange('away', v)} aria-label={`Tipp ${fixture.awayTeam}`} />
+        <TipInput
+          value={away}
+          disabled={disabled}
+          placeholder="–"
+          onChange={(v) => onChange('away', v)}
+          aria-label={`Tipp ${fixture.awayTeam}`}
+        />
       </div>
       <span className="truncate text-base font-medium sm:text-lg">{fixture.awayTeam}</span>
     </div>
@@ -220,27 +266,22 @@ function TipInput({
     <Input
       type="number"
       inputMode="numeric"
+      pattern="[0-9]*"
       min={MIN_GOALS}
       max={MAX_GOALS}
       value={value}
       disabled={disabled}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      className="font-mono w-12 border-transparent bg-muted/60 text-center text-base font-medium tabular-nums shadow-none transition-colors hover:bg-muted focus-visible:bg-background sm:w-14 sm:text-lg"
+      // Nur Ziffern 0-9 durchlassen. Verhindert dass Tipper '1.5' oder 'abc'
+      // eintippt, was onChange dann stillschweigend verwirft.
+      onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ''))}
+      className="bg-muted/60 hover:bg-muted focus-visible:bg-background w-12 border-transparent text-center font-mono text-base font-medium tabular-nums shadow-none transition-colors sm:w-14 sm:text-lg"
       aria-label={rest['aria-label']}
     />
   );
 }
 
-function SaveBadgeBar({
-  tippedCount,
-  total,
-  state,
-}: {
-  tippedCount: number;
-  total: number;
-  state: SaveState;
-}) {
+function SaveBadgeBar({ tippedCount, total, state }: { tippedCount: number; total: number; state: SaveState }) {
   const ratio = total === 0 ? 0 : tippedCount / total;
   return (
     <div className="border-border/40 bg-card/50 flex items-center justify-between rounded-2xl border px-4 py-3 sm:px-5">
@@ -263,24 +304,40 @@ function SaveBadgeBar({
 }
 
 function SaveBadge({ state }: { state: SaveState }) {
+  if (typeof state === 'object') {
+    return (
+      <span
+        role="status"
+        aria-live="polite"
+        title={REASON_MESSAGE[state.error]}
+        className="text-destructive flex items-center gap-1.5 font-mono text-xs tracking-wider uppercase"
+      >
+        <Cross />
+        {REASON_MESSAGE[state.error]}
+      </span>
+    );
+  }
   return (
     <span
       role="status"
       aria-live="polite"
       className={cn(
-        'flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider',
+        'flex items-center gap-1.5 font-mono text-xs tracking-wider uppercase',
         state === 'saving' && 'text-muted-foreground',
         state === 'saved' && 'text-pitch',
-        state === 'error' && 'text-destructive',
         state === 'idle' && 'text-muted-foreground/70',
       )}
     >
-      {state === 'saving' && <Spinner />}
-      {state === 'saved' && <Check />}
-      {state === 'error' && (
+      {state === 'saving' && (
         <>
-          <Cross />
-          Fehler
+          <Spinner />
+          speichert …
+        </>
+      )}
+      {state === 'saved' && (
+        <>
+          <Check />
+          gespeichert
         </>
       )}
       {state === 'idle' && (
@@ -289,8 +346,6 @@ function SaveBadge({ state }: { state: SaveState }) {
           offen
         </>
       )}
-      {state === 'saving' && 'speichert …'}
-      {state === 'saved' && 'gespeichert'}
     </span>
   );
 }
@@ -305,14 +360,30 @@ function Spinner() {
 }
 function Check() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+    >
       <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 function Cross() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+    >
       <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
       <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
     </svg>
@@ -320,7 +391,15 @@ function Cross() {
 }
 function Pencil() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
       <path d="M12 20h9" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>

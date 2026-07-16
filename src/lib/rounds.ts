@@ -38,11 +38,13 @@ export async function getRoundOverview(seasonId: string): Promise<RoundRow[]> {
 }
 
 /** Alle Tipptage (Matchdays) einer Saison als Zuordnungsoptionen, sortiert nach Nummer. */
-export async function getTipptageOverview(seasonId: string): Promise<{ id: string; number: number }[]> {
+export async function getTipptageOverview(
+  seasonId: string,
+): Promise<{ id: string; number: number; competitionId: string }[]> {
   return prisma.matchday.findMany({
     where: { competition: { seasonId } },
     orderBy: { number: 'asc' },
-    select: { id: true, number: true },
+    select: { id: true, number: true, competitionId: true },
   });
 }
 

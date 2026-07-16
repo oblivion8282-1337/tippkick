@@ -1,31 +1,12 @@
-import { fetchMatchday, fetchSeason, type ImportedFixture } from '@/lib/openligadb';
+import { fetchSeason, type ImportedFixture } from '@/lib/openligadb';
 import { SHORTCUT_TO_LEAGUE } from '@/lib/constants';
 import type { League } from '@/generated/prisma/client';
 
 /** Importierte Partie inkl. Sektions-Tag (1./2. Liga bei Bundesliga; sonst null). */
 export type TaggedFixture = ImportedFixture & { league: League | null };
 
-/** Holt einen Spieltag über alle Quellen eines Wettbewerbs, Partien getaggt. */
-export async function fetchTaggedMatchday(
-  shortcuts: string[],
-  year: number,
-  groupOrderId: number,
-): Promise<TaggedFixture[]> {
-  const perShortcut = await Promise.all(
-    shortcuts.map(async (shortcut) => {
-      const league = SHORTCUT_TO_LEAGUE[shortcut] ?? null;
-      const fixtures = await fetchMatchday(shortcut, year, groupOrderId);
-      return fixtures.map((f) => ({ ...f, league }));
-    }),
-  );
-  return perShortcut.flat();
-}
-
 /** Holt eine ganze Saison über alle Quellen, gruppiert + getaggt nach Spieltag. */
-export async function fetchTaggedSeason(
-  shortcuts: string[],
-  year: number,
-): Promise<Map<number, TaggedFixture[]>> {
+export async function fetchTaggedSeason(shortcuts: string[], year: number): Promise<Map<number, TaggedFixture[]>> {
   const perShortcut = await Promise.all(
     shortcuts.map(async (shortcut) => {
       const league = SHORTCUT_TO_LEAGUE[shortcut] ?? null;

@@ -31,7 +31,17 @@ export default function RegisterPage() {
       return;
     }
 
-    await requestVerificationEmail(email);
+    try {
+      await requestVerificationEmail(email);
+    } catch {
+      // SMTP down / network blip: Account existiert bereits, aber die Mail nicht.
+      // User darf nicht im "Registriere …"-Zustand stecken bleiben.
+      setPending(false);
+      setError(
+        'Konto wurde angelegt, aber die Bestätigungs-Mail konnte nicht versendet werden. Versuche es auf der Login-Seite erneut.',
+      );
+      return;
+    }
     setPending(false);
     setDone(true);
   }
@@ -40,8 +50,8 @@ export default function RegisterPage() {
     return (
       <AuthShell eyebrow="Fast geschafft" title="Bestätige deine E-Mail" subtitle="Wir haben dir einen Link geschickt.">
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Klicke auf den Bestätigungs-Link in der Mail, um dein Konto zu aktivieren. In der Entwicklung wird er
-          in der Konsole ausgegeben.
+          Klicke auf den Bestätigungs-Link in der Mail, um dein Konto zu aktivieren. In der Entwicklung wird er in der
+          Konsole ausgegeben.
         </p>
         <LinkButton href="/login" variant="outline" className="mt-6 w-full">
           Zum Login

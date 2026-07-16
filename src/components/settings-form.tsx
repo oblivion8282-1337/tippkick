@@ -71,13 +71,9 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
         <div className="flex items-center gap-4">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={image}
-              alt={initialName}
-              className="ring-border h-20 w-20 rounded-full object-cover ring-2"
-            />
+            <img src={image} alt={initialName} className="ring-border h-20 w-20 rounded-full object-cover ring-2" />
           ) : (
-            <div className="bg-muted text-muted-foreground flex h-20 w-20 items-center justify-center rounded-full font-display text-3xl font-semibold">
+            <div className="bg-muted text-muted-foreground font-display flex h-20 w-20 items-center justify-center rounded-full text-3xl font-semibold">
               {initialName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -103,12 +99,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
             {pending ? 'Lädt …' : 'Hochladen'}
           </Button>
           {message && (
-            <p
-              className={cn(
-                'text-sm',
-                message.includes('aktualisiert') ? 'text-pitch' : 'text-destructive',
-              )}
-            >
+            <p className={cn('text-sm', message.includes('aktualisiert') ? 'text-pitch' : 'text-destructive')}>
               {message}
             </p>
           )}
@@ -158,9 +149,7 @@ function EmailCard({ initialEmail }: { initialEmail: string }) {
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? 'Speichert …' : 'E-Mail ändern'}
             </Button>
-            {message && (
-              <p className={cn('text-sm', isError ? 'text-destructive' : 'text-pitch')}>{message}</p>
-            )}
+            {message && <p className={cn('text-sm', isError ? 'text-destructive' : 'text-pitch')}>{message}</p>}
           </div>
         </form>
       </CardContent>
@@ -177,6 +166,11 @@ function PasswordCard() {
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (newPassword === currentPassword) {
+      setIsError(true);
+      setMessage('Neues Passwort muss sich vom aktuellen unterscheiden.');
+      return;
+    }
     setPending(true);
     setMessage(null);
     setIsError(false);
@@ -230,9 +224,7 @@ function PasswordCard() {
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? 'Speichert …' : 'Passwort ändern'}
             </Button>
-            {message && (
-              <p className={cn('text-sm', isError ? 'text-destructive' : 'text-pitch')}>{message}</p>
-            )}
+            {message && <p className={cn('text-sm', isError ? 'text-destructive' : 'text-pitch')}>{message}</p>}
           </div>
         </form>
       </CardContent>
