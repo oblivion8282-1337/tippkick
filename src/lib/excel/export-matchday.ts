@@ -50,12 +50,17 @@ export async function addTipperSheetToWorkbook(args: {
     ws.getCell(3, FIRST_TIPPER_COL + i * TIPPER_BLOCK_WIDTH + 1).value = tippers[i].name;
   }
 
-  // Kopfzeile
+  // Kopfzeile (Header-Row 5).
+  // Zeile 3 wurde schon mit Tipper-Namen + Datum gefüllt.
+  // Zeile 5: Spalten-Untertitel "Heim : Gast" + "Tipp" pro Block.
   ws.getCell(HEADER_ROW, COL_HOME).value = 'Heim';
+  ws.getCell(HEADER_ROW, COL_HOME + 1).value = ':';
   ws.getCell(HEADER_ROW, COL_AWAY).value = 'Gast';
   for (let i = 0; i < tippers.length; i++) {
     const start = FIRST_TIPPER_COL + i * TIPPER_BLOCK_WIDTH;
     ws.getCell(HEADER_ROW, start).value = 'Tipp';
+    // ":" als visueller Trenner zwischen Heim- und Gast-Tipp-Zelle
+    ws.getCell(HEADER_ROW, start + 1).value = ':';
   }
 
   // Partie-Zeilen
