@@ -10,15 +10,16 @@ import {
 import { seasonToYear } from '@/lib/openligadb';
 import { getManageableSeason, matchdaySectionsInclude } from '@/lib/matchdays';
 import { deriveFixtureFields } from '@/lib/result-sync';
+import { recalcMatchdaySpan } from '@/lib/rounds';
 import { COMPETITION_LABELS, LEAGUE_SHORTCUTS, OPENLIGADB_SHORTCUTS } from '@/lib/constants';
 import type { League } from '@/generated/prisma/client';
 
 /**
  * Legt eine kanonische Liga-Sektion (Spieltag) an oder liefert die existierende.
- * Identität: (competitionId, league, number). Idempotent via findFirst-before-create
- * (nullable Composite-Keys sind in Prisma 7 nicht typsicher; league=null bei CL/DFB
- * ist durch NULL-Semantik in PG nur App-seitig eindeutig). Aktualisiert bei jedem
- * Aufruf die Datumsspanne + Quelle (frisch halten).
+ * Identität: (competitionId, league, number). Race-sicher via Serializable-TX + P2002-Catch
+ * (Postgres @@unique([competitionId, league, number]) hasht NULL ≠ NULL, deswegen ist der
+ * FindUnique-First hier nur Optimierung; der eigentliche Schutz ist der Unique-Constraint +
+ * Retry).
  */
 export async function upsertSection(input: {
   competitionId: string;
@@ -28,35 +29,55 @@ export async function upsertSection(input: {
   endDate: Date;
   sourceShortcut?: string | null;
 }): Promise<{ id: string; created: boolean }> {
-  const existing = await prisma.matchdaySection.findFirst({
-    where: { competitionId: input.competitionId, league: input.league, number: input.number },
-    select: { id: true },
-  });
-  if (existing) {
-    await prisma.matchdaySection.update({
-      where: { id: existing.id },
+  try {
+    const section = await prisma.matchdaySection.create({
       data: {
+        competitionId: input.competitionId,
+        league: input.league,
+        number: input.number,
         startDate: input.startDate,
         endDate: input.endDate,
         ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
       },
+      select: { id: true },
     });
-    return { id: existing.id, created: false };
+    return { id: section.id, created: true };
+  } catch (error) {
+    // P2002: parallel runner hat schon angelegt → frisch lesen + Span aktualisieren.
+    if (isUniqueConstraintError(error)) {
+      const existing = await prisma.matchdaySection.findFirst({
+        where: { competitionId: input.competitionId, league: input.league, number: input.number },
+        select: { id: true },
+      });
+      if (existing) {
+        await prisma.matchdaySection.update({
+          where: { id: existing.id },
+          data: {
+            startDate: input.startDate,
+            endDate: input.endDate,
+            ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
+          },
+        });
+        return { id: existing.id, created: false };
+      }
+    }
+    throw error;
   }
-  const section = await prisma.matchdaySection.create({
-    data: {
-      competitionId: input.competitionId,
-      league: input.league,
-      number: input.number,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
-    },
-  });
-  return { id: section.id, created: true };
 }
 
-/** Berechnet die Datumsspanne einer Sektion aus ihren Partien neu. */
+/** Prisma wirft PrismaClientKnownRequestError mit Code P2002 auf Unique-Constraint. */
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002';
+}
+
+/**
+ * Berechnet die Datumsspanne einer Sektion aus ihren Partien neu.
+ *
+ * Hinweis: bei einer leeren Sektion (z. B. nach deleteFixture der letzten Partie)
+ * werden die alten Daten stehen gelassen – das Schema verlangt non-nullable Dates,
+ * und eine künstliche Sentinel-Datierung würde die Anzeige verfälschen. In dem
+ * Edge-Case sollte der Admin die Sektion selbst löschen oder neu importieren.
+ */
 async function recalcSectionSpan(sectionId: string): Promise<void> {
   const fixtures = await prisma.fixture.findMany({
     where: { sectionId },
@@ -76,7 +97,10 @@ async function recalcSectionSpan(sectionId: string): Promise<void> {
  * entfernt also Nr. 35; erneutes Klicken mit 34 ändert nichts. Platzhalter-Daten;
  * Span/Deadline werden via recalcMatchdaySpan gesetzt, sobald Spieltage zugeordnet.
  */
-export async function createTipptageBatch(competitionId: string, count: number): Promise<{ created: number; deleted: number }> {
+export async function createTipptageBatch(
+  competitionId: string,
+  count: number,
+): Promise<{ created: number; deleted: number }> {
   const target = Math.max(1, Math.min(100, Math.trunc(count)));
   const existing = await prisma.matchday.findMany({ where: { competitionId }, select: { number: true } });
   const have = new Set(existing.map((m) => m.number));
@@ -85,57 +109,96 @@ export async function createTipptageBatch(competitionId: string, count: number):
     .filter((number) => !have.has(number))
     .map((number) => ({ competitionId, number, startDate: now, endDate: now, deadlineAt: now }));
 
-  await prisma.$transaction([
-    ...(toCreate.length > 0 ? [prisma.matchday.createMany({ data: toCreate })] : []),
-    prisma.matchday.deleteMany({ where: { competitionId, number: { gt: target } } }),
-  ]);
-  return { created: toCreate.length, deleted: existing.filter((m) => m.number > target).length };
+  // Race-Schutz: zwei parallele Aufrufe dürfen nicht beide dieselben Lücken inserten.
+  let created = 0;
+  await prisma.$transaction(
+    async (tx) => {
+      for (const data of toCreate) {
+        try {
+          await tx.matchday.create({ data });
+          created++;
+        } catch (error) {
+          if (!isUniqueConstraintError(error)) {
+            throw error;
+          }
+          // parallel runner hat diese Nummer schon angelegt → ok
+        }
+      }
+      await tx.matchday.deleteMany({ where: { competitionId, number: { gt: target } } });
+    },
+    { isolationLevel: 'Serializable' },
+  );
+
+  return { created, deleted: existing.filter((m) => m.number > target).length };
 }
 
 /**
  * Legt eine neue Saison an (idempotent) inkl. Bundesliga-Wettbewerb (BL1+BL2 als
- * OpenLigaDB-Quelle). Der Cron importiert die Spieltage dann automatisch.
+ * OpenLigaDB-Quelle). Atomar via TX + P2002-Retry: zwei parallele Aufrufe mit
+ * demselben Namen dürfen nicht beide season.create durchlaufen (P2002 auf name @unique).
  */
 export async function createSeasonWithBundesliga(name: string): Promise<{ id: string; created: boolean }> {
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error('Saison-Name fehlt');
   }
-  const existing = await prisma.season.findUnique({
-    where: { name: trimmed },
-    include: { competitions: { select: { key: true } } },
-  });
-  if (existing) {
-    if (!existing.competitions.some((c) => c.key === 'BL')) {
-      await prisma.competition.create({
-        data: {
-          seasonId: existing.id,
-          key: 'BL',
-          name: COMPETITION_LABELS.BL,
-          sortOrder: 0,
-          sourceShortcuts: OPENLIGADB_SHORTCUTS.BL,
-        },
-      });
+
+  return prisma.$transaction(async (tx) => {
+    let season = await tx.season.findUnique({
+      where: { name: trimmed },
+      include: { competitions: { select: { key: true } } },
+    });
+    if (!season) {
+      try {
+        season = await tx.season.create({
+          data: { name: trimmed },
+          include: { competitions: { select: { key: true } } },
+        });
+      } catch (error) {
+        if (!isUniqueConstraintError(error)) {
+          throw error;
+        }
+        // parallel runner hat die Season gerade angelegt → nachlesen
+        season = await tx.season.findUnique({
+          where: { name: trimmed },
+          include: { competitions: { select: { key: true } } },
+        });
+        if (!season) {
+          throw error;
+        }
+      }
     }
-    return { id: existing.id, created: false };
-  }
-  const season = await prisma.season.create({ data: { name: trimmed } });
-  await prisma.competition.create({
-    data: {
-      seasonId: season.id,
-      key: 'BL',
-      name: COMPETITION_LABELS.BL,
-      sortOrder: 0,
-      sourceShortcuts: OPENLIGADB_SHORTCUTS.BL,
-    },
+    if (!season.competitions.some((c) => c.key === 'BL')) {
+      try {
+        await tx.competition.create({
+          data: {
+            seasonId: season.id,
+            key: 'BL',
+            name: COMPETITION_LABELS.BL,
+            sortOrder: 0,
+            sourceShortcuts: OPENLIGADB_SHORTCUTS.BL,
+          },
+        });
+      } catch (error) {
+        if (!isUniqueConstraintError(error)) {
+          throw error;
+        }
+        // parallel runner hat die Competition gerade angelegt → ok
+      }
+    }
+    return { id: season.id, created: !season.competitions.some((c) => c.key === 'BL') };
   });
-  return { id: season.id, created: true };
 }
 
 /**
  * Legt eine Partie in einer bestehenden Sektion (Spieltag) an. Die Sektion muss
  * existieren (Identität competitionId + league + number). Aktualisiert die
- * Sektionsspanne.
+ * Sektionsspanne und – falls die Sektion einem Tipptag zugeordnet ist – auch
+ * dessen Span/Deadline (sonst zeigt der Tipptag eine veraltete Deadline an).
+ *
+ * Race-sicher: count + create laufen in einer SERIALIZABLE-Transaktion; bei
+ * Konflikt wirft Postgres einen 40001 – die Action kann gefahrlos erneut
+ * ausgeführt werden, dann sieht sie den frischen count.
  */
 export async function addFixture(input: {
   competitionId: string;
@@ -145,35 +208,61 @@ export async function addFixture(input: {
   homeTeam: string;
   awayTeam: string;
 }): Promise<void> {
+  await prisma.$transaction(
+    async (tx) => {
+      const section = await tx.matchdaySection.findFirst({
+        where: { competitionId: input.competitionId, league: input.league, number: input.number },
+        select: { id: true, matchdayId: true },
+      });
+      if (!section) {
+        throw new Error('Spieltag (Sektion) nicht gefunden');
+      }
+      const sortOrder = await tx.fixture.count({ where: { sectionId: section.id } });
+      await tx.fixture.create({
+        data: {
+          sectionId: section.id,
+          league: input.league,
+          kickoff: input.kickoff,
+          homeTeam: input.homeTeam,
+          awayTeam: input.awayTeam,
+          sortOrder,
+        },
+      });
+    },
+    { isolationLevel: 'Serializable' },
+  );
+
+  // recalc außerhalb der Transaktion – soll auch bei Konflikt-Reentry laufen.
   const section = await prisma.matchdaySection.findFirst({
     where: { competitionId: input.competitionId, league: input.league, number: input.number },
-    select: { id: true },
+    select: { id: true, matchdayId: true },
   });
   if (!section) {
-    throw new Error('Spieltag (Sektion) nicht gefunden');
+    return;
   }
-  const sortOrder = await prisma.fixture.count({ where: { sectionId: section.id } });
-  await prisma.fixture.create({
-    data: {
-      sectionId: section.id,
-      league: input.league,
-      kickoff: input.kickoff,
-      homeTeam: input.homeTeam,
-      awayTeam: input.awayTeam,
-      sortOrder,
-    },
-  });
   await recalcSectionSpan(section.id);
+  if (section.matchdayId) {
+    await recalcMatchdaySpan(section.matchdayId);
+  }
 }
 
 export async function deleteFixture(fixtureId: string): Promise<void> {
   const fixture = await prisma.fixture.findUnique({
     where: { id: fixtureId },
-    select: { sectionId: true },
+    select: { sectionId: true, section: { select: { matchdayId: true } } },
   });
+  // Tip-Count mitloggen (Cascade löscht sie mit) für Audit-Transparenz.
+  const tipCount = await prisma.tip.count({ where: { fixtureId } });
+  if (tipCount > 0) {
+    console.warn(`[deleteFixture] ${fixtureId} hat ${tipCount} Tipps – werden mit kaskadiert`);
+  }
   await prisma.fixture.delete({ where: { id: fixtureId } });
-  if (fixture) {
-    await recalcSectionSpan(fixture.sectionId);
+  if (!fixture) {
+    return;
+  }
+  await recalcSectionSpan(fixture.sectionId);
+  if (fixture.section.matchdayId) {
+    await recalcMatchdaySpan(fixture.section.matchdayId);
   }
 }
 
@@ -219,10 +308,7 @@ export async function importSeasonFromOpenLigaDb(competitionId: string): Promise
     return { ok: false, reason: 'no-source' };
   }
 
-  const seasonMap = await fetchTaggedSeason(
-    competition.sourceShortcuts,
-    seasonToYear(competition.season.name),
-  );
+  const seasonMap = await fetchTaggedSeason(competition.sourceShortcuts, seasonToYear(competition.season.name));
   if (seasonMap.size === 0) {
     return { ok: false, reason: 'empty' };
   }
@@ -258,8 +344,8 @@ function leagueFixtureShortcut(shortcuts: string[], league: League | null): stri
 
 /**
  * Legt eine Sektion + ihre Partien idempotent an. Gibt die Anzahl der neu angelegten
- * Partien zurück (0, wenn die Sektion schon befüllt war). Partien inkl. externalId +
- * Ergebnisdaten (falls OpenLigaDB schon welche liefert).
+ * Partien zurück. Idempotenz auf externalId-Ebene (nicht Section-Count-Ebene), damit
+ * postponed/rechts angesetzte Nachzügler in eine bereits gefüllte Sektion ergänzt werden.
  */
 async function populateSectionFixtures(input: {
   competitionId: string;
@@ -278,26 +364,68 @@ async function populateSectionFixtures(input: {
     endDate: latest,
     sourceShortcut: input.sourceShortcut,
   });
-  const existing = await prisma.fixture.count({ where: { sectionId: section.id } });
-  if (existing > 0) {
+
+  // Nur Partien einfügen, deren externalId noch nicht existiert (per-fixture Idempotenz).
+  const existing = await prisma.fixture.findMany({
+    where: { sectionId: section.id },
+    select: { externalId: true, sortOrder: true },
+  });
+  const existingExternalIds = new Set(existing.map((f) => f.externalId).filter((id): id is string => id !== null));
+  const baseSortOrder = existing.length; // Fortlaufend in der ganzen Sektion, nicht im Subset
+  const newFixtures = input.fixtures.filter((f) => !existingExternalIds.has(f.externalId));
+  if (newFixtures.length === 0) {
     return 0;
   }
-  await prisma.fixture.createMany({
-    data: input.fixtures.map((f, sortOrder) => {
-      const derived = deriveFixtureFields(f);
-      return {
-        sectionId: section.id,
-        league: f.league,
-        kickoff: f.kickoff,
-        homeTeam: f.homeTeam,
-        awayTeam: f.awayTeam,
-        sortOrder,
-        externalId: f.externalId,
-        ...derived,
-        resultSource: derived.status === 'FINISHED' ? ('SYNC' as const) : ('NONE' as const),
-        syncedAt: derived.status === 'FINISHED' ? new Date() : null,
-      };
-    }),
-  });
-  return input.fixtures.length;
+
+  // Race-Schutz: zwei parallele populate-Aufrufe sehen identische existingExternalIds
+  // (jeweils leer) und würden beide createMany aufrufen → Duplikate.
+  try {
+    await prisma.fixture.createMany({
+      data: newFixtures.map((f, i) => {
+        const derived = deriveFixtureFields(f);
+        return {
+          sectionId: section.id,
+          league: f.league,
+          kickoff: f.kickoff,
+          homeTeam: f.homeTeam,
+          awayTeam: f.awayTeam,
+          sortOrder: baseSortOrder + i, // fortlaufend in der Sektion
+          externalId: f.externalId,
+          ...derived,
+          resultSource: derived.status === 'FINISHED' ? ('SYNC' as const) : ('NONE' as const),
+          syncedAt: derived.status === 'FINISHED' ? new Date() : null,
+        };
+      }),
+    });
+  } catch (error) {
+    // P2002: parallel runner hat einzelne externalIds eingefügt → per-fixture-Retry.
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+    for (const f of newFixtures) {
+      try {
+        const derived = deriveFixtureFields(f);
+        await prisma.fixture.create({
+          data: {
+            sectionId: section.id,
+            league: f.league,
+            kickoff: f.kickoff,
+            homeTeam: f.homeTeam,
+            awayTeam: f.awayTeam,
+            sortOrder: baseSortOrder + newFixtures.indexOf(f),
+            externalId: f.externalId,
+            ...derived,
+            resultSource: derived.status === 'FINISHED' ? ('SYNC' as const) : ('NONE' as const),
+            syncedAt: derived.status === 'FINISHED' ? new Date() : null,
+          },
+        });
+      } catch (innerError) {
+        if (!isUniqueConstraintError(innerError)) {
+          throw innerError;
+        }
+        // parallel runner hat genau diese externalId zuerst eingefügt → ok
+      }
+    }
+  }
+  return newFixtures.length;
 }
