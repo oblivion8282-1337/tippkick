@@ -9,7 +9,7 @@ import { useTheme } from '@/components/theme-provider';
 
 /**
  * Nutzer-Menü rechts in der Leiste: Trigger ist Avatar/profilfoto (sonst User-Icon);
-** darin Profil (Einstellungen), Hell/Dunkel umschalten und Abmelden.
+ ** darin Profil (Einstellungen), Hell/Dunkel umschalten und Abmelden.
  */
 export function UserMenu({ userName, userImage }: { userName: string; userImage?: string | null }) {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function UserMenu({ userName, userImage }: { userName: string; userImage?
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={8} className="z-50 min-w-52 outline-none">
-          <Menu.Popup className="border-border bg-popover text-popover-foreground shadow-lg ring-border/40 space-y-0.5 rounded-lg border p-1.5">
+          <Menu.Popup className="border-border bg-popover text-popover-foreground ring-border/40 space-y-0.5 rounded-lg border p-1.5 shadow-lg">
             <div className="text-muted-foreground truncate px-3 py-2 text-xs">{userName}</div>
             <MenuSeparator />
             <Menu.LinkItem

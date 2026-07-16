@@ -25,11 +25,7 @@ function weekKey(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-export default async function SpieltagePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ season?: string }>;
-}) {
+export default async function SpieltagePage({ searchParams }: { searchParams: Promise<{ season?: string }> }) {
   const { season: seasonParam } = await searchParams;
   const [seasons, manageable] = await Promise.all([getSeasons(), getManageableSeason()]);
 
@@ -74,16 +70,13 @@ export default async function SpieltagePage({
     <div className="space-y-8">
       <div className="space-y-3">
         <Breadcrumb
-          items={[
-            { label: 'Admin', href: `/admin?season=${season.id}` },
-            { label: 'Spieltage & Tipptage' },
-          ]}
+          items={[{ label: 'Admin', href: `/admin?season=${season.id}` }, { label: 'Spieltage & Tipptage' }]}
         />
         <PageHeader title={`${season.name} · Spieltage & Tipptage`} />
       </div>
 
       <Card>
-        <CardHeader className="border-b border-border/40">
+        <CardHeader className="border-border/40 border-b">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" /> Spieltage ({rounds.length})
@@ -91,7 +84,7 @@ export default async function SpieltagePage({
             {competitions.length > 0 && (
               <form action={createTipptagAction} className="flex items-center gap-2">
                 <input type="hidden" name="competitionId" value={competitions[0].id} />
-                <Label htmlFor="count" className="text-muted-foreground whitespace-nowrap text-xs">
+                <Label htmlFor="count" className="text-muted-foreground text-xs whitespace-nowrap">
                   Tipptage anlegen:
                 </Label>
                 <Input id="count" name="count" type="number" min={1} max={100} defaultValue={34} className="h-8 w-20" />
@@ -105,8 +98,8 @@ export default async function SpieltagePage({
         <CardContent className="space-y-6 pt-5">
           {clusters.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              Keine Spieltage für diese Saison. Der OpenLigaDB-Import läuft automatisch (Cron);
-              in Dev per <code className="font-mono">pnpm sync:results</code> anstoßen.
+              Keine Spieltage für diese Saison. Der OpenLigaDB-Import läuft automatisch (Cron); in Dev per{' '}
+              <code className="font-mono">pnpm sync:results</code> anstoßen.
             </p>
           ) : (
             clusters.map((cluster) => {
@@ -149,18 +142,19 @@ export default async function SpieltagePage({
                             <span className="ml-auto">
                               <AssignRoundForm
                                 sectionId={row.id}
+                                competitionId={row.competition.id}
                                 tipptage={tipptage}
                                 current={row.matchday?.id ?? null}
                               />
                             </span>
                           </summary>
-                          <ul className="border-border/40 divide-y divide-border/30 border-t">
+                          <ul className="border-border/40 divide-border/30 divide-y border-t">
                             {row.fixtures.map((f) => (
                               <li key={f.id} className="flex items-center gap-3 py-2 pr-4 pl-10 text-sm">
                                 <time className="text-muted-foreground w-40 shrink-0 font-mono tabular-nums">
                                   {formatDateTime(f.kickoff)}
                                 </time>
-                                <span className="text-right font-medium truncate">{f.homeTeam}</span>
+                                <span className="truncate text-right font-medium">{f.homeTeam}</span>
                                 <span className="text-muted-foreground shrink-0 font-mono tabular-nums">
                                   {f.homeGoals ?? '–'} : {f.awayGoals ?? '–'}
                                 </span>

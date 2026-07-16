@@ -19,7 +19,12 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn('border-border/60 flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between', className)}>
+    <header
+      className={cn(
+        'border-border/60 flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between',
+        className,
+      )}
+    >
       <div className="space-y-1.5">
         {eyebrow && (
           <p className="text-muted-foreground font-mono text-[0.7rem] font-medium tracking-[0.18em] uppercase">

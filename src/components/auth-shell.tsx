@@ -20,25 +20,21 @@ export function AuthShell({
 }) {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
-      <aside className="from-card via-card to-pitch/8 relative hidden overflow-hidden bg-gradient-to-br p-12 lg:flex lg:flex-col lg:justify-between dark:bg-gradient-to-br dark:from-card dark:via-card dark:to-pitch/12">
+      <aside className="from-card via-card to-pitch/8 dark:from-card dark:via-card dark:to-pitch/12 relative hidden overflow-hidden bg-gradient-to-br p-12 lg:flex lg:flex-col lg:justify-between dark:bg-gradient-to-br">
         <Link href="/" className="relative z-10 inline-flex">
           <Wordmark size="lg" />
         </Link>
         <div className="relative z-10 max-w-md space-y-4">
-          <p className="font-mono text-[0.7rem] font-medium tracking-[0.2em] text-pitch uppercase">
-            V.O.T.Z.E.
-          </p>
-          <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight">
+          <p className="text-pitch font-mono text-[0.7rem] font-medium tracking-[0.2em] uppercase">V.O.T.Z.E.</p>
+          <h2 className="font-display text-3xl leading-tight font-semibold tracking-tight">
             Jedes Wochenende ein Spieltags­zettel — nur digital.
           </h2>
           <p className="text-muted-foreground text-base leading-relaxed">
-            Tippe 1. und 2. Bundesliga online, die Tippleitung lädt am Ende die fertige Auswertung als Excel.
-            Schluss mit E-Mails mit Anhängen, die im Spam landen.
+            Tippe 1. und 2. Bundesliga online, die Tippleitung lädt am Ende die fertige Auswertung als Excel. Schluss
+            mit E-Mails mit Anhängen, die im Spam landen.
           </p>
         </div>
-        <p className="text-muted-foreground relative z-10 text-xs">
-          © {new Date().getFullYear()} V.O.T.Z.E.
-        </p>
+        <p className="text-muted-foreground relative z-10 text-xs">© {new Date().getFullYear()} V.O.T.Z.E.</p>
       </aside>
 
       <section className="flex items-center justify-center px-5 py-10 sm:px-8 lg:px-12">

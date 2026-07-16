@@ -4,7 +4,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock, ShieldCheck } from 'luc
 import { getCompetitions, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
+import { LEAGUE_SECTION_LABELS, ROLE_ADMIN } from '@/lib/constants';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 import { Wordmark } from '@/components/wordmark';
@@ -27,7 +27,11 @@ type MatchdaySummary = {
 };
 
 /** Läd einen Tipptag (Wettbewerb + Nummer) inkl. Tipp-Fortschritt eines Nutzers. */
-async function loadMatchdaySummary(competitionId: string, number: number, userId: string): Promise<MatchdaySummary | null> {
+async function loadMatchdaySummary(
+  competitionId: string,
+  number: number,
+  userId: string,
+): Promise<MatchdaySummary | null> {
   const md = await prisma.matchday.findFirst({
     where: { competitionId, number },
     select: {
@@ -50,11 +54,7 @@ async function loadMatchdaySummary(competitionId: string, number: number, userId
   return { md, tipped, total, open: isTippable(md.deadlineAt) };
 }
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ matchday?: string }>;
-}) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ matchday?: string }> }) {
   const { matchday: matchdayParam } = await searchParams;
   const session = await requireUser();
   const competitions = await getCompetitions();
@@ -64,8 +64,8 @@ export default async function DashboardPage({
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <Wordmark size="lg" className="text-muted-foreground" />
         <p className="text-muted-foreground max-w-md">
-          Aktuell sind keine Wettbewerbe freigeschaltet. Sobald die Tippleitung eine Saison anlegt, erscheinen hier
-          die Tipptage.
+          Aktuell sind keine Wettbewerbe freigeschaltet. Sobald die Tippleitung eine Saison anlegt, erscheinen hier die
+          Tipptage.
         </p>
       </div>
     );
@@ -84,9 +84,7 @@ export default async function DashboardPage({
   );
   const visibleRows = rows.filter((r): r is NonNullable<typeof r> => r !== null);
   if (visibleRows.length === 0) {
-    return (
-      <div className="text-muted-foreground py-24 text-center">Aktuell keine tippspielfähigen Tipptage.</div>
-    );
+    return <div className="text-muted-foreground py-24 text-center">Aktuell keine tippspielfähigen Tipptage.</div>;
   }
   const focusRow = visibleRows.find((r) => r.open && r.tipped < r.total) ?? visibleRows[0];
 
@@ -105,7 +103,10 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-10">
-      <PageHeader eyebrow={`Saison ${visibleRows[0]?.c.season.name ?? ''}`} title={`Hallo, ${session.user.name ?? session.user.email}`} />
+      <PageHeader
+        eyebrow={`Saison ${visibleRows[0]?.c.season.name ?? ''}`}
+        title={`Hallo, ${session.user.name ?? session.user.email}`}
+      />
 
       <WeekendHero
         competitionKey={heroC.key}
@@ -128,7 +129,7 @@ export default async function DashboardPage({
         </section>
       )}
 
-      {session.user.role === 'admin' && (
+      {session.user.role === ROLE_ADMIN && (
         <aside className="border-border/60 bg-card/50 flex items-center justify-between gap-4 rounded-2xl border px-5 py-4">
           <div className="flex items-center gap-3">
             <ShieldCheck className="text-pitch" />
@@ -174,7 +175,7 @@ function WeekendHero({
   }).format(md.deadlineAt);
 
   return (
-    <article className="bg-card relative overflow-hidden rounded-3xl border border-border/60 p-6 shadow-[0_1px_0_oklch(0.21_0.018_255/0.04),0_8px_24px_-12px_oklch(0.21_0.018_255/0.12)] sm:p-10 dark:shadow-[0_1px_0_oklch(0.93_0.01_100/0.04),0_8px_24px_-12px_oklch(0_0_0/0.4)]">
+    <article className="bg-card border-border/60 relative overflow-hidden rounded-3xl border p-6 shadow-[0_1px_0_oklch(0.21_0.018_255/0.04),0_8px_24px_-12px_oklch(0.21_0.018_255/0.12)] sm:p-10 dark:shadow-[0_1px_0_oklch(0.93_0.01_100/0.04),0_8px_24px_-12px_oklch(0_0_0/0.4)]">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-4">
           <p className="text-muted-foreground flex items-center gap-2 pl-12 font-mono text-[0.7rem] font-medium tracking-[0.18em] uppercase">
@@ -186,8 +187,7 @@ function WeekendHero({
           <div className="flex items-center gap-3">
             <TipptagArrow dir="prev" target={prevNumber} />
             <h2 className="font-display text-5xl font-semibold tracking-tight sm:text-7xl">
-              {md.number}.{' '}
-              <span className="text-muted-foreground font-display font-normal">Tipptag</span>
+              {md.number}. <span className="text-muted-foreground font-display font-normal">Tipptag</span>
             </h2>
             <TipptagArrow dir="next" target={nextNumber} />
           </div>
@@ -203,7 +203,7 @@ function WeekendHero({
             </span>
           </div>
 
-          <div className="space-y-2 pl-12 pt-1">
+          <div className="space-y-2 pt-1 pl-12">
             <div className="flex items-baseline gap-2">
               <span className="font-display text-3xl font-semibold tabular-nums">
                 {tipped}
@@ -213,7 +213,10 @@ function WeekendHero({
             </div>
             <div className="bg-foreground/10 h-2 max-w-md overflow-hidden rounded-full" aria-hidden="true">
               <div
-                className={cn('h-full rounded-full transition-all duration-500 ease-out', finished ? 'bg-pitch' : 'bg-pitch/80')}
+                className={cn(
+                  'h-full rounded-full transition-all duration-500 ease-out',
+                  finished ? 'bg-pitch' : 'bg-pitch/80',
+                )}
                 style={{ width: `${Math.round(ratio * 100)}%` }}
               />
             </div>

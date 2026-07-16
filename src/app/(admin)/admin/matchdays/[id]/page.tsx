@@ -47,7 +47,7 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
       </div>
 
       <Card>
-        <CardHeader className="border-b border-border/40">
+        <CardHeader className="border-border/40 border-b">
           <CardTitle>Partien ({allFixtures.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-5">
@@ -56,14 +56,12 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
               <div aria-hidden="true" className="pitch-bar absolute top-2 bottom-2 left-0 w-1 rounded-full" />
               <h3 className="font-display mb-2 text-lg font-semibold tracking-tight">
                 {section.league ? LEAGUE_SECTION_LABELS[section.league] : 'Wettbewerb'} ·{' '}
-                <span className="text-muted-foreground font-display font-normal">
-                  {section.number}. Spieltag
-                </span>
+                <span className="text-muted-foreground font-display font-normal">{section.number}. Spieltag</span>
               </h3>
               {section.fixtures.length === 0 ? (
                 <p className="text-muted-foreground text-sm">Keine Partien.</p>
               ) : (
-                <ul className="border-border/60 bg-card divide-y divide-border/40 overflow-hidden rounded-xl border">
+                <ul className="border-border/60 bg-card divide-border/40 divide-y overflow-hidden rounded-xl border">
                   {section.fixtures.map((f) => (
                     <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm">
                       <span className="font-mono tabular-nums">{formatDateTime(f.kickoff)}</span>
