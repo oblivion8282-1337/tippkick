@@ -82,3 +82,15 @@ export const FIXTURE_STATUS_LABELS: Record<FixtureStatus, string> = {
 
 /** Tipp-Deadline = frühester Anstoß minus diese Offset (1 Min, wie im Verein üblich). */
 export const DEADLINE_OFFSET_MS = 60_000;
+
+/**
+ * Rollen-Konstanten (SSOT – nicht als Magic Strings im Code verstreuen).
+ * better-auth admin-Plugin speichert diese exakt so in `User.role`.
+ */
+export const ROLE_ADMIN = 'admin';
+export const ROLE_USER = 'user';
+export const ROLES = [ROLE_ADMIN, ROLE_USER] as const;
+export type Role = (typeof ROLES)[number];
+
+/** Maximale Länge für vom Admin eingegebene Freitext-Felder (Team-Namen, Saison-Name). */
+export const MAX_TEXT_LENGTH = 80;

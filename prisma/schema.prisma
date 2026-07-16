@@ -89,6 +89,8 @@ model Matchday {
 
   @@unique([competitionId, number])
   @@index([competitionId])
+  // Hot-Path: Dashboard + Admin-Listen filtern nach deadlineAt; ohne Index Seq-Scan.
+  @@index([deadlineAt])
 }
 
 /**
@@ -143,6 +145,8 @@ model Fixture {
 
   @@index([sectionId])
   @@index([sectionId, league])
+  // Composite für "Partien einer Sektion, sortiert nach Anstoß" (Spieltag-Übersicht).
+  @@index([sectionId, kickoff])
   @@index([externalId])
 }
 
@@ -160,6 +164,8 @@ model Tip {
   // Ein Tipper pro Partie genau ein Tipp (SSOT-Constraint).
   @@unique([userId, fixtureId])
   @@index([fixtureId])
+  // CHECK-Constraint (homeGoals/awayGoals 0..99) wird per Raw-SQL in der
+  // initialen Migration ergänzt (Prisma 7 unterstützt kein @@check nativ).
 }
 
 model User {
@@ -172,7 +178,7 @@ model User {
   updatedAt        DateTime    @updatedAt
   twoFactorEnabled Boolean?    @default(false)
   approved         Boolean     @default(false) // Neu-Registrierung: Tippleitung muss freischalten
-  role             String?
+  role             Role?
   banned           Boolean?    @default(false)
   banReason        String?
   banExpires       DateTime?
@@ -183,6 +189,12 @@ model User {
 
   @@unique([email])
   @@map("user")
+}
+
+/** Rolle eines Nutzers. better-auth admin-Plugin schreibt 'user' / 'admin' lowercase. */
+enum Role {
+  user
+  admin
 }
 
 model Session {

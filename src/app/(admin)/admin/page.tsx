@@ -8,13 +8,13 @@ import {
   getTipptagProgress,
   getUpcomingTipptage,
 } from '@/lib/dashboard';
-import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT } from '@/lib/constants';
+import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 import { formatCountdown, formatDateTime } from '@/lib/datetime';
 import { AdminSeasonPicker } from '@/components/admin-season-picker';
 import { ConfirmButton } from '@/components/confirm-button';
 import { CreateSeasonForm } from '@/components/create-season-form';
 import { RoleSelectForm } from '@/components/role-select-form';
-import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/submit-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
@@ -22,11 +22,7 @@ import { getSession } from '@/lib/session';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
 
-export default async function AdminHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ season?: string }>;
-}) {
+export default async function AdminHomePage({ searchParams }: { searchParams: Promise<{ season?: string }> }) {
   const { season: seasonParam } = await searchParams;
   const seasons = await getSeasons();
 
@@ -84,7 +80,7 @@ export default async function AdminHomePage({
 
       {/* Nächste Deadlines (competitions-übergreifend) */}
       <Card>
-        <CardHeader className="border-b border-border/40">
+        <CardHeader className="border-border/40 border-b">
           <CardTitle className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4" /> Nächste Deadlines
           </CardTitle>
@@ -98,7 +94,7 @@ export default async function AdminHomePage({
               </Link>
             </p>
           ) : (
-            <div className="divide-y divide-border/40">
+            <div className="divide-border/40 divide-y">
               {upcoming.map((u, i) => {
                 const prog = upcomingProgress[i];
                 const isDone = (userId: string) => prog.total > 0 && (prog.tippedByUser.get(userId) ?? 0) >= prog.total;
@@ -116,7 +112,9 @@ export default async function AdminHomePage({
                       <span className="text-muted-foreground tabular-nums">{u.fixtureCount} Partien</span>
                       <span className="text-muted-foreground tabular-nums">
                         {u.tippersTipped}/{active.length} vollständig
-                        {outstanding.length > 0 && <span className="text-destructive"> · {outstanding.length} offen</span>}
+                        {outstanding.length > 0 && (
+                          <span className="text-destructive"> · {outstanding.length} offen</span>
+                        )}
                       </span>
                       <span className="text-muted-foreground ml-auto tabular-nums">
                         {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
@@ -134,13 +132,15 @@ export default async function AdminHomePage({
                         return (
                           <li key={t.id} className="flex items-center gap-2 py-2 pr-6 pl-12 text-sm">
                             <span className="font-medium">{t.name}</span>
-                            {t.role === 'admin' && <span className="text-muted-foreground text-xs">Tippleitung</span>}
+                            {t.role === ROLE_ADMIN && (
+                              <span className="text-muted-foreground text-xs">Tippleitung</span>
+                            )}
                             <span
                               className={
                                 done
                                   ? 'text-primary ml-auto inline-flex items-center gap-1'
                                   : partial
-                                    ? 'text-amber-500 ml-auto'
+                                    ? 'ml-auto text-amber-500'
                                     : 'text-muted-foreground ml-auto'
                               }
                             >
@@ -168,11 +168,11 @@ export default async function AdminHomePage({
 
       {/* Wettbewerbe */}
       <Card>
-        <CardHeader className="border-b border-border/40">
+        <CardHeader className="border-border/40 border-b">
           <CardTitle>Wettbewerbe</CardTitle>
         </CardHeader>
         <CardContent className="px-0 pt-0">
-          <ul className="divide-y divide-border/40">
+          <ul className="divide-border/40 divide-y">
             {COMPETITION_ORDER.map((key) => {
               const c = compByKey.get(key);
               const active = Boolean(c && c.sourceShortcuts.length > 0);
@@ -189,9 +189,7 @@ export default async function AdminHomePage({
                       </LinkButton>
                     </>
                   ) : (
-                    <span className="text-muted-foreground ml-auto text-xs">
-                      {c ? 'ohne Quelle' : 'deaktiviert'}
-                    </span>
+                    <span className="text-muted-foreground ml-auto text-xs">{c ? 'ohne Quelle' : 'deaktiviert'}</span>
                   )}
                 </li>
               );
@@ -202,7 +200,7 @@ export default async function AdminHomePage({
 
       {/* Tipper */}
       <Card>
-        <CardHeader className="border-b border-border/40">
+        <CardHeader className="border-border/40 border-b">
           <CardTitle className="flex items-center gap-2">
             <Users className="h-4 w-4" /> Tipper · {tipperStats.tippers} (+{tipperStats.admins} Tippleitung)
             {pending.length > 0 && (
@@ -218,7 +216,7 @@ export default async function AdminHomePage({
               <p className="text-muted-foreground px-6 py-2 text-xs font-medium tracking-wide uppercase">
                 Wartet auf Freischaltung
               </p>
-              <ul className="divide-y divide-border/40 border-t border-border/40">
+              <ul className="divide-border/40 border-border/40 divide-y border-t">
                 {pending.map((u) => (
                   <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
                     <span className="font-medium">{u.name}</span>
@@ -226,9 +224,9 @@ export default async function AdminHomePage({
                     <span className="ml-auto flex gap-2">
                       <form action={approveUserAction}>
                         <input type="hidden" name="userId" value={u.id} />
-                        <Button type="submit" size="sm">
+                        <SubmitButton size="sm" pendingText="Schalte frei …">
                           Freischalten
-                        </Button>
+                        </SubmitButton>
                       </form>
                       <form action={rejectUserAction}>
                         <input type="hidden" name="userId" value={u.id} />
@@ -246,9 +244,9 @@ export default async function AdminHomePage({
           {active.length === 0 ? (
             <p className="text-muted-foreground px-6 py-8 text-sm">Noch keine Tipper freigeschaltet.</p>
           ) : (
-            <ul className="divide-y divide-border/40 border-t border-border/40">
+            <ul className="divide-border/40 border-border/40 divide-y border-t">
               {active.map((u) => {
-                const isAdmin = u.role === 'admin';
+                const isAdmin = u.role === ROLE_ADMIN;
                 const isSelf = u.id === selfId;
                 return (
                   <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
@@ -269,10 +267,14 @@ export default async function AdminHomePage({
                       </span>
                     ) : (
                       <span className="ml-auto flex items-center gap-2">
-                        <RoleSelectForm userId={u.id} role={u.role ?? 'user'} />
+                        <RoleSelectForm userId={u.id} role={u.role ?? ROLE_USER} />
                         <form action={deleteUserAction}>
                           <input type="hidden" name="userId" value={u.id} />
-                          <ConfirmButton confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`} variant="destructive" size="sm">
+                          <ConfirmButton
+                            confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`}
+                            variant="destructive"
+                            size="sm"
+                          >
                             Entfernen
                           </ConfirmButton>
                         </form>

@@ -3,6 +3,7 @@
 import { useTransition } from 'react';
 
 import { setUserRoleAction } from '@/app/(admin)/admin/actions';
+import { ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 
 /**
  * Rollen-Dropdown pro Tipper (Tipper / Tippleitung). Wechselt beim Ändern sofort
@@ -27,8 +28,8 @@ export function RoleSelectForm({ userId, role }: { userId: string; role: string 
       className="border-input bg-background h-8 rounded-md border px-2 text-sm disabled:opacity-50"
       aria-label="Rolle"
     >
-      <option value="user">Tipper</option>
-      <option value="admin">Tippleitung</option>
+      <option value={ROLE_USER}>Tipper</option>
+      <option value={ROLE_ADMIN}>Tippleitung</option>
     </select>
   );
 }

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 import type { CompetitionKey } from '@/generated/prisma/client';
 
 /** Wettbewerbe einer Saison mit Zählwerten (für die Wettbewerbe-Karte). */
@@ -43,7 +44,10 @@ export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<
   const fixtureCountByMatchday = new Map<string, number>();
   const sectionToMatchday = new Map<string, string>();
   for (const md of matchdays) {
-    fixtureCountByMatchday.set(md.id, md.sections.reduce((sum, s) => sum + s._count.fixtures, 0));
+    fixtureCountByMatchday.set(
+      md.id,
+      md.sections.reduce((sum, s) => sum + s._count.fixtures, 0),
+    );
     for (const s of md.sections) {
       sectionToMatchday.set(s.id, md.id);
     }
@@ -96,8 +100,8 @@ export type TipperStats = { total: number; tippers: number; admins: number };
 export async function getTipperStats(): Promise<TipperStats> {
   const [total, tippers, admins] = await Promise.all([
     prisma.user.count(),
-    prisma.user.count({ where: { role: 'user' } }),
-    prisma.user.count({ where: { role: 'admin' } }),
+    prisma.user.count({ where: { role: ROLE_USER } }),
+    prisma.user.count({ where: { role: ROLE_ADMIN } }),
   ]);
   return { total, tippers, admins };
 }
