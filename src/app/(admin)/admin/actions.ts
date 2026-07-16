@@ -7,8 +7,20 @@ import { addFixture, createSeasonWithBundesliga, createTipptageBatch, deleteFixt
 import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { FIXTURE_STATUS_LABELS } from '@/lib/constants';
+import { FIXTURE_STATUS_LABELS, MAX_GOALS, MAX_TEXT_LENGTH, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 import type { FixtureStatus, League } from '@/generated/prisma/client';
+
+/** FormData-Feld als nicht-leerer, gekappter String (max. MAX_TEXT_LENGTH). */
+function requireTextField(formData: FormData, name: string): string {
+  const raw = String(formData.get(name) ?? '').trim();
+  if (!raw) {
+    throw new Error(`${name} darf nicht leer sein`);
+  }
+  if (raw.length > MAX_TEXT_LENGTH) {
+    throw new Error(`${name} zu lang (max. ${MAX_TEXT_LENGTH} Zeichen)`);
+  }
+  return raw;
+}
 
 function parseDate(value: string): Date {
   const date = new Date(value);
@@ -22,6 +34,31 @@ function parseLeague(raw: string): League | null {
   return raw === 'BL' ? 'BL' : raw === 'L2' ? 'L2' : null;
 }
 
+/** Wirft, wenn das Datum in der Vergangenheit liegt (Admin legt versehentlich alte Partien an). */
+function requireFutureKickoff(value: string): Date {
+  const date = parseDate(value);
+  if (date.getTime() <= Date.now()) {
+    throw new Error('Anstoß muss in der Zukunft liegen');
+  }
+  return date;
+}
+
+/** Wirft, wenn die Zahl NaN / ∞ / nicht ganzzahlig / < 1 ist. */
+function parsePositiveInt(value: FormDataEntryValue | null, label: string): number {
+  if (value === null) {
+    throw new Error(`${label} fehlt`);
+  }
+  const s = String(value).trim();
+  if (s === '') {
+    throw new Error(`${label} fehlt`);
+  }
+  const n = Number(s);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+    throw new Error(`${label} muss eine positive ganze Zahl sein`);
+  }
+  return n;
+}
+
 /**
  * Legt eine einzelne Partie in einem bestehenden Spieltag (Sektion) an. Spieltag wird
  * über Wettbewerb + Liga + Nummer identifiziert (aus dem Formular).
@@ -31,10 +68,10 @@ export async function addFixtureAction(formData: FormData): Promise<void> {
   await addFixture({
     competitionId: String(formData.get('competitionId')),
     league: parseLeague(String(formData.get('league') ?? '')),
-    number: Number(formData.get('number')),
-    kickoff: parseDate(String(formData.get('kickoff'))),
-    homeTeam: String(formData.get('homeTeam')).trim(),
-    awayTeam: String(formData.get('awayTeam')).trim(),
+    number: parsePositiveInt(formData.get('number'), 'Spieltag-Nummer'),
+    kickoff: requireFutureKickoff(String(formData.get('kickoff'))),
+    homeTeam: requireTextField(formData, 'homeTeam'),
+    awayTeam: requireTextField(formData, 'awayTeam'),
   });
   revalidatePath('/admin/spieltage');
 }
@@ -51,7 +88,7 @@ export async function deleteFixtureAction(matchdayId: string, fixtureId: string)
 /** Legt eine neue Saison (+ Bundesliga-Wettbewerb) an und wählt sie im Admin aus. */
 export async function createSeasonAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  const result = await createSeasonWithBundesliga(String(formData.get('name')));
+  const result = await createSeasonWithBundesliga(requireTextField(formData, 'name'));
   revalidatePath('/admin/spieltage');
   redirect(`/admin/spieltage?season=${result.id}`);
 }
@@ -66,7 +103,7 @@ export async function createSeasonAction(formData: FormData): Promise<void> {
 export async function createTipptagAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const competitionId = String(formData.get('competitionId'));
-  await createTipptageBatch(competitionId, Number(formData.get('count')));
+  await createTipptageBatch(competitionId, parsePositiveInt(formData.get('count'), 'Anzahl'));
   revalidatePath('/admin/spieltage');
 }
 
@@ -87,6 +124,7 @@ export async function assignRoundAction(formData: FormData): Promise<void> {
     select: { competitionId: true, matchdayId: true },
   });
   if (!section) {
+    revalidatePath('/admin/spieltage');
     return;
   }
 
@@ -97,47 +135,67 @@ export async function assignRoundAction(formData: FormData): Promise<void> {
       select: { competitionId: true },
     });
     if (!target || target.competitionId !== section.competitionId) {
+      revalidatePath('/admin/spieltage');
       return;
     }
   }
 
   const previousMatchdayId = section.matchdayId;
   if (matchdayId !== previousMatchdayId) {
-    await prisma.matchdaySection.update({ where: { id: sectionId }, data: { matchdayId } });
-    const recalcIds = [previousMatchdayId, matchdayId].filter((id): id is string => Boolean(id));
-    await Promise.all(recalcIds.map((id) => recalcMatchdaySpan(id)));
+    // Optimistic concurrency: Erwartung steht in der WHERE-Klausel.
+    // 0 affected = ein konkurrierender Admin war schneller (no-op).
+    const { count } = await prisma.matchdaySection.updateMany({
+      where: { id: sectionId, matchdayId: previousMatchdayId },
+      data: { matchdayId },
+    });
+    if (count === 1) {
+      const recalcIds = [previousMatchdayId, matchdayId].filter((id): id is string => Boolean(id));
+      await Promise.all(recalcIds.map((id) => recalcMatchdaySpan(id)));
+    }
   }
   revalidatePath('/admin/spieltage');
 }
 
 // ─── Manuelle Ergebnis-Erfassung ──────────────────────────────────────────────
 
-function parseStatus(raw: string): FixtureStatus {
-  return raw in FIXTURE_STATUS_LABELS ? (raw as FixtureStatus) : 'SCHEDULED';
+/** Wirft bei unbekanntem Status – kein Silent-Coerce zu 'SCHEDULED' mehr. */
+function parseStatus(raw: FormDataEntryValue | null): FixtureStatus {
+  if (raw === null) {
+    throw new Error('Status fehlt');
+  }
+  const value = String(raw);
+  if (value in FIXTURE_STATUS_LABELS) {
+    return value as FixtureStatus;
+  }
+  throw new Error(`Unbekannter Status: ${value}`);
 }
 
 // ─── Tipper-Verwaltung ────────────────────────────────────────────────────────
-
-/** Anzahl der Admins (für den „letzten Admin nicht absetzen/löschen"-Schutz). */
-async function adminCount(): Promise<number> {
-  return prisma.user.count({ where: { role: 'admin' } });
-}
 
 /** Ändert die Rolle eines Nutzers (Tipper <-> Tippleitung). Schützt den letzten Admin. */
 export async function setUserRoleAction(formData: FormData): Promise<void> {
   const session = await requireAdmin();
   const userId = String(formData.get('userId'));
-  const role = String(formData.get('role')) === 'admin' ? 'admin' : 'user';
+  const roleRaw = String(formData.get('role') ?? '');
+  if (roleRaw !== ROLE_ADMIN && roleRaw !== ROLE_USER) {
+    throw new Error(`Ungültige Rolle: ${roleRaw}`);
+  }
+  const role: typeof ROLE_ADMIN | typeof ROLE_USER = roleRaw;
   if (userId === session.user.id) {
     return; // sich selbst nicht ändern
   }
-  if (role === 'user' && (await adminCount()) <= 1) {
-    const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (target?.role === 'admin') {
-      return; // letzten Admin nicht absetzen
-    }
-  }
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+
+  // Atomarer Schutz gegen TOCTOU-Lockout: target-lookup + count + update in einer TX.
+  // Serializable-Isolation: zwei parallele Demotions können nicht beide passieren.
+  await prisma.$transaction(
+    async (tx) => {
+      if (await lastAdminGuard(tx, userId)) {
+        return;
+      }
+      await tx.user.update({ where: { id: userId }, data: { role } });
+    },
+    { isolationLevel: 'Serializable' },
+  );
   revalidatePath('/admin');
 }
 
@@ -148,18 +206,56 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   if (userId === session.user.id) {
     return;
   }
-  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  if (target?.role === 'admin' && (await adminCount()) <= 1) {
-    return;
-  }
-  await prisma.user.delete({ where: { id: userId } });
+
+  // Atomarer Schutz: lookup + count + delete in einer TX. Serializable gegen TOCTOU.
+  await prisma.$transaction(
+    async (tx) => {
+      if (await lastAdminGuard(tx, userId)) {
+        return;
+      }
+      await tx.user.delete({ where: { id: userId } });
+    },
+    { isolationLevel: 'Serializable' },
+  );
   revalidatePath('/admin');
 }
 
-/** Schaltet einen wartenden Nutzer frei. */
+/**
+ * Shared guard: liefert true wenn der Schutz greift (User nicht da ODER letzter Admin).
+ * SSOT – wird in setUserRoleAction + deleteUserAction in einer TX aufgerufen, damit
+ * der "letzter Admin"-Schutz nicht durch parallele Demotions ausgehebelt werden kann.
+ */
+async function lastAdminGuard(tx: Pick<typeof prisma, 'user'>, userId: string): Promise<boolean> {
+  const target = await tx.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!target) {
+    return true; // nicht da → no-op
+  }
+  if (target.role !== ROLE_ADMIN) {
+    return false; // kein Admin → kein Schutz noetig
+  }
+  const adminCount = await tx.user.count({ where: { role: ROLE_ADMIN } });
+  return adminCount <= 1; // true = blocken
+}
+
+/**
+ * Schaltet einen wartenden Nutzer frei. Nur sinnvoll, wenn der User seine E-Mail
+ * bereits bestätigt hat – sonst kann er sich nie einloggen (better-auth
+ * requireEmailVerification: true blockt).
+ */
 export async function approveUserAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  await prisma.user.update({ where: { id: String(formData.get('userId')) }, data: { approved: true } });
+  const userId = String(formData.get('userId'));
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { emailVerified: true },
+  });
+  if (!user) {
+    return;
+  }
+  if (!user.emailVerified) {
+    throw new Error('User hat die E-Mail noch nicht bestätigt – zuerst den Bestätigungs-Link anklicken lassen.');
+  }
+  await prisma.user.update({ where: { id: userId }, data: { approved: true } });
   revalidatePath('/admin');
 }
 
@@ -175,24 +271,57 @@ export async function rejectUserAction(formData: FormData): Promise<void> {
 }
 
 /**
+ * Parst ein Tipp-/Ergebnis-Feld. Leerer String (oder Whitespace) → null (Ergebnis löschen),
+ * finite Ganzzahl im Bereich 0..99 → die Zahl, sonst null. Number("") ist 0 — daher explizit vorher prüfen.
+ * Negative oder gebrochene Zahlen werden verworfen (keine silent-coercion zu 0).
+ */
+function parseGoalField(raw: FormDataEntryValue | null): number | null {
+  if (raw === null) {
+    return null;
+  }
+  const trimmed = String(raw).trim();
+  if (trimmed === '') {
+    return null;
+  }
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > MAX_GOALS) {
+    return null;
+  }
+  return n;
+}
+
+/**
  * Setzt das Ergebnis einer Partie manuell. Markiert die Partie als resultSource=MANUAL
  * (ein OpenLigaDB-Re-Sync überschreibt sie nicht) und übernimmt alle Ergebnis-Felder –
  * Halbzeitstand + syncedAt werden zurückgesetzt, damit MANUAL konsistent besitzt.
+ *
+ * Cross-field validation: FINISHED/CANCELLED/POSTPONED verlangen konsistente Goals
+ * (FINISHED braucht beide, CANCELLED/POSTPONED dürfen keine haben).
  */
 export async function saveResultAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const fixtureId = String(formData.get('fixtureId'));
-  const homeGoals = Number(formData.get('homeGoals'));
-  const awayGoals = Number(formData.get('awayGoals'));
+  const status = parseStatus(formData.get('status'));
+  const homeGoals = parseGoalField(formData.get('homeGoals'));
+  const awayGoals = parseGoalField(formData.get('awayGoals'));
+
+  // Status <-> Goals Konsistenz.
+  if (status === 'FINISHED' && (homeGoals === null || awayGoals === null)) {
+    throw new Error('FINISHED verlangt beide Tore');
+  }
+  if ((status === 'CANCELLED' || status === 'POSTPONED') && (homeGoals !== null || awayGoals !== null)) {
+    throw new Error('CANCELLED/POSTPONED dürfen keine Tore haben');
+  }
+
   await prisma.fixture.update({
     where: { id: fixtureId },
     data: {
-      homeGoals: Number.isFinite(homeGoals) ? homeGoals : null,
-      awayGoals: Number.isFinite(awayGoals) ? awayGoals : null,
+      homeGoals,
+      awayGoals,
       htHomeGoals: null,
       htAwayGoals: null,
       syncedAt: null,
-      status: parseStatus(String(formData.get('status'))),
+      status,
       resultSource: 'MANUAL',
     },
   });
