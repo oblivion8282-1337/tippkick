@@ -64,8 +64,10 @@ export async function buildAuswertungExcel(view: AuswertungView): Promise<Buffer
   workbook.creator = 'Tippkick';
   workbook.created = new Date();
 
-  addRawSheet(workbook, view);
+  // TW-Bericht zuerst — die Datei öffnet auf der Wochenwertung, wie im Original
+  // (das erste Blatt ist beim Öffnen aktiv).
   addReportSheet(workbook, view);
+  addRawSheet(workbook, view);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
@@ -88,6 +90,11 @@ function addRawSheet(workbook: ExcelJS.Workbook, view: AuswertungView): void {
     ws.getColumn(start + 2).width = 4;
     ws.getColumn(start + 3).width = 5;
   }
+
+  // Paarungs-/Ergebnis-Spalten (A..L) beim Rechts-Scrollen durch die 32 Tipper
+  // stehen lassen — sonst sieht man nicht mehr, zu welcher Partie eine Spalte gehört.
+  ws.views = [{ state: 'frozen', xSplit: FIRST_TIPPER_COL - 1, ySplit: 0 }];
+  ws.getRow(1).height = 20;
 
   const title = ws.getCell(1, COL_HOME);
   title.value = `${view.matchdayNumber}.TT`;
@@ -284,6 +291,10 @@ function addReportSheet(workbook: ExcelJS.Workbook, view: AuswertungView): void 
   sumRow.font = { bold: true };
   const avgRow = ws.addRow(aggregate('Ø', view.averages));
   avgRow.font = { bold: true };
+  // Schnitt einheitlich mit zwei Nachkommastellen (Ø 2.5 → „2,50"), wie im Original.
+  avgRow.eachCell((cell, col) => {
+    if (col > 1) cell.numFmt = '0.00';
+  });
 
   ws.getColumn(1).width = 16;
   for (let col = 2; col <= headers.length; col++) {
