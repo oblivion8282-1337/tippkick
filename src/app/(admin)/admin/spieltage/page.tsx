@@ -1,11 +1,12 @@
-import { CalendarDays, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronRight, Lightbulb } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
-import { getRoundOverview, getTipptageOverview } from '@/lib/rounds';
+import { getGroupingProposal, getRoundOverview, getTipptageOverview } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
+import { GroupingProposalCard } from '@/components/grouping-proposal-card';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,8 +26,12 @@ function weekKey(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-export default async function SpieltagePage({ searchParams }: { searchParams: Promise<{ season?: string }> }) {
-  const { season: seasonParam } = await searchParams;
+export default async function SpieltagePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ season?: string; vorschlag?: string }>;
+}) {
+  const { season: seasonParam, vorschlag } = await searchParams;
   const [seasons, manageable] = await Promise.all([getSeasons(), getManageableSeason()]);
 
   if (seasons.length === 0 || !manageable) {
@@ -54,6 +59,10 @@ export default async function SpieltagePage({ searchParams }: { searchParams: Pr
     getCompetitionsAdmin(season.id),
   ]);
 
+  // Vorschlag nur berechnen, wenn er auch angezeigt wird (eigene Queries).
+  const proposalCompetition = vorschlag ? competitions.find((c) => c.id === vorschlag) : undefined;
+  const proposal = proposalCompetition ? await getGroupingProposal(proposalCompetition.id) : null;
+
   // Spieltage nach Woche clustern (Datumssortierung bleibt erhalten).
   const clusters: { key: string; rows: typeof rounds }[] = [];
   for (const row of rounds) {
@@ -75,12 +84,26 @@ export default async function SpieltagePage({ searchParams }: { searchParams: Pr
         <PageHeader title={`${season.name} · Spieltage & Tipptage`} />
       </div>
 
+      {proposal && proposalCompetition && (
+        <GroupingProposalCard proposal={proposal} competitionId={proposalCompetition.id} seasonId={season.id} />
+      )}
+
       <Card>
         <CardHeader className="border-border/40 border-b">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" /> Spieltage ({rounds.length})
             </CardTitle>
+            {competitions.length > 0 && !proposal && (
+              <LinkButton
+                href={{ query: { season: season.id, vorschlag: competitions[0].id } }}
+                size="sm"
+                variant="outline"
+              >
+                <Lightbulb className="h-4 w-4" />
+                Zuordnung vorschlagen
+              </LinkButton>
+            )}
             {competitions.length > 0 && (
               <form action={createTipptagAction} className="flex items-center gap-2">
                 <input type="hidden" name="competitionId" value={competitions[0].id} />

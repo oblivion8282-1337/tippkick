@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { addFixture, createSeasonWithBundesliga, createTipptageBatch, deleteFixture } from '@/lib/admin';
-import { recalcMatchdaySpan } from '@/lib/rounds';
+import { applyGroupingProposal, recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { FIXTURE_STATUS_LABELS, MAX_GOALS, MAX_TEXT_LENGTH, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
@@ -105,6 +105,20 @@ export async function createTipptagAction(formData: FormData): Promise<void> {
   const competitionId = String(formData.get('competitionId'));
   await createTipptageBatch(competitionId, parsePositiveInt(formData.get('count'), 'Anzahl'));
   revalidatePath('/admin/spieltage');
+}
+
+/**
+ * Übernimmt den abgeleiteten Tipptag-Vorschlag für einen Wettbewerb. Der Client
+ * schickt nur den Auslöser — die Zuordnung wird serverseitig neu berechnet.
+ */
+export async function applyGroupingAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const competitionId = String(formData.get('competitionId'));
+  const seasonId = String(formData.get('seasonId') ?? '');
+  await applyGroupingProposal(competitionId);
+  revalidatePath('/admin/spieltage');
+  revalidatePath('/admin');
+  redirect(seasonId ? `/admin/spieltage?season=${seasonId}` : '/admin/spieltage');
 }
 
 /**
