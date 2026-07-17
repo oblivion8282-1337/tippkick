@@ -50,8 +50,8 @@ export default async function AuswertungPage({ params }: { params: Promise<{ id:
           <CardContent className="flex items-center gap-3 py-8">
             <CalendarClock className="text-muted-foreground h-5 w-5" />
             <p className="text-muted-foreground text-sm">
-              Noch keine Ergebnisse: Sobald Partien beendet sind (automatischer OpenLigaDB-Sync oder manuelle
-              Erfassung auf der Spieltag-Seite), werden hier Punkte, Tages- und Wochenauswertung berechnet.
+              Noch keine Ergebnisse: Sobald Partien beendet sind (automatischer OpenLigaDB-Sync oder manuelle Erfassung
+              auf der Spieltag-Seite), werden hier Punkte, Tages- und Wochenauswertung berechnet.
             </p>
           </CardContent>
         </Card>

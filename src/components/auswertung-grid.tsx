@@ -24,12 +24,12 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
       <CardContent className="px-0 pt-0">
         <div className="overflow-x-auto">
           {view.sections.map((section) => (
-            <table key={section.league} className="w-full border-border/40 border-collapse border-y text-sm">
+            <table key={section.league} className="border-border/40 w-full border-collapse border-y text-sm">
               <thead>
                 <tr>
                   <th
                     colSpan={2 + view.tippers.length * 6}
-                    className="bg-muted/40 border-border/40 px-4 py-2 text-left font-display text-base font-semibold"
+                    className="bg-muted/40 border-border/40 font-display px-4 py-2 text-left text-base font-semibold"
                   >
                     {section.label} ·{' '}
                     <span className="text-muted-foreground font-normal">{section.sectionNumber}. Spieltag</span>
@@ -100,10 +100,14 @@ function TipperCells({ cell }: { cell: TipCell | undefined }) {
   const hasTip = cell?.tipHome !== null && cell?.tipHome !== undefined;
   return (
     <>
-      <td className="border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums">{hasTip ? cell?.tipHome : ''}</td>
+      <td className="border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums">
+        {hasTip ? cell?.tipHome : ''}
+      </td>
       <td className="text-muted-foreground px-0 text-center">:</td>
       <td className="px-1 py-1 text-center font-mono tabular-nums">{hasTip ? cell?.tipAway : ''}</td>
-      <td className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${pointsClass(cell?.points)}`}>
+      <td
+        className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${pointsClass(cell?.points)}`}
+      >
         {cell?.points ?? '–'}
       </td>
       <td className="px-1 py-1 text-center"></td>
