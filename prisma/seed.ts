@@ -1,10 +1,17 @@
 import 'dotenv/config';
 
-import { ROLE_ADMIN, ROLE_USER } from '../src/lib/constants';
+import { ROLE_ADMIN } from '../src/lib/constants';
 import { prisma } from '../src/lib/prisma';
 import { createCredentialUser } from '../src/lib/tippers';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@tippkick.local';
+/**
+ * Bootstrap-Zugang. Es gibt KEIN eigenes „Tippleitung"-Konto — die Tippleitung
+ * ist einer der Tipper mit zusätzlichen Rechten. Der Seed legt deshalb genau
+ * einen Tipper an, der zugleich Admin ist; die Rechte lassen sich später im
+ * Admin auf jeden anderen Tipper übertragen (Rollen-Dropdown).
+ */
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'cordoba@tippkick.local';
+const ADMIN_NAME = process.env.ADMIN_NAME ?? 'Cordoba';
 
 /** Bootstrap-Admin-Passwort: MUSS gesetzt sein. Kein Default – sonst öffentlich bekannt. */
 function requireAdminPassword(): string {
@@ -41,16 +48,10 @@ async function main() {
     },
   });
 
-  // 2) Bootstrap-Admin + Demo-Tipper
-  await createCredentialUser({ name: 'Tippleitung', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: ROLE_ADMIN });
-  await createCredentialUser({
-    name: 'Cordoba',
-    email: 'cordoba@tippkick.local',
-    password: 'demo1234',
-    role: ROLE_USER,
-  });
+  // 2) Bootstrap: ein Tipper mit Admin-Rechten (kein separates Tippleitungs-Konto).
+  await createCredentialUser({ name: ADMIN_NAME, email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: ROLE_ADMIN });
 
-  console.log('Seed fertig. Admin-Login:', ADMIN_EMAIL);
+  console.log(`Seed fertig. Login: ${ADMIN_NAME} <${ADMIN_EMAIL}> (Tipper + Tippleitung)`);
 }
 
 main()

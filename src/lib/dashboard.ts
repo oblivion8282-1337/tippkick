@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
+import { ROLE_ADMIN } from '@/lib/constants';
+import { eligibleTipperWhere } from '@/lib/tippers';
 import { loadTipsByUser } from '@/lib/tipps';
 import type { CompetitionKey } from '@/generated/prisma/client';
 
@@ -42,11 +43,15 @@ export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<
 
 export type TipperStats = { total: number; tippers: number; admins: number };
 
-/** Tipper-Kennzahlen (für die Tipper-Karte). */
+/**
+ * Tipper-Kennzahlen (für die Tipper-Karte). `tippers` zählt die Teilnehmer über
+ * denselben Filter wie die Auswertung — nicht über die Rolle. Ein Tipper mit
+ * Admin-Rechten ist beides und wird in beiden Zahlen mitgezählt.
+ */
 export async function getTipperStats(): Promise<TipperStats> {
   const [total, tippers, admins] = await Promise.all([
     prisma.user.count(),
-    prisma.user.count({ where: { role: ROLE_USER } }),
+    prisma.user.count({ where: eligibleTipperWhere() }),
     prisma.user.count({ where: { role: ROLE_ADMIN } }),
   ]);
   return { total, tippers, admins };
