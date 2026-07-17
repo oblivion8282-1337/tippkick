@@ -48,6 +48,63 @@ export async function getTipptageOverview(
   });
 }
 
+export type TipptagListItem = {
+  id: string;
+  number: number;
+  startDate: Date;
+  endDate: Date;
+  deadlineAt: Date;
+  /** Enthaltene Liga-Spieltage, z. B. „1. Liga 9 + 2. Liga 11". */
+  sections: { league: League | null; number: number }[];
+  fixtureCount: number;
+  finishedCount: number;
+  hasStarted: boolean; // Deadline vorbei = Tipptag läuft/ist vorbei
+};
+
+/**
+ * Alle Tipptage einer Saison mit dem, was die Tipptag-Liste im Admin braucht:
+ * Zeitraum, enthaltene Liga-Spieltage, Ergebnis-Fortschritt und ob die Deadline
+ * schon durch ist. Gerade die abgeschlossenen Tipptage sind sonst nirgends
+ * erreichbar — „Nächste Deadlines" zeigt nur die offenen.
+ */
+export async function getTipptageWithStats(seasonId: string): Promise<TipptagListItem[]> {
+  const matchdays = await prisma.matchday.findMany({
+    where: { competition: { seasonId } },
+    orderBy: { number: 'asc' },
+    select: {
+      id: true,
+      number: true,
+      startDate: true,
+      endDate: true,
+      deadlineAt: true,
+      sections: {
+        orderBy: [{ league: 'asc' }, { number: 'asc' }],
+        select: {
+          league: true,
+          number: true,
+          fixtures: { select: { status: true } },
+        },
+      },
+    },
+  });
+
+  const now = new Date();
+  return matchdays.map((md) => {
+    const fixtures = md.sections.flatMap((s) => s.fixtures);
+    return {
+      id: md.id,
+      number: md.number,
+      startDate: md.startDate,
+      endDate: md.endDate,
+      deadlineAt: md.deadlineAt,
+      sections: md.sections.map((s) => ({ league: s.league, number: s.number })),
+      fixtureCount: fixtures.length,
+      finishedCount: fixtures.filter((f) => f.status === 'FINISHED').length,
+      hasStarted: md.deadlineAt <= now,
+    };
+  });
+}
+
 /**
  * Berechnet Start/Ende + Deadline eines Tipptags aus seinen zugeordneten Partien
  * neu. Eine manuell gesetzte Deadline (deadlineManual) wird dabei nicht angetastet.

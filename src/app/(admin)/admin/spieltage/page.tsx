@@ -2,11 +2,12 @@ import { CalendarDays, ChevronRight, Lightbulb } from 'lucide-react';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
-import { getGroupingProposal, getRoundOverview, getTipptageOverview } from '@/lib/rounds';
+import { getGroupingProposal, getRoundOverview, getTipptageOverview, getTipptageWithStats } from '@/lib/rounds';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { AssignRoundForm } from '@/components/assign-round-form';
 import { GroupingProposalCard } from '@/components/grouping-proposal-card';
+import { TipptagList } from '@/components/tipptag-list';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,9 +54,10 @@ export default async function SpieltagePage({
   // Gewählte Saison (aus Query) oder die vom System vorgeschlagene.
   const season = seasons.find((s) => s.id === seasonParam) ?? manageable;
 
-  const [rounds, tipptage, competitions] = await Promise.all([
+  const [rounds, tipptage, tipptagStats, competitions] = await Promise.all([
     getRoundOverview(season.id),
     getTipptageOverview(season.id),
+    getTipptageWithStats(season.id),
     getCompetitionsAdmin(season.id),
   ]);
 
@@ -87,6 +89,8 @@ export default async function SpieltagePage({
       {proposal && proposalCompetition && (
         <GroupingProposalCard proposal={proposal} competitionId={proposalCompetition.id} seasonId={season.id} />
       )}
+
+      <TipptagList tipptage={tipptagStats} />
 
       <Card>
         <CardHeader className="border-border/40 border-b">

@@ -12,14 +12,14 @@ function pointsClass(points: TipCell['points'] | undefined): string {
 }
 
 /**
- * 34.TT-Raster: Partien als Zeilen, pro Tipper ein originalgetreuer 6-Spalten-Block
+ * TT-Raster: Partien als Zeilen, pro Tipper ein originalgetreuer 6-Spalten-Block
  * (Tipp-Heim | : | Tipp-Gast | Pkt | 3er | 2er). Ergebnis aus Fixture, Punkte berechnet.
  */
 export function AuswertungGrid({ view }: { view: AuswertungView }) {
   return (
     <Card>
       <CardHeader className="border-border/40 border-b">
-        <CardTitle>34.TT — Tipps &amp; Punkte</CardTitle>
+        <CardTitle>{view.matchdayNumber}.TT — Tipps &amp; Punkte</CardTitle>
       </CardHeader>
       <CardContent className="px-0 pt-0">
         <div className="overflow-x-auto">
