@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { Download, Trash2 } from 'lucide-react';
+import { ClipboardList, Download, Trash2 } from 'lucide-react';
 
 import { deleteFixtureAction } from '@/app/(admin)/admin/actions';
 import { getMatchdayAdmin } from '@/lib/admin';
@@ -38,10 +38,16 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
           title={`${matchday.number}. Tipptag`}
           description={`${formatDateRange(matchday.startDate, matchday.endDate)} · Deadline ${formatDateTime(matchday.deadlineAt)}`}
           actions={
-            <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm">
-              <Download className="h-4 w-4" />
-              Als Excel
-            </LinkButton>
+            <div className="flex gap-2">
+              <LinkButton href={`/admin/matchdays/${matchday.id}/auswertung`} size="sm">
+                <ClipboardList className="h-4 w-4" />
+                Online-Auswertung
+              </LinkButton>
+              <LinkButton href={`/admin/matchdays/${matchday.id}/export`} size="sm" variant="outline">
+                <Download className="h-4 w-4" />
+                Als Excel
+              </LinkButton>
+            </div>
           }
         />
       </div>

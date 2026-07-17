@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import { getUserGate } from '@/lib/session';
 import { isTippable, matchdaySectionsInclude } from '@/lib/matchdays';
-import { MAX_GOALS, MIN_GOALS } from '@/lib/constants';
+import { clampGoals } from '@/lib/constants';
 
 function normalizeGoals(value: number): number {
-  return Math.min(MAX_GOALS, Math.max(MIN_GOALS, Number.isFinite(value) ? Math.trunc(value) : 0));
+  return clampGoals(value);
 }
 
 /** Vollständiger Grund-Typ – wird in saveTipAction (Superset) und im UI geteilt. */

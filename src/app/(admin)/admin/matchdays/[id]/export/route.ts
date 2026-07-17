@@ -1,9 +1,9 @@
 import { requireAdmin } from '@/lib/session';
 import { getMatchdayAdmin } from '@/lib/admin';
-import { prisma } from '@/lib/prisma';
 import { formatDateRange } from '@/lib/datetime';
-import { ROLE_USER, TEMPLATE_EXPORT_KEYS } from '@/lib/constants';
+import { TEMPLATE_EXPORT_KEYS } from '@/lib/constants';
 import { loadTipsByUser } from '@/lib/tipps';
+import { getEligibleTippers } from '@/lib/tippers';
 import { buildMatchdayExcel } from '@/lib/excel/export-matchday';
 import { buildBundesligaExcel } from '@/lib/excel/export-bundesliga';
 
@@ -21,17 +21,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new Response('Spieltag nicht gefunden', { status: 404 });
   }
 
-  const tippers = await prisma.user.findMany({
-    where: {
-      role: ROLE_USER,
-      approved: true,
-      // Gebannte User ausschließen – ihre vor-ban-Tipps dürfen nicht in der
-      // Auswertung landen. banExpires in der Vergangenheit = bereits entbannt.
-      OR: [{ banned: false }, { banned: null }, { banExpires: { lt: new Date() } }],
-    },
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true },
-  });
+  const tippers = await getEligibleTippers();
 
   const isBundesliga = TEMPLATE_EXPORT_KEYS.has(matchday.competition.key);
 

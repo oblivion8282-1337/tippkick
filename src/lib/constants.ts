@@ -9,6 +9,11 @@ import type { CompetitionKey, FixtureStatus, League } from '@/generated/prisma/c
 export const MIN_GOALS = 0;
 export const MAX_GOALS = 99;
 
+/** Ganzzahl in den Tipp-Wertebereich 0..MAX_GOALS einspannen (SSOT für Tore & Zusatzpunkte). */
+export function clampGoals(value: number): number {
+  return Math.min(MAX_GOALS, Math.max(MIN_GOALS, Number.isFinite(value) ? Math.trunc(value) : 0));
+}
+
 /** Mindestlänge der Passwörter (besser-auth setzt serverseitig dieselbe Grenze). */
 export const MIN_PASSWORD_LENGTH = 8;
 
