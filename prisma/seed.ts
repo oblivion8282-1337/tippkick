@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { hashPassword } from 'better-auth/crypto';
 
-import { ROLE_ADMIN, ROLE_USER, type Role } from '../src/lib/constants';
+import { ROLE_ADMIN, ROLE_USER } from '../src/lib/constants';
 import { prisma } from '../src/lib/prisma';
+import { createCredentialUser } from '../src/lib/tippers';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@tippkick.local';
 
@@ -19,35 +19,6 @@ function requireAdminPassword(): string {
 }
 
 const ADMIN_PASSWORD = requireAdminPassword();
-
-async function createUser(opts: { name: string; email: string; password: string; role: Role }) {
-  const { name, email, password, role } = opts;
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return existing;
-  }
-
-  const hashed = await hashPassword(password);
-  const userId = crypto.randomUUID();
-  return prisma.user.create({
-    data: {
-      id: userId,
-      name,
-      email,
-      emailVerified: true, // Seed-Nutzer direkt verifiziert
-      approved: true, // Seed-Nutzer direkt freigeschaltet
-      role,
-      accounts: {
-        create: {
-          id: crypto.randomUUID(),
-          accountId: userId,
-          providerId: 'credential',
-          password: hashed,
-        },
-      },
-    },
-  });
-}
 
 async function main() {
   // 1) Saison + Wettbewerb Bundesliga (1.+2. Liga) als Import-Ziel. OpenLigaDB-Quelle
@@ -71,8 +42,13 @@ async function main() {
   });
 
   // 2) Bootstrap-Admin + Demo-Tipper
-  await createUser({ name: 'Tippleitung', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: ROLE_ADMIN });
-  await createUser({ name: 'Cordoba', email: 'cordoba@tippkick.local', password: 'demo1234', role: ROLE_USER });
+  await createCredentialUser({ name: 'Tippleitung', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: ROLE_ADMIN });
+  await createCredentialUser({
+    name: 'Cordoba',
+    email: 'cordoba@tippkick.local',
+    password: 'demo1234',
+    role: ROLE_USER,
+  });
 
   console.log('Seed fertig. Admin-Login:', ADMIN_EMAIL);
 }
