@@ -3,7 +3,16 @@ import path from 'node:path';
 import ExcelJS from 'exceljs';
 
 import type { League } from '@/generated/prisma/client';
-import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/types';
+import {
+  COL_AWAY,
+  COL_HOME,
+  SECTION_BLOCKS,
+  SECTION_ROWS,
+  TIPPER_NAME_ROW,
+  normalizeName,
+  type FixtureRow,
+  type TipMap,
+} from '@/lib/excel/types';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { addTipperSheetToWorkbook, type ExportTipper } from '@/lib/excel/export-matchday';
 
@@ -20,10 +29,16 @@ import { addTipperSheetToWorkbook, type ExportTipper } from '@/lib/excel/export-
  */
 
 const TEMPLATE_PATH = path.join(process.cwd(), 'src/lib/excel/template/auswertung-template.xlsx');
-const FIRST_ROW_BY_LEAGUE: Record<League, number> = { BL: 6, L2: 18 };
-/** Header-Zeile (eine über der ersten Sektionszeile). Dort steht "X. Spieltag". */
-const SECTION_HEADER_ROW_BY_LEAGUE: Record<League, number> = { BL: 5, L2: 17 };
-const SECTION_ROWS = 9; // Standard-Anzahl pro Sektion (Originalvorlage).
+
+/**
+ * Standard-Layout der Originalvorlage: 1. Liga oben (Block 0), 2. Liga unten
+ * (Block 1). Gilt nur für Standard-Tipptage — Sonder-TTs mit zwei gleichen
+ * Ligen laufen über fillPerSectionSheets und nicht über diese Zuordnung.
+ */
+const BLOCK_BY_LEAGUE: Record<League, (typeof SECTION_BLOCKS)[number]> = {
+  BL: SECTION_BLOCKS[0],
+  L2: SECTION_BLOCKS[1],
+};
 
 export type BLSectionFixture = FixtureRow;
 export type BLSection = { league: League; number: number; fixtures: BLSectionFixture[] };
@@ -43,22 +58,6 @@ async function loadTemplateBuffer(): Promise<Buffer> {
     _templateCache = await readFile(TEMPLATE_PATH);
   }
   return _templateCache;
-}
-
-/**
- * Robuster Match für die Vorlage-Spalten: Diakritika weg, alles was keine
- * Unicode-Buchstabe/Ziffer ist weg, lowercase. Wer "Dr. Rock" tippt und im
- * Vorlagen-Header "Dr.Rock" steht, soll nicht aus dem Export fallen.
- * NB: nutzt \p{L}/\p{N} statt ASCII-Klasse, damit auch kyrillisch, griechisch, etc.
- * durchkommen.
- */
-function normalizeName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^\p{L}\p{N}]+/gu, '')
-    .toLowerCase()
-    .trim();
 }
 
 /** Standard-TT = genau 1 BL-Section + 1 L2-Section, beide ≤ 9 Partien (passt in Originalvorlage). */
@@ -115,7 +114,7 @@ function loadTipperColumns(
   tippers: BLTipper[],
 ): { matched: { tipper: BLTipper; blockStart: number }[]; unmatched: string[] } {
   const nameToBlockStart = new Map<string, number>();
-  ws.getRow(3).eachCell((cell, colNumber) => {
+  ws.getRow(TIPPER_NAME_ROW).eachCell((cell, colNumber) => {
     const value = cell.value;
     if (typeof value === 'string' && value.trim() && colNumber > 4) {
       const key = normalizeName(value);
@@ -154,9 +153,7 @@ function fillStandardSheet(args: {
   ws.getCell(3, COL_HOME).value = dateRange;
 
   for (const section of sections) {
-    const league = section.league;
-    const firstRow = FIRST_ROW_BY_LEAGUE[league];
-    const headerRow = SECTION_HEADER_ROW_BY_LEAGUE[league];
+    const { firstRow, headerRow } = BLOCK_BY_LEAGUE[section.league];
     // "34. Spieltag" aus der Vorlage überschreiben. Achtung: in der Vorlage steht
     // "1. Liga"/"2. Liga" in Spalte B und "X. Spieltag" in Spalte D.
     ws.getCell(headerRow, COL_AWAY).value = `${section.number}. Spieltag`;

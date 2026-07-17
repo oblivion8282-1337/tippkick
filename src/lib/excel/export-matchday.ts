@@ -1,6 +1,14 @@
 import ExcelJS from 'exceljs';
 
-import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/types';
+import {
+  COL_AWAY,
+  COL_HOME,
+  FIRST_TIPPER_COL,
+  TIPPER_BLOCK_WIDTH,
+  TIPPER_NAME_ROW,
+  type FixtureRow,
+  type TipMap,
+} from '@/lib/excel/types';
 
 /**
  * Generischer Excel-Export für einen Spieltag (eine Sektion, ein Wettbewerb).
@@ -12,8 +20,6 @@ import { COL_AWAY, COL_HOME, type FixtureRow, type TipMap } from '@/lib/excel/ty
  * Bundesliga-Sonderfall (TT 1 / TT 16) pro Sektion ein eigenes Sheet.
  */
 
-const FIRST_TIPPER_COL = 13; // M
-const TIPPER_BLOCK_WIDTH = 6;
 const HEADER_ROW = 5;
 
 export type ExportTipper = { id: string; name: string };
@@ -47,7 +53,7 @@ export async function addTipperSheetToWorkbook(args: {
   ws.getCell(1, COL_HOME).value = title;
   ws.getCell(3, COL_HOME).value = dateRange;
   for (let i = 0; i < tippers.length; i++) {
-    ws.getCell(3, FIRST_TIPPER_COL + i * TIPPER_BLOCK_WIDTH + 1).value = tippers[i].name;
+    ws.getCell(TIPPER_NAME_ROW, FIRST_TIPPER_COL + i * TIPPER_BLOCK_WIDTH + 1).value = tippers[i].name;
   }
 
   // Kopfzeile (Header-Row 5).
