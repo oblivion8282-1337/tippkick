@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "TZ=Europe/Berlin next dev",
+    "build": "TZ=Europe/Berlin next build",
+    "start": "TZ=Europe/Berlin next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --write .",
@@ -14,9 +14,11 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset --force --skip-seed && pnpm db:migrate && pnpm db:seed",
     "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "TZ=Europe/Berlin tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "sync:results": "tsx scripts/sync-results.ts"
+    "sync:results": "TZ=Europe/Berlin tsx scripts/sync-results.ts",
+    "import:2526": "TZ=Europe/Berlin tsx scripts/import-season-2526.ts",
+    "verify:2526": "TZ=Europe/Berlin tsx scripts/verify-season-2526.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
