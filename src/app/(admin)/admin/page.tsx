@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarClock, Check, ChevronRight, Download, Users } from 'lucide-react';
+import { CalendarClock, Check, ChevronRight, ClipboardList, Download, Users } from 'lucide-react';
 
 import {
   getCompetitionsOverview,
@@ -124,6 +124,10 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
                       <span className="text-muted-foreground ml-auto tabular-nums">
                         {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
                       </span>
+                      <LinkButton href={`/admin/matchdays/${u.id}/auswertung`} size="sm" variant="outline">
+                        <ClipboardList className="h-4 w-4" />
+                        Auswertung
+                      </LinkButton>
                       <LinkButton href={`/admin/matchdays/${u.id}/export`} size="sm" variant="outline">
                         <Download className="h-4 w-4" />
                         Excel
