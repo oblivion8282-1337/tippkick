@@ -5,17 +5,17 @@ import { createSeasonWithBundesliga, createTipptageBatch, importSeasonFromOpenLi
 import { recalcMatchdaySpan } from '../src/lib/rounds';
 import { createCredentialUser } from '../src/lib/tippers';
 import { ROLE_USER } from '../src/lib/constants';
+import { COL_AWAY, COL_HOME, FIRST_TIPPER_COL, TIPPER_BLOCK_WIDTH, TIPPER_NAME_ROW } from '../src/lib/excel/types';
 import {
-  COL_AWAY,
-  COL_HOME,
-  FIRST_TIPPER_COL,
+  MATCHDAY_COUNT,
   SECTION_BLOCKS,
   SECTION_ROWS,
-  TIPPER_BLOCK_WIDTH,
-  TIPPER_NAME_ROW,
+  SEASON_NAME,
+  intOf,
   normalizeName,
-} from '../src/lib/excel/types';
-import { MATCHDAY_COUNT, SEASON_NAME, intOf, readAuswertung, stringOf } from './lib/auswertungen';
+  readAuswertung,
+  stringOf,
+} from './lib/auswertungen';
 import type { League } from '../src/generated/prisma/client';
 
 /**
