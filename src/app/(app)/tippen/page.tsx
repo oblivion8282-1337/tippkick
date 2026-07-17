@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { getCompetitions, getMatchdayByNumber, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
+import { weekdayLabelOf } from '@/lib/datetime';
 import { getMyTips } from '@/lib/tipps';
 import { requireUser } from '@/lib/session';
 import { COMPETITION_SHORT, LEAGUE_SECTION_LABELS } from '@/lib/constants';
@@ -106,7 +107,7 @@ export default async function TippenPage({
               <span>{dateRange === endRange ? dateRange : `${dateRange} – ${endRange}`}</span>
               <span aria-hidden="true">·</span>
               <span>
-                Deadline Fr{' '}
+                Deadline {weekdayLabelOf(matchday.deadlineAt)}{' '}
                 <span className="text-foreground font-medium tabular-nums">
                   {new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(matchday.deadlineAt)}
                 </span>
