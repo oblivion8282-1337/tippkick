@@ -86,7 +86,6 @@ model Matchday {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   sections       MatchdaySection[]
-  bonuses        MatchdayBonus[]
 
   @@unique([competitionId, number])
   @@index([competitionId])
@@ -169,26 +168,6 @@ model Tip {
   // initialen Migration ergänzt (Prisma 7 unterstützt kein @@check nativ).
 }
 
-/**
- * Manuelle Zusatzpunkte (ZP) der Tippleitung pro Tipper und Tipptag — das
- * einzige freie Eingabefeld in der TW-Auswertung. Fließen in TW-Ges ein.
- * Eine ZP-Zeile pro (Tipptag, User); 0 = kein Bonus.
- */
-model MatchdayBonus {
-  id         String   @id @default(cuid())
-  matchdayId String
-  userId     String
-  bonusPts   Int      @default(0)
-  note       String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  matchday   Matchday @relation(fields: [matchdayId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([matchdayId, userId])
-  @@index([matchdayId])
-}
-
 model User {
   id               String      @id
   name             String
@@ -207,7 +186,6 @@ model User {
   accounts         Account[]
   twofactors       TwoFactor[]
   tips             Tip[]
-  matchdayBonuses  MatchdayBonus[]
 
   @@unique([email])
   @@map("user")

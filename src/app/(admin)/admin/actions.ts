@@ -7,7 +7,7 @@ import { addFixture, createSeasonWithBundesliga, createTipptageBatch, deleteFixt
 import { recalcMatchdaySpan } from '@/lib/rounds';
 import { requireAdmin } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { FIXTURE_STATUS_LABELS, MAX_GOALS, MAX_TEXT_LENGTH, ROLE_ADMIN, ROLE_USER, clampGoals } from '@/lib/constants';
+import { FIXTURE_STATUS_LABELS, MAX_GOALS, MAX_TEXT_LENGTH, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 import type { FixtureStatus, League } from '@/generated/prisma/client';
 
 /** FormData-Feld als nicht-leerer, gekappter String (max. MAX_TEXT_LENGTH). */
@@ -331,22 +331,4 @@ export async function saveResultAction(formData: FormData): Promise<void> {
     revalidatePath(`/admin/matchdays/${matchdayId}`);
   }
   revalidatePath('/admin/spieltage');
-}
-
-/**
- * Zusatzpunkte (ZP) der Tippleitung pro Tipper + Tipptag speichern – das einzige
- * freie Eingabefeld der TW-Auswertung. 0..99, ein Wert pro (Tipptag, User).
- */
-export async function saveBonusAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-  const matchdayId = String(formData.get('matchdayId'));
-  const userId = String(formData.get('userId'));
-  const bonusPts = clampGoals(Number(formData.get('bonusPts')));
-
-  await prisma.matchdayBonus.upsert({
-    where: { matchdayId_userId: { matchdayId, userId } },
-    update: { bonusPts },
-    create: { matchdayId, userId, bonusPts },
-  });
-  revalidatePath(`/admin/matchdays/${matchdayId}/auswertung`);
 }

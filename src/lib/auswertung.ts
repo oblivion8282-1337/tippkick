@@ -1,10 +1,9 @@
-import { prisma } from '@/lib/prisma';
 import { getMatchdayAdmin } from '@/lib/admin';
 import { loadTipsByUser } from '@/lib/tipps';
 import { getEligibleTippers } from '@/lib/tippers';
 import { isFixtureScoreable, scoreTip } from '@/lib/scoring';
-import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER } from '@/lib/constants';
-import { formatDateRange } from '@/lib/datetime';
+import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER, WEEKDAY_LABELS } from '@/lib/constants';
+import { formatDateRange, weekdayOf } from '@/lib/datetime';
 import type { FixtureStatus, League } from '@/generated/prisma/client';
 
 /** Tipp-Zelle im 34.TT-Raster: Tipp + berechnete Punkte (null = nicht bewertbar). */
@@ -32,7 +31,15 @@ export type AuswertungSection = {
   fixtures: AuswertungFixture[];
 };
 
-export type DailyPoints = { fr: number; sa: number; so: number; mo: number };
+/**
+ * Tagesspalte eines Tipptags: Wochentag (0 = So … 6 = Sa) + Kürzel. Welche Tage
+ * ein Tipptag hat, ergibt sich aus seinen Anstößen — nicht aus einem festen
+ * Raster (das Alt-Excel hatte vier feste Fächer und musste bei englischen Wochen
+ * Tage zusammenfalten; siehe 17_TT_Auswertung.xlsx).
+ */
+export type DayColumn = { key: number; label: string };
+/** Punkte je Wochentag, indiziert wie DayColumn.key. Fehlender Tag = keine Partie. */
+export type DailyPoints = Record<number, number>;
 export type HitCounts = { three: number; two: number; one: number };
 
 export type TipperRow = {
@@ -43,9 +50,7 @@ export type TipperRow = {
   l2Points: number;
   daily: DailyPoints;
   counts: HitCounts;
-  bonusPts: number;
-  totalPoints: number; // ohne ZP
-  totalWithBonus: number; // inkl. ZP
+  totalPoints: number;
 };
 
 export type PointTotals = {
@@ -54,13 +59,12 @@ export type PointTotals = {
   l2: number;
   daily: DailyPoints;
   counts: HitCounts;
-  bonus: number;
-  withBonus: number;
 };
 
 export type AuswertungView = {
-  matchdayId: string;
   matchdayNumber: number;
+  /** Tagesspalten dieses Tipptags, chronologisch nach frühestem Anstoß. */
+  days: DayColumn[];
   competitionName: string;
   seasonName: string;
   dateRangeLabel: string;
@@ -71,43 +75,37 @@ export type AuswertungView = {
   averages: PointTotals;
 };
 
-/** Wochentag-Bucket nach Anstoß (Fr/Sa/So/Mo – die Tipptag-Tage). */
-function dayOf(d: Date): keyof DailyPoints | null {
-  switch (d.getDay()) {
-    case 5:
-      return 'fr';
-    case 6:
-      return 'sa';
-    case 0:
-      return 'so';
-    case 1:
-      return 'mo';
-    default:
-      return null;
+/**
+ * Die Tagesspalten eines Tipptags: jeder tatsächlich bespielte Wochentag genau
+ * einmal, sortiert nach dem frühesten Anstoß an diesem Tag (nicht nach Wochentag-
+ * Index — sonst stünde bei einer englischen Woche Di vor dem Fr davor).
+ */
+function dayColumnsOf(fixtures: { kickoff: Date }[]): DayColumn[] {
+  const earliest = new Map<number, number>();
+  for (const f of fixtures) {
+    const key = weekdayOf(f.kickoff);
+    const at = f.kickoff.getTime();
+    const known = earliest.get(key);
+    if (known === undefined || at < known) {
+      earliest.set(key, at);
+    }
   }
+  return [...earliest.entries()].sort((a, b) => a[1] - b[1]).map(([key]) => ({ key, label: WEEKDAY_LABELS[key] }));
 }
 
 type ScoredFixture = AuswertungFixture & { league: League; result: { homeGoals: number; awayGoals: number } | null };
 
 /**
- * Online-Auswertung (SSOT): 34.TT-Raster + TW-Aggregate pro Tipper, berechnet
- * aus Endergebnissen (Fixture) + Tipps + manuellen Zusatzpunkten.
+ * Online-Auswertung (SSOT): TT-Raster + TW-Aggregate pro Tipper, berechnet
+ * aus Endergebnissen (Fixture) + Tipps.
  */
 export async function buildAuswertung(matchdayId: string): Promise<AuswertungView | null> {
-  // Matchday, Tipper und Zusatzpunkte sind unabhängig – parallel laden; nur
-  // loadTipsByUser braucht die fixtureIds und folgt danach.
-  const [matchday, tippers, bonuses] = await Promise.all([
-    getMatchdayAdmin(matchdayId),
-    getEligibleTippers(),
-    prisma.matchdayBonus.findMany({
-      where: { matchdayId },
-      select: { userId: true, bonusPts: true },
-    }),
-  ]);
+  // Matchday und Tipper sind unabhängig – parallel laden; nur loadTipsByUser
+  // braucht die fixtureIds und folgt danach.
+  const [matchday, tippers] = await Promise.all([getMatchdayAdmin(matchdayId), getEligibleTippers()]);
   if (!matchday) {
     return null;
   }
-  const bonusByUser = new Map(bonuses.map((b) => [b.userId, b.bonusPts]));
 
   const sections: AuswertungSection[] = matchday.sections
     .filter((s): s is typeof s & { league: League } => s.league !== null)
@@ -141,12 +139,14 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
   );
   const tipsByUser = await loadTipsByUser(scored.map((f) => f.id));
 
+  const days = dayColumnsOf(scored);
+
   const tipperRows: TipperRow[] = tippers.map((t) => {
     const userTips = tipsByUser.get(t.id);
     const tipsByFixture = new Map<string, TipCell>();
     let blPoints = 0;
     let l2Points = 0;
-    const daily: DailyPoints = { fr: 0, sa: 0, so: 0, mo: 0 };
+    const daily: DailyPoints = emptyDaily(days);
     const counts: HitCounts = { three: 0, two: 0, one: 0 };
 
     for (const f of scored) {
@@ -159,91 +159,67 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
       if (points !== null) {
         if (f.league === 'BL') blPoints += points;
         else l2Points += points;
-        const day = dayOf(f.kickoff);
-        if (day) daily[day] += points;
+        daily[weekdayOf(f.kickoff)] += points;
         if (points === 3) counts.three += 1;
         else if (points === 2) counts.two += 1;
         else if (points === 1) counts.one += 1;
       }
     }
 
-    const bonusPts = bonusByUser.get(t.id) ?? 0;
     const totalPoints = blPoints + l2Points;
-    return {
-      id: t.id,
-      name: t.name,
-      tipsByFixture,
-      blPoints,
-      l2Points,
-      daily,
-      counts,
-      bonusPts,
-      totalPoints,
-      totalWithBonus: totalPoints + bonusPts,
-    };
+    return { id: t.id, name: t.name, tipsByFixture, blPoints, l2Points, daily, counts, totalPoints };
   });
 
   return {
-    matchdayId,
     matchdayNumber: matchday.number,
+    days,
     competitionName: matchday.competition.name,
     seasonName: matchday.competition.season.name,
     dateRangeLabel: formatDateRange(matchday.startDate, matchday.endDate),
     sections,
     tippers: tipperRows,
     hasAnyScoreable: sections.some((s) => s.fixtures.some((f) => f.scoreable)),
-    ...aggregateTotals(tipperRows),
+    ...aggregateTotals(tipperRows, days),
   };
 }
 
-function emptyTotals(): PointTotals {
+/** Nullwerte für genau die Tage eines Tipptags. */
+function emptyDaily(days: DayColumn[]): DailyPoints {
+  return Object.fromEntries(days.map((d) => [d.key, 0]));
+}
+
+/** Feldweise Abbildung über die PointTotals-Form — eine Stelle kennt die Felder. */
+function mapTotals(t: PointTotals, f: (value: number) => number): PointTotals {
   return {
-    total: 0,
-    bl: 0,
-    l2: 0,
-    daily: { fr: 0, sa: 0, so: 0, mo: 0 },
-    counts: { three: 0, two: 0, one: 0 },
-    bonus: 0,
-    withBonus: 0,
+    total: f(t.total),
+    bl: f(t.bl),
+    l2: f(t.l2),
+    daily: Object.fromEntries(Object.entries(t.daily).map(([key, value]) => [key, f(value)])),
+    counts: { three: f(t.counts.three), two: f(t.counts.two), one: f(t.counts.one) },
   };
 }
 
 /** Summe und Ø über alle Tipper (für die TW-Summen-/Schnittzeile). */
-function aggregateTotals(tippers: TipperRow[]): { totals: PointTotals; averages: PointTotals } {
-  const totals = emptyTotals();
+function aggregateTotals(tippers: TipperRow[], days: DayColumn[]): { totals: PointTotals; averages: PointTotals } {
+  const totals: PointTotals = {
+    total: 0,
+    bl: 0,
+    l2: 0,
+    daily: emptyDaily(days),
+    counts: { three: 0, two: 0, one: 0 },
+  };
   for (const t of tippers) {
     totals.total += t.totalPoints;
     totals.bl += t.blPoints;
     totals.l2 += t.l2Points;
-    totals.daily.fr += t.daily.fr;
-    totals.daily.sa += t.daily.sa;
-    totals.daily.so += t.daily.so;
-    totals.daily.mo += t.daily.mo;
+    for (const day of days) {
+      totals.daily[day.key] += t.daily[day.key];
+    }
     totals.counts.three += t.counts.three;
     totals.counts.two += t.counts.two;
     totals.counts.one += t.counts.one;
-    totals.bonus += t.bonusPts;
-    totals.withBonus += t.totalWithBonus;
   }
   const n = tippers.length || 1;
-  const div = (v: number) => Math.round((v / n) * 100) / 100;
-  const averages: PointTotals = {
-    total: div(totals.total),
-    bl: div(totals.bl),
-    l2: div(totals.l2),
-    daily: {
-      fr: div(totals.daily.fr),
-      sa: div(totals.daily.sa),
-      so: div(totals.daily.so),
-      mo: div(totals.daily.mo),
-    },
-    counts: {
-      three: div(totals.counts.three),
-      two: div(totals.counts.two),
-      one: div(totals.counts.one),
-    },
-    bonus: div(totals.bonus),
-    withBonus: div(totals.withBonus),
-  };
+  const averages = mapTotals(totals, (v) => Math.round((v / n) * 100) / 100);
   return { totals, averages };
 }

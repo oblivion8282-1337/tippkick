@@ -1,13 +1,15 @@
-import type { AuswertungView, PointTotals } from '@/lib/auswertung';
-import { BonusPointsForm } from '@/components/bonus-points-form';
+import type { AuswertungView, DayColumn, PointTotals } from '@/lib/auswertung';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const NUM = 'px-3 py-2 text-center font-mono tabular-nums';
 
 /**
- * TW-Wochenauswertung: pro Tipper Tagespunkte (Fr/Sa/So/Mo), Liga-Splits
- * (TW-BL/TW-2L), 3er/2er/1er-Zählung, Zusatzpunkte (ZP, editierbar) und Gesamt.
- * Mit Summen- und Schnittzeile.
+ * TW-Wochenauswertung: pro Tipper Tagespunkte, Liga-Splits (TW-BL/TW-2L),
+ * 3er/2er/1er-Zählung und Gesamt. Mit Summen- und Schnittzeile.
+ *
+ * Die Tagesspalten kommen aus `view.days` — also aus den echten Anstoßtagen des
+ * Tipptags. Bei einer englischen Woche stehen hier Di/Mi/Do statt Fr/Sa/So, und
+ * die Tagespunkte summieren sich immer auf TW-Ges.
  */
 export function AuswertungWeekly({ view }: { view: AuswertungView }) {
   return (
@@ -20,67 +22,64 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-border/40 text-muted-foreground border-b text-xs uppercase">
-                <th className="sticky left-0 z-10 bg-card px-4 py-2 text-left font-medium">Tipper</th>
-                <th className={NUM}>Fr</th>
-                <th className={NUM}>Sa</th>
-                <th className={NUM}>So</th>
-                <th className={NUM}>Mo</th>
+                <th className="bg-card sticky left-0 z-10 px-4 py-2 text-left font-medium">Tipper</th>
+                {view.days.map((day) => (
+                  <th key={day.key} className={NUM}>
+                    {day.label}
+                  </th>
+                ))}
                 <th className={NUM}>TW-BL</th>
                 <th className={NUM}>TW-2L</th>
                 <th className={NUM}>3er</th>
                 <th className={NUM}>2er</th>
                 <th className={NUM}>1er</th>
-                <th className="px-3 py-2 text-center font-medium">ZP</th>
                 <th className={NUM}>TW-Ges</th>
               </tr>
             </thead>
             <tbody>
               {view.tippers.map((t) => (
                 <tr key={t.id} className="border-border/40 border-b">
-                  <td className="sticky left-0 z-10 bg-card px-4 py-1.5 font-medium">{t.name}</td>
-                  <td className={NUM}>{fmt(t.daily.fr)}</td>
-                  <td className={NUM}>{fmt(t.daily.sa)}</td>
-                  <td className={NUM}>{fmt(t.daily.so)}</td>
-                  <td className={NUM}>{fmt(t.daily.mo)}</td>
+                  <td className="bg-card sticky left-0 z-10 px-4 py-1.5 font-medium">{t.name}</td>
+                  {view.days.map((day) => (
+                    <td key={day.key} className={NUM}>
+                      {fmt(t.daily[day.key] ?? 0)}
+                    </td>
+                  ))}
                   <td className={NUM}>{fmt(t.blPoints)}</td>
                   <td className={NUM}>{fmt(t.l2Points)}</td>
                   <td className={NUM}>{t.counts.three}</td>
                   <td className={NUM}>{t.counts.two}</td>
                   <td className={NUM}>{t.counts.one}</td>
-                  <td className="px-2 py-1 text-center">
-                    <BonusPointsForm matchdayId={view.matchdayId} userId={t.id} bonusPts={t.bonusPts} />
-                  </td>
-                  <td className={`${NUM} text-primary font-semibold`}>{t.totalWithBonus}</td>
+                  <td className={`${NUM} text-primary font-semibold`}>{t.totalPoints}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <TotalRow label="Summe" data={view.totals} />
-              <TotalRow label="Ø" data={view.averages} />
+              <TotalRow label="Summe" days={view.days} data={view.totals} />
+              <TotalRow label="Ø" days={view.days} data={view.averages} />
             </tfoot>
           </table>
         </div>
-        <p className="text-muted-foreground px-4 py-2 text-xs">ZP = manuelle Zusatzpunkte der Tippleitung (fließen in TW-Ges ein).</p>
       </CardContent>
     </Card>
   );
 }
 
-function TotalRow({ label, data }: { label: string; data: PointTotals }) {
+function TotalRow({ label, days, data }: { label: string; days: DayColumn[]; data: PointTotals }) {
   return (
     <tr className="bg-muted/40 border-border/40 border-t font-medium">
-      <td className="sticky left-0 z-10 bg-muted/40 px-4 py-1.5">{label}</td>
-      <td className={NUM}>{fmt(data.daily.fr)}</td>
-      <td className={NUM}>{fmt(data.daily.sa)}</td>
-      <td className={NUM}>{fmt(data.daily.so)}</td>
-      <td className={NUM}>{fmt(data.daily.mo)}</td>
+      <td className="bg-muted/40 sticky left-0 z-10 px-4 py-1.5">{label}</td>
+      {days.map((day) => (
+        <td key={day.key} className={NUM}>
+          {fmt(data.daily[day.key] ?? 0)}
+        </td>
+      ))}
       <td className={NUM}>{fmt(data.bl)}</td>
       <td className={NUM}>{fmt(data.l2)}</td>
       <td className={NUM}>{data.counts.three}</td>
       <td className={NUM}>{data.counts.two}</td>
       <td className={NUM}>{data.counts.one}</td>
-      <td className={NUM}>{fmt(data.bonus)}</td>
-      <td className={`${NUM} text-primary`}>{fmt(data.withBonus)}</td>
+      <td className={`${NUM} text-primary`}>{fmt(data.total)}</td>
     </tr>
   );
 }

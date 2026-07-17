@@ -9,7 +9,7 @@ import type { CompetitionKey, FixtureStatus, League } from '@/generated/prisma/c
 export const MIN_GOALS = 0;
 export const MAX_GOALS = 99;
 
-/** Ganzzahl in den Tipp-Wertebereich 0..MAX_GOALS einspannen (SSOT für Tore & Zusatzpunkte). */
+/** Ganzzahl in den Tipp-Wertebereich 0..MAX_GOALS einspannen (SSOT für Tore). */
 export function clampGoals(value: number): number {
   return Math.min(MAX_GOALS, Math.max(MIN_GOALS, Number.isFinite(value) ? Math.trunc(value) : 0));
 }
@@ -87,6 +87,14 @@ export const FIXTURE_STATUS_LABELS: Record<FixtureStatus, string> = {
 
 /** Tipp-Deadline = frühester Anstoß minus diese Offset (1 Min, wie im Verein üblich). */
 export const DEADLINE_OFFSET_MS = 60_000;
+
+/**
+ * Wochentags-Kürzel, indiziert wie `Date.getDay()` (0 = Sonntag). SSOT für die
+ * Tagesspalten der Auswertung — die ergeben sich aus den echten Anstoßtagen des
+ * Tipptags, nicht aus einem festen Raster: ein Tipptag kann beliebige Liga-
+ * Spieltage bündeln, eine englische Woche bringt Di/Mi/Do mit.
+ */
+export const WEEKDAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'] as const;
 
 /**
  * Rollen-Konstanten (SSOT – nicht als Magic Strings im Code verstreuen).
