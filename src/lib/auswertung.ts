@@ -2,8 +2,8 @@ import { getMatchdayAdmin } from '@/lib/admin';
 import { loadTipsByUser } from '@/lib/tipps';
 import { getEligibleTippers } from '@/lib/tippers';
 import { isFixtureScoreable, scoreTip } from '@/lib/scoring';
-import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER, WEEKDAY_LABELS } from '@/lib/constants';
-import { formatDateRange, weekdayOf } from '@/lib/datetime';
+import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER } from '@/lib/constants';
+import { dateKeyOf, formatDateRange, formatDayMonth, weekdayLabelOf } from '@/lib/datetime';
 import type { FixtureStatus, League } from '@/generated/prisma/client';
 
 /** Tipp-Zelle im 34.TT-Raster: Tipp + berechnete Punkte (null = nicht bewertbar). */
@@ -32,14 +32,18 @@ export type AuswertungSection = {
 };
 
 /**
- * Tagesspalte eines Tipptags: Wochentag (0 = So … 6 = Sa) + Kürzel. Welche Tage
- * ein Tipptag hat, ergibt sich aus seinen Anstößen — nicht aus einem festen
- * Raster (das Alt-Excel hatte vier feste Fächer und musste bei englischen Wochen
- * Tage zusammenfalten; siehe 17_TT_Auswertung.xlsx).
+ * Tagesspalte eines Tipptags: ein KALENDERTAG (key, z. B. „2026-01-13") mit
+ * kompaktem Etikett. Welche Tage ein Tipptag hat, ergibt sich aus seinen
+ * Anstößen — nicht aus einem festen Raster.
+ *
+ * Gruppiert wird nach Kalendertag, nicht nach Wochentag: ein Tipptag kann
+ * mehrere Wochenenden bündeln (25/26 TT 1 = 2. Liga ST 1 + 2, weil die
+ * Bundesliga noch nicht lief) oder Nachholspiele enthalten (TT 17 = ein
+ * Mittwochsspiel sieben Wochen später). Zwei „Fr" sind dann zwei Tage.
  */
-export type DayColumn = { key: number; label: string };
-/** Punkte je Wochentag, indiziert wie DayColumn.key. Fehlender Tag = keine Partie. */
-export type DailyPoints = Record<number, number>;
+export type DayColumn = { key: string; label: string };
+/** Punkte je Kalendertag, indiziert wie DayColumn.key. Fehlender Tag = keine Partie. */
+export type DailyPoints = Record<string, number>;
 export type HitCounts = { three: number; two: number; one: number };
 
 export type TipperRow = {
@@ -76,21 +80,38 @@ export type AuswertungView = {
 };
 
 /**
- * Die Tagesspalten eines Tipptags: jeder tatsächlich bespielte Wochentag genau
- * einmal, sortiert nach dem frühesten Anstoß an diesem Tag (nicht nach Wochentag-
- * Index — sonst stünde bei einer englischen Woche Di vor dem Fr davor).
+ * Die Tagesspalten eines Tipptags: jeder bespielte Kalendertag genau einmal,
+ * chronologisch.
+ *
+ * Etikett: der Wochentag allein („Fr") reicht, solange er im Tipptag eindeutig
+ * ist — das trifft auf die üblichen Wochenend-Tipptage zu. Kommt derselbe
+ * Wochentag mehrfach vor (zwei Wochenenden, Nachholspiel), trägt das Etikett
+ * zusätzlich das Datum („Fr 08.08."), sonst wäre nicht erkennbar, welcher
+ * Freitag gemeint ist.
  */
 function dayColumnsOf(fixtures: { kickoff: Date }[]): DayColumn[] {
-  const earliest = new Map<number, number>();
+  // Je Kalendertag der früheste Anstoß — der bestimmt Reihenfolge und Etikett.
+  const firstKickoff = new Map<string, Date>();
   for (const f of fixtures) {
-    const key = weekdayOf(f.kickoff);
-    const at = f.kickoff.getTime();
-    const known = earliest.get(key);
-    if (known === undefined || at < known) {
-      earliest.set(key, at);
+    const key = dateKeyOf(f.kickoff);
+    const known = firstKickoff.get(key);
+    if (!known || f.kickoff < known) {
+      firstKickoff.set(key, f.kickoff);
     }
   }
-  return [...earliest.entries()].sort((a, b) => a[1] - b[1]).map(([key]) => ({ key, label: WEEKDAY_LABELS[key] }));
+  const days = [...firstKickoff.entries()].sort((a, b) => a[1].getTime() - b[1].getTime());
+
+  const weekdayUses = new Map<string, number>();
+  for (const [, kickoff] of days) {
+    const weekday = weekdayLabelOf(kickoff);
+    weekdayUses.set(weekday, (weekdayUses.get(weekday) ?? 0) + 1);
+  }
+
+  return days.map(([key, kickoff]) => {
+    const weekday = weekdayLabelOf(kickoff);
+    const ambiguous = (weekdayUses.get(weekday) ?? 0) > 1;
+    return { key, label: ambiguous ? `${weekday} ${formatDayMonth(kickoff)}` : weekday };
+  });
 }
 
 type ScoredFixture = AuswertungFixture & { league: League; result: { homeGoals: number; awayGoals: number } | null };
@@ -159,7 +180,7 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
       if (points !== null) {
         if (f.league === 'BL') blPoints += points;
         else l2Points += points;
-        daily[weekdayOf(f.kickoff)] += points;
+        daily[dateKeyOf(f.kickoff)] += points;
         if (points === 3) counts.three += 1;
         else if (points === 2) counts.two += 1;
         else if (points === 1) counts.one += 1;

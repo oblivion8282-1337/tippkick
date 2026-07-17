@@ -205,7 +205,8 @@ function addReportSheet(workbook: ExcelJS.Workbook, view: AuswertungView): void 
 
   ws.getColumn(1).width = 16;
   for (let col = 2; col <= headers.length; col++) {
-    ws.getColumn(col).width = 7;
+    // Tages-Etiketten tragen bei mehrdeutigen Wochentagen ein Datum („Fr 08.08.").
+    ws.getColumn(col).width = Math.max(7, String(headers[col - 1]).length + 2);
     ws.getColumn(col).alignment = { horizontal: 'center' };
   }
   // Kopfzeile + Namensspalte beim Scrollen sichtbar lassen.

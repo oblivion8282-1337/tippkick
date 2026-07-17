@@ -10,12 +10,25 @@ import { WEEKDAY_LABELS } from '@/lib/constants';
  * Wir tippen deutschen Fußball; Anstoßzeiten und Spieltage sind deutsche Ortszeit.
  *
  * ACHTUNG bei neuen Einstiegspunkten (Cron-Sidecar, Docker-CMD, CI): ohne TZ läuft
- * Node in UTC, dann zeigt die App Anstoßzeiten falsch an UND `weekdayOf` bucketet
+ * Node in UTC, dann zeigt die App Anstoßzeiten falsch an UND `dateKeyOf` schneidet
  * Abendspiele auf den Vortag.
  */
 
+/**
+ * Kalendertag eines Anstoßes als sortierbarer Schlüssel („2026-01-13"), in
+ * Server-Lokalzeit. Der Kalendertag — nicht der Wochentag — ist die Identität
+ * eines Spieltags innerhalb eines Tipptags: ein Tipptag kann mehrere Wochenenden
+ * bündeln (25/26 TT 1: 2. Liga ST 1 + 2) oder Nachholspiele enthalten (TT 17:
+ * ein Mittwochsspiel sieben Wochen später). Zwei „Mi" sind dann nicht derselbe Tag.
+ */
+export function dateKeyOf(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 /** Wochentags-Index eines Anstoßes (0 = So … 6 = Sa), wie `Date.getDay()`. */
-export function weekdayOf(date: Date): number {
+function weekdayOf(date: Date): number {
   return date.getDay();
 }
 
@@ -39,9 +52,13 @@ export function formatWeekdayTime(date: Date): string {
   return date.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+/** Tag + Monat („31.10.") – kompakte Datumsangabe. */
+export function formatDayMonth(date: Date): string {
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+}
+
 export function formatDateRange(start: Date, end: Date): string {
-  const fmt = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-  return `${fmt(start)} - ${fmt(end)}`;
+  return `${formatDayMonth(start)} - ${formatDayMonth(end)}`;
 }
 
 /** Relative Frist bis zu einer Deadline („in 3 Tagen", „morgen", „in 5 Std"). */
