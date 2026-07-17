@@ -3,13 +3,13 @@ import { CalendarClock, Check, ChevronRight, Download, Users } from 'lucide-reac
 
 import {
   getCompetitionsOverview,
+  getMatchdayTipMatrix,
   getTipperList,
   getTipperStats,
-  getTipptagProgress,
   getUpcomingTipptage,
 } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
-import { formatCountdown, formatDateTime } from '@/lib/datetime';
+import { formatCountdown, formatDateTime, formatWeekdayTime } from '@/lib/datetime';
 import { AdminSeasonPicker } from '@/components/admin-season-picker';
 import { ConfirmButton } from '@/components/confirm-button';
 import { CreateSeasonForm } from '@/components/create-season-form';
@@ -56,16 +56,17 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
     );
   }
 
-  const [competitions, upcoming, tipperStats, tippers] = await Promise.all([
+  const [competitions, upcoming, tipperStats, tippers, session] = await Promise.all([
     getCompetitionsOverview(season.id),
     getUpcomingTipptage(season.id),
     getTipperStats(),
     getTipperList(),
+    getSession(),
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
-  const selfId = (await getSession())?.user.id;
-  // Tipp-Fortschritt je anstehendem Tipptag (für die aufklappbare Deadlines-Liste).
-  const upcomingProgress = await Promise.all(upcoming.map((u) => getTipptagProgress(u.id)));
+  const selfId = session?.user.id;
+  // Tipp-Matrix je anstehendem Tipptag (für die aufklappbare Deadlines-Liste).
+  const upcomingMatrix = await Promise.all(upcoming.map((u) => getMatchdayTipMatrix(u.id)));
   const pending = tippers.filter((u) => !u.approved);
   const active = tippers.filter((u) => u.approved);
 
@@ -96,9 +97,15 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
           ) : (
             <div className="divide-border/40 divide-y">
               {upcoming.map((u, i) => {
-                const prog = upcomingProgress[i];
-                const isDone = (userId: string) => prog.total > 0 && (prog.tippedByUser.get(userId) ?? 0) >= prog.total;
-                const outstanding = active.filter((t) => !isDone(t.id));
+                const matrix = upcomingMatrix[i];
+                // Ein Durchlauf über die aktiven Tipper: Status + zusammenfassung.
+                const rows = active.map((t) => {
+                  const cnt = matrix.tipsByUser.get(t.id)?.size ?? 0;
+                  const done = matrix.total > 0 && cnt >= matrix.total;
+                  return { t, cnt, done, partial: cnt > 0 && !done };
+                });
+                const tippersTipped = rows.filter((r) => r.done).length;
+                const openCount = rows.length - tippersTipped;
                 return (
                   <details key={u.id} className="group">
                     <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm [&::-webkit-details-marker]:hidden">
@@ -109,12 +116,10 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
                       <Link href={`/admin/matchdays/${u.id}`} className="hover:underline">
                         <span className="font-display font-semibold">Tipptag {u.number}</span>
                       </Link>
-                      <span className="text-muted-foreground tabular-nums">{u.fixtureCount} Partien</span>
+                      <span className="text-muted-foreground tabular-nums">{matrix.total} Partien</span>
                       <span className="text-muted-foreground tabular-nums">
-                        {u.tippersTipped}/{active.length} vollständig
-                        {outstanding.length > 0 && (
-                          <span className="text-destructive"> · {outstanding.length} offen</span>
-                        )}
+                        {tippersTipped}/{active.length} vollständig
+                        {openCount > 0 && <span className="text-destructive"> · {openCount} offen</span>}
                       </span>
                       <span className="text-muted-foreground ml-auto tabular-nums">
                         {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
@@ -125,35 +130,63 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
                       </LinkButton>
                     </summary>
                     <ul className="border-border/40 border-t">
-                      {active.map((t) => {
-                        const cnt = prog.tippedByUser.get(t.id) ?? 0;
-                        const done = isDone(t.id);
-                        const partial = cnt > 0 && !done;
+                      {rows.map(({ t, cnt, done, partial }) => {
+                        const userTips = matrix.tipsByUser.get(t.id);
                         return (
-                          <li key={t.id} className="flex items-center gap-2 py-2 pr-6 pl-12 text-sm">
-                            <span className="font-medium">{t.name}</span>
-                            {t.role === ROLE_ADMIN && (
-                              <span className="text-muted-foreground text-xs">Tippleitung</span>
-                            )}
-                            <span
-                              className={
-                                done
-                                  ? 'text-primary ml-auto inline-flex items-center gap-1'
-                                  : partial
-                                    ? 'ml-auto text-amber-500'
-                                    : 'text-muted-foreground ml-auto'
-                              }
-                            >
-                              {done ? (
-                                <>
-                                  <Check className="h-3 w-3" /> vollständig
-                                </>
-                              ) : partial ? (
-                                `teilweise (${cnt}/${prog.total})`
-                              ) : (
-                                'noch offen'
-                              )}
-                            </span>
+                          <li key={t.id} className="pr-2 pl-10">
+                            <details className="group/tipper">
+                              <summary className="hover:bg-muted/30 flex cursor-pointer items-center gap-2 py-2 pl-2 text-sm [&::-webkit-details-marker]:hidden">
+                                <ChevronRight className="text-muted-foreground h-3.5 w-3.5 shrink-0 transition-transform group-open/tipper:rotate-90" />
+                                <span className="font-medium">{t.name}</span>
+                                {t.role === ROLE_ADMIN && (
+                                  <span className="text-muted-foreground text-xs">Tippleitung</span>
+                                )}
+                                <span
+                                  className={
+                                    done
+                                      ? 'text-primary ml-auto inline-flex items-center gap-1'
+                                      : partial
+                                        ? 'ml-auto text-amber-500'
+                                        : 'text-muted-foreground ml-auto'
+                                  }
+                                >
+                                  {done ? (
+                                    <>
+                                      <Check className="h-3 w-3" /> vollständig
+                                    </>
+                                  ) : partial ? (
+                                    `teilweise (${cnt}/${matrix.total})`
+                                  ) : (
+                                    'noch offen'
+                                  )}
+                                </span>
+                              </summary>
+                              <ul className="border-border/40 border-t pb-2">
+                                {matrix.fixtures.map((f) => {
+                                  const tip = userTips?.get(f.id);
+                                  return (
+                                    <li
+                                      key={f.id}
+                                      className="flex items-center justify-between gap-3 py-1.5 pr-4 pl-6 text-xs"
+                                    >
+                                      <span className="text-muted-foreground shrink-0 tabular-nums">
+                                        {formatWeekdayTime(f.kickoff)}
+                                      </span>
+                                      <span className="flex-1 truncate">
+                                        {f.homeTeam} : {f.awayTeam}
+                                      </span>
+                                      {tip ? (
+                                        <span className="text-primary shrink-0 font-medium tabular-nums">
+                                          {tip.homeGoals} : {tip.awayGoals}
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground/70 shrink-0 italic">offen</span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </details>
                           </li>
                         );
                       })}

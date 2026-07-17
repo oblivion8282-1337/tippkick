@@ -13,6 +13,11 @@ export function formatDateTime(date: Date): string {
   });
 }
 
+/** Wochentag + Uhrzeit („Fr, 20:30") – z. B. für Anstoßzeiten in Listen. */
+export function formatWeekdayTime(date: Date): string {
+  return date.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
 export function formatDateRange(start: Date, end: Date): string {
   const fmt = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
   return `${fmt(start)} - ${fmt(end)}`;

@@ -3,6 +3,7 @@ import { getMatchdayAdmin } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
 import { formatDateRange } from '@/lib/datetime';
 import { ROLE_USER, TEMPLATE_EXPORT_KEYS } from '@/lib/constants';
+import { loadTipsByUser } from '@/lib/tipps';
 import { buildMatchdayExcel } from '@/lib/excel/export-matchday';
 import { buildBundesligaExcel } from '@/lib/excel/export-bundesliga';
 
@@ -109,27 +110,4 @@ async function buildGenericExport(matchday: NonNullable<MinimalMatchday>, tipper
     tipsByUser,
   });
   return { buffer, unmatchedTippers: [], droppedSectionCount: 0 };
-}
-
-/** Lädt Tipps für eine Fixture-Liste, gruppiert nach userId -> fixtureId -> tip. */
-async function loadTipsByUser(
-  fixtureIds: string[],
-): Promise<Map<string, Map<string, { homeGoals: number; awayGoals: number }>>> {
-  const tipsByUser = new Map<string, Map<string, { homeGoals: number; awayGoals: number }>>();
-  if (fixtureIds.length === 0) {
-    return tipsByUser;
-  }
-  const tips = await prisma.tip.findMany({
-    where: { fixtureId: { in: fixtureIds } },
-    select: { userId: true, fixtureId: true, homeGoals: true, awayGoals: true },
-  });
-  for (const tip of tips) {
-    let perUser = tipsByUser.get(tip.userId);
-    if (!perUser) {
-      perUser = new Map();
-      tipsByUser.set(tip.userId, perUser);
-    }
-    perUser.set(tip.fixtureId, { homeGoals: tip.homeGoals, awayGoals: tip.awayGoals });
-  }
-  return tipsByUser;
 }

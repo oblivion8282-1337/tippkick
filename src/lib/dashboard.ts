@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
+import { loadTipsByUser } from '@/lib/tipps';
 import type { CompetitionKey } from '@/generated/prisma/client';
 
 /** Wettbewerbe einer Saison mit Zählwerten (für die Wettbewerbe-Karte). */
@@ -17,81 +18,26 @@ export type UpcomingTipptag = {
   deadlineAt: Date;
   competitionKey: CompetitionKey;
   competitionName: string;
-  fixtureCount: number;
-  tippersTipped: number; //Tipper, die ALLE Partien dieses Tipptags getippt haben
 };
 
 /**
  * Nächste offene Tipptage einer Saison (deadline > jetzt), competitions-übergreifend.
- * tippersTipped = Anzahl Tipper, die den Tipptag VOLLSTÄNDIG getippt haben (nicht
- * nur ≥1 Tipp).
+ * Reine Metadaten — Tipp-Fortschritt und Partien liefert getMatchdayTipMatrix (SSOT).
  */
 export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<UpcomingTipptag[]> {
   const matchdays = await prisma.matchday.findMany({
     where: { deadlineAt: { gt: new Date() }, competition: { seasonId } },
     orderBy: { deadlineAt: 'asc' },
     take: limit,
-    include: {
-      competition: { select: { key: true, name: true } },
-      sections: { select: { id: true, _count: { select: { fixtures: true } } } },
-    },
+    include: { competition: { select: { key: true, name: true } } },
   });
-  if (matchdays.length === 0) {
-    return [];
-  }
-
-  // Partien-Zahl je Tipptag + Section -> Matchday.
-  const fixtureCountByMatchday = new Map<string, number>();
-  const sectionToMatchday = new Map<string, string>();
-  for (const md of matchdays) {
-    fixtureCountByMatchday.set(
-      md.id,
-      md.sections.reduce((sum, s) => sum + s._count.fixtures, 0),
-    );
-    for (const s of md.sections) {
-      sectionToMatchday.set(s.id, md.id);
-    }
-  }
-  const tips = await prisma.tip.findMany({
-    where: { fixture: { sectionId: { in: [...sectionToMatchday.keys()] } } },
-    select: { userId: true, fixture: { select: { sectionId: true } } },
-  });
-  // Tippanzahl je (Matchday, User); vollständig = Tippanzahl == fixtureCount.
-  const countsByMatchday = new Map<string, Map<string, number>>();
-  for (const tip of tips) {
-    const matchdayId = sectionToMatchday.get(tip.fixture.sectionId);
-    if (!matchdayId) {
-      continue;
-    }
-    const counts = countsByMatchday.get(matchdayId);
-    if (counts) {
-      counts.set(tip.userId, (counts.get(tip.userId) ?? 0) + 1);
-    } else {
-      countsByMatchday.set(matchdayId, new Map([[tip.userId, 1]]));
-    }
-  }
-
-  return matchdays.map((md) => {
-    const total = fixtureCountByMatchday.get(md.id) ?? 0;
-    const counts = total > 0 ? countsByMatchday.get(md.id) : undefined;
-    let complete = 0;
-    if (counts) {
-      for (const c of counts.values()) {
-        if (c >= total) {
-          complete++;
-        }
-      }
-    }
-    return {
-      id: md.id,
-      number: md.number,
-      deadlineAt: md.deadlineAt,
-      competitionKey: md.competition.key,
-      competitionName: md.competition.name,
-      fixtureCount: total,
-      tippersTipped: complete,
-    };
-  });
+  return matchdays.map((md) => ({
+    id: md.id,
+    number: md.number,
+    deadlineAt: md.deadlineAt,
+    competitionKey: md.competition.key,
+    competitionName: md.competition.name,
+  }));
 }
 
 export type TipperStats = { total: number; tippers: number; admins: number };
@@ -114,29 +60,31 @@ export async function getTipperList() {
   });
 }
 
-export type TipptagProgress = { total: number; tippedByUser: Map<string, number> };
+export type TipMatrixFixture = { id: string; homeTeam: string; awayTeam: string; kickoff: Date };
+
+export type MatchdayTipMatrix = {
+  total: number;
+  fixtures: TipMatrixFixture[];
+  // userId -> (fixtureId -> Tipp-Werte). Einträge == getippte Partien.
+  tipsByUser: Map<string, Map<string, { homeGoals: number; awayGoals: number }>>;
+};
 
 /**
- * Tipp-Fortschritt je User für einen Tipptag: Gesamtzahl der Partien + Map
- * userId -> Anzahl getippter Partien. Vollständig = Tippanzahl == total.
+ * Tipp-Matrix je User für einen Tipptag: geordnete Partien + Map
+ * userId -> (fixtureId -> Tipp). Vollständig = Anzahl Einträge == total.
+ * SSOT für die Deadline-Übersicht (sowohl „fertig?‟ als auch die Einzel-Tipps).
  */
-export async function getTipptagProgress(matchdayId: string): Promise<TipptagProgress> {
+export async function getMatchdayTipMatrix(matchdayId: string): Promise<MatchdayTipMatrix> {
   const sections = await prisma.matchdaySection.findMany({
     where: { matchdayId },
-    select: { id: true, _count: { select: { fixtures: true } } },
+    select: {
+      fixtures: {
+        orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }],
+        select: { id: true, homeTeam: true, awayTeam: true, kickoff: true },
+      },
+    },
   });
-  const total = sections.reduce((sum, s) => sum + s._count.fixtures, 0);
-  const sectionIds = sections.map((s) => s.id);
-  const tips =
-    total > 0
-      ? await prisma.tip.findMany({
-          where: { fixture: { sectionId: { in: sectionIds } } },
-          select: { userId: true },
-        })
-      : [];
-  const tippedByUser = new Map<string, number>();
-  for (const tip of tips) {
-    tippedByUser.set(tip.userId, (tippedByUser.get(tip.userId) ?? 0) + 1);
-  }
-  return { total, tippedByUser };
+  const fixtures = sections.flatMap((s) => s.fixtures);
+  const tipsByUser = await loadTipsByUser(fixtures.map((f) => f.id));
+  return { total: fixtures.length, fixtures, tipsByUser };
 }
