@@ -48,9 +48,18 @@ const COLOR = {
   title: 'FFCCFFCC', // hellgrün — Titelzelle
   section: 'FFFFFF99', // hellgelb — Sektionskopf, Punkte-/Gesamt-Spalten
   result: 'FFCCFFFF', // hellcyan — Ergebnis-, Tages- und Treffer-Spalten
+  hit3: 'FFFF6600', // orange — 3 Punkte (exakt)
+  hit2: 'FF00FFFF', // cyan — 2 Punkte (Tordifferenz)
   winnerFill: 'FFFFC7CE', // rosa — Tagessieger (höchster Wert je Spalte)
   winnerFont: 'FF9C0006', // dunkelrot — Schrift des Tagessiegers
 } as const;
+
+/** Füllfarbe der Punkte-Zelle nach Trefferwert (wie die bedingte Formatierung im Original). */
+function pointsFill(points: number | null): string {
+  if (points === 3) return COLOR.hit3;
+  if (points === 2) return COLOR.hit2;
+  return COLOR.section; // 1/0/kein Tipp: gelb wie der Spalten-Grund
+}
 
 function fill(argb: string): ExcelJS.Fill {
   return { type: 'pattern', pattern: 'solid', fgColor: { argb } };
@@ -154,7 +163,6 @@ function addRawSheet(workbook: ExcelJS.Workbook, view: AuswertungView): void {
           ws.getCell(row, start + off).alignment = { horizontal: 'center' };
         }
         const pkt = ws.getCell(row, start + 3);
-        pkt.fill = fill(COLOR.section);
         pkt.border = BOX;
         pkt.alignment = { horizontal: 'center' };
         if (cell?.tipHome !== null && cell?.tipHome !== undefined) {
@@ -162,11 +170,15 @@ function addRawSheet(workbook: ExcelJS.Workbook, view: AuswertungView): void {
           ws.getCell(row, start + 1).value = ':';
           ws.getCell(row, start + 2).value = cell.tipAway;
         }
-        if (cell?.points !== null && cell?.points !== undefined) {
-          pkt.value = cell.points;
-          if (cell.points === 3) counts.three++;
-          else if (cell.points === 2) counts.two++;
-          else if (cell.points === 1) counts.one++;
+        const points = cell?.points ?? null;
+        // 3 Punkte orange, 2 cyan, 1/0 gelb; ab 1 Punkt fett — wie im Original.
+        pkt.fill = fill(pointsFill(points));
+        if (points !== null) {
+          pkt.value = points;
+          if (points > 0) pkt.font = { bold: true };
+          if (points === 3) counts.three++;
+          else if (points === 2) counts.two++;
+          else if (points === 1) counts.one++;
         }
       });
 
