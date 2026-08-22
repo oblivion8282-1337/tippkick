@@ -274,12 +274,11 @@ function FixtureRow({
         complete && 'bg-pitch/[0.06] dark:bg-pitch/[0.08]',
       )}
     >
-      {/* Mobil: Paarung vollstaendig ueber den Feldern (keine truncierten Namen),
-          ab sm: klassische drei Spalten Team | Tipp | Team. */}
-      <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
-        <span className="truncate text-base font-medium">{fixture.homeTeam}</span>
-        <span className="text-muted-foreground shrink-0 font-mono text-base font-light">:</span>
-        <span className="truncate text-base font-medium">{fixture.awayTeam}</span>
+      {/* Mobil: beide Vereine untereinander, KOMPLETT ohne truncierte Namen —
+          zwei Namen passen nebeneinander auf 375px einfach nicht. */}
+      <div className="mb-2 sm:hidden">
+        <p className="text-base leading-snug font-medium">{fixture.homeTeam}</p>
+        <p className="text-base leading-snug font-medium">{fixture.awayTeam}</p>
       </div>
       <span className="hidden truncate text-right text-base font-medium sm:block sm:text-lg">
         {fixture.homeTeam}
