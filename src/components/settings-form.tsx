@@ -150,7 +150,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
           )}
           <div className="text-muted-foreground text-sm">
             <p className="text-foreground font-medium">{initialName}</p>
-            <p>JPG, PNG oder WebP · wird automatisch verkleinert</p>
+            <p>JPG, PNG oder WebP</p>
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-3">
