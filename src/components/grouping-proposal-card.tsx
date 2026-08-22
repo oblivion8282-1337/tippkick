@@ -3,7 +3,7 @@ import { ArrowRight, Lightbulb, Lock } from 'lucide-react';
 import type { GroupingProposal } from '@/lib/rounds';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { applyGroupingAction } from '@/app/(admin)/admin/actions';
-import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/submit-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 
@@ -94,9 +94,9 @@ export function GroupingProposalCard({
           <form action={applyGroupingAction}>
             <input type="hidden" name="competitionId" value={competitionId} />
             <input type="hidden" name="seasonId" value={seasonId} />
-            <Button type="submit" disabled={nothingToDo}>
+            <SubmitButton disabled={nothingToDo}>
               Übernehmen
-            </Button>
+            </SubmitButton>
           </form>
           <LinkButton href={`/admin/spieltage?season=${seasonId}`} variant="outline">
             Abbrechen

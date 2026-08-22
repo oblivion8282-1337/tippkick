@@ -36,7 +36,11 @@ import type { League } from '../src/generated/prisma/client';
  */
 
 /** Passwort der Test-Tipper. Nur für den lokalen Testdatensatz. */
-const TIPPER_PASSWORD = process.env.IMPORT_TIPPER_PASSWORD ?? 'demo1234';
+const TIPPER_PASSWORD = process.env.IMPORT_TIPPER_PASSWORD;
+if (!TIPPER_PASSWORD || TIPPER_PASSWORD.length < 8) {
+  throw new Error('IMPORT_TIPPER_PASSWORD fehlt oder zu kurz (mind. 8 Zeichen) – kein Default-Passwort für Testtipper.');
+}
+const tipperPassword: string = TIPPER_PASSWORD;
 
 const LEAGUE_BY_LABEL: Record<string, League> = { '1. Liga': 'BL', '2. Liga': 'L2' };
 
@@ -224,7 +228,7 @@ async function main() {
     const { id } = await createCredentialUser({
       name,
       email: tipperEmail(name),
-      password: TIPPER_PASSWORD,
+      password: tipperPassword,
       role: ROLE_USER,
     });
     tipperIds.set(name, id);

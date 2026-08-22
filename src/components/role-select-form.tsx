@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { setUserRoleAction } from '@/app/(admin)/admin/actions';
 import { ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
@@ -12,16 +13,26 @@ import { ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
  */
 export function RoleSelectForm({ userId, role }: { userId: string; role: string }) {
   const [pending, start] = useTransition();
+  const router = useRouter();
 
   function onChange(value: string) {
     const fd = new FormData();
     fd.set('userId', userId);
     fd.set('role', value);
-    start(() => setUserRoleAction(fd));
+    // Bei Fehler (Validierung/Letzter-Admin-Guard) springt das unkontrollierte
+    // Select nicht zurück — daher resyncen: nach der Action den Server-Stand holen.
+    start(async () => {
+      try {
+        await setUserRoleAction(fd);
+      } finally {
+        router.refresh();
+      }
+    });
   }
 
   return (
     <select
+      key={role}
       defaultValue={role}
       disabled={pending}
       onChange={(e) => onChange(e.target.value)}

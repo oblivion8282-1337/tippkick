@@ -267,6 +267,9 @@ model Account {
   updatedAt             DateTime  @updatedAt
 
   @@index([userId])
+  // better-auth Lookup-Schlüssel: (providerId, accountId) muss eindeutig sein,
+  // sonst kann ein Duplikat den Credential-Login nicht-deterministisch machen.
+  @@unique([providerId, accountId])
   @@map("account")
 }
 

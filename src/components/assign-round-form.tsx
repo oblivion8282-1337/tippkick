@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { assignRoundAction } from '@/app/(admin)/admin/actions';
 
@@ -24,12 +25,21 @@ export function AssignRoundForm({
   current: string | null;
 }) {
   const [pending, start] = useTransition();
+  const router = useRouter();
 
   function onChange(value: string) {
     const fd = new FormData();
     fd.set('sectionId', sectionId);
     fd.set('matchdayId', value);
-    start(() => assignRoundAction(fd));
+    // Resync nach der Action: bei Server-Ablehnung springt das unkontrollierte
+    // Select sonst nicht auf den DB-Stand zurück.
+    start(async () => {
+      try {
+        await assignRoundAction(fd);
+      } finally {
+        router.refresh();
+      }
+    });
   }
 
   const sameComp = tipptage.filter((t) => t.competitionId === competitionId);
@@ -37,6 +47,7 @@ export function AssignRoundForm({
   return (
     // stopPropagation: Klicks dürfen das umgebende <summary> nicht aufklappen.
     <select
+      key={current ?? 'none'}
       defaultValue={current ?? ''}
       disabled={pending}
       onChange={(e) => onChange(e.target.value)}

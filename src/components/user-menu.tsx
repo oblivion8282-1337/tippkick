@@ -17,9 +17,14 @@ export function UserMenu({ userName, userImage }: { userName: string; userImage?
   const isDark = theme === 'dark';
 
   async function onLogout() {
-    await authClient.signOut();
-    router.push('/login');
-    router.refresh();
+    try {
+      await authClient.signOut();
+    } finally {
+      // Auch bei Netzwerkfehler abmelden (Session-Cookie bleibt, aber UI verlassen);
+      // sonst bliebe der Nutzer ohne Feedback eingeloggt.
+      router.push('/login');
+      router.refresh();
+    }
   }
 
   return (

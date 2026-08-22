@@ -13,6 +13,17 @@ import { sendMail } from './email';
  * - Rollen (user/admin) via admin-Plugin
  * - Prisma-Adapter: Auth-Tabellen leben in derselben Postgres-DB
  */
+// Prod-Fail-fast: ohne AUTH_SECRET wären Session-Cookies mit better-auths
+// bekanntem Default-Secret fälschbar; ohne APP_URL zeigten Mail-Links auf localhost.
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.AUTH_SECRET) {
+    throw new Error('AUTH_SECRET ist in production nicht gesetzt');
+  }
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    throw new Error('NEXT_PUBLIC_APP_URL ist in production nicht gesetzt');
+  }
+}
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',

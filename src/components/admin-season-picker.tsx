@@ -28,6 +28,7 @@ export function AdminSeasonPicker({
   return (
     <div className="flex items-center gap-2">
       <select
+        key={activeId}
         defaultValue={activeId}
         onChange={(e) => switchSeason(e.target.value)}
         className="border-input bg-background h-8 rounded-md border px-2 text-sm"
