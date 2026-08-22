@@ -269,13 +269,22 @@ function FixtureRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0 sm:gap-4 sm:px-6 sm:py-3.5',
+        'border-b px-4 py-3 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4 sm:px-6 sm:py-3.5',
         striped && 'bg-muted/30',
         complete && 'bg-pitch/[0.06] dark:bg-pitch/[0.08]',
       )}
     >
-      <span className="truncate text-right text-base font-medium sm:text-lg">{fixture.homeTeam}</span>
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      {/* Mobil: Paarung vollstaendig ueber den Feldern (keine truncierten Namen),
+          ab sm: klassische drei Spalten Team | Tipp | Team. */}
+      <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
+        <span className="truncate text-base font-medium">{fixture.homeTeam}</span>
+        <span className="text-muted-foreground shrink-0 font-mono text-base font-light">:</span>
+        <span className="truncate text-base font-medium">{fixture.awayTeam}</span>
+      </div>
+      <span className="hidden truncate text-right text-base font-medium sm:block sm:text-lg">
+        {fixture.homeTeam}
+      </span>
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
         <TipInput
           value={home}
           disabled={disabled}
@@ -292,7 +301,9 @@ function FixtureRow({
           aria-label={`Tipp ${fixture.awayTeam}`}
         />
       </div>
-      <span className="truncate text-base font-medium sm:text-lg">{fixture.awayTeam}</span>
+      <span className="hidden truncate text-base font-medium sm:block sm:text-lg">
+        {fixture.awayTeam}
+      </span>
     </div>
   );
 }
