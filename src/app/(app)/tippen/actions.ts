@@ -1,7 +1,18 @@
 'use server';
 
-import { getSession } from '@/lib/session';
+import { getSession, getUserGate } from '@/lib/session';
 import { deleteTip, saveTip, type TipFailureReason } from '@/lib/tipps';
+
+/**
+ * Gate neben der Session: Server Actions laufen außerhalb des Layout-Schutzes,
+ * daher müssen approved/banned hier frisch aus der DB geprüft werden.
+ */
+async function gateFailure(userId: string): Promise<TipFailureReason | null> {
+  const gate = await getUserGate(userId);
+  if (!gate?.approved) return 'unapproved';
+  if (gate.banned) return 'banned';
+  return null;
+}
 
 /**
  * Server Action (Einstiegspunkt für die Tipp-Maske).
@@ -18,6 +29,10 @@ export async function saveTipAction(params: {
     const session = await getSession();
     if (!session) {
       return { ok: false, reason: 'unauth' };
+    }
+    const gate = await gateFailure(session.user.id);
+    if (gate) {
+      return { ok: false, reason: gate };
     }
 
     return await saveTip({
@@ -41,6 +56,10 @@ export async function deleteTipAction(params: {
     const session = await getSession();
     if (!session) {
       return { ok: false, reason: 'unauth' };
+    }
+    const gate = await gateFailure(session.user.id);
+    if (gate) {
+      return { ok: false, reason: gate };
     }
     return await deleteTip({ userId: session.user.id, fixtureId: params.fixtureId });
   } catch {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
 import { AuthShell } from '@/components/auth-shell';
@@ -12,9 +12,15 @@ import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // Redirect-Grund vom (app)-Layout (requireUser): stummes Bounce vermeiden.
+  const gateMessage =
+    searchParams.get('reason') === 'banned'
+      ? 'Dein Konto ist noch nicht freigeschaltet oder wurde gesperrt. Bitte wende dich an die Tippleitung.'
+      : null;
+  const [error, setError] = useState<string | null>(gateMessage);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent) {

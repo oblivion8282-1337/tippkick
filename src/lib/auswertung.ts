@@ -29,6 +29,7 @@ export type AuswertungFixture = {
 };
 
 export type AuswertungSection = {
+  id: string;
   league: League;
   label: string;
   sectionNumber: number;
@@ -136,6 +137,7 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
     .filter((s): s is typeof s & { league: League } => s.league !== null)
     .sort((a, b) => LEAGUE_SECTION_ORDER.indexOf(a.league) - LEAGUE_SECTION_ORDER.indexOf(b.league))
     .map((s) => ({
+      id: s.id,
       league: s.league,
       label: LEAGUE_SECTION_LABELS[s.league],
       sectionNumber: s.number,

@@ -251,15 +251,15 @@ export async function deleteFixture(fixtureId: string): Promise<void> {
     where: { id: fixtureId },
     select: { sectionId: true, section: { select: { matchdayId: true } } },
   });
+  if (!fixture) {
+    return;
+  }
   // Tip-Count mitloggen (Cascade löscht sie mit) für Audit-Transparenz.
   const tipCount = await prisma.tip.count({ where: { fixtureId } });
   if (tipCount > 0) {
     console.warn(`[deleteFixture] ${fixtureId} hat ${tipCount} Tipps – werden mit kaskadiert`);
   }
   await prisma.fixture.delete({ where: { id: fixtureId } });
-  if (!fixture) {
-    return;
-  }
   await recalcSectionSpan(fixture.sectionId);
   if (fixture.section.matchdayId) {
     await recalcMatchdaySpan(fixture.section.matchdayId);
@@ -380,6 +380,7 @@ async function populateSectionFixtures(input: {
   const kickoffById = new Map(
     existing.filter((e) => e.externalId !== null).map((e) => [e.externalId as string, e.kickoff]),
   );
+  let kickoffChanged = false;
   for (const f of input.fixtures) {
     const current = kickoffById.get(f.externalId);
     const next = f.kickoff;
@@ -388,6 +389,19 @@ async function populateSectionFixtures(input: {
         where: { sectionId: section.id, externalId: f.externalId },
         data: { kickoff: next },
       });
+      kickoffChanged = true;
+    }
+  }
+  // Anstoß verschoben → Sektionsspanne UND Tipptag-Deadline (falls nicht manuell)
+  // neu berechnen, sonst richtet sich das Tipp-Fenster weiter nach dem alten Termin.
+  if (kickoffChanged) {
+    const withMatchday = await prisma.matchdaySection.findUnique({
+      where: { id: section.id },
+      select: { matchdayId: true },
+    });
+    if (withMatchday?.matchdayId) {
+      const { recalcMatchdaySpan } = await import('@/lib/rounds');
+      await recalcMatchdaySpan(withMatchday.matchdayId);
     }
   }
 

@@ -291,7 +291,7 @@ function CompetitionCard({
           {row.tipped}/{row.total} getippt
         </span>
         <span aria-hidden="true">·</span>
-        <span>{row.open ? 'offen' : row.tipped === row.total ? 'vollständig' : 'geschlossen'}</span>
+        <span>{row.open ? 'offen' : row.tipped === row.total && row.total > 0 ? 'vollständig' : 'geschlossen'}</span>
       </div>
     </Link>
   );

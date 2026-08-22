@@ -1,7 +1,7 @@
 import { writeFile, mkdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
-import { getSession } from '@/lib/session';
+import { getSession, getUserGate } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -20,6 +20,10 @@ export async function POST(request: Request) {
   const session = await getSession();
   if (!session) {
     return new Response('Nicht eingeloggt', { status: 401 });
+  }
+  const gate = await getUserGate(session.user.id);
+  if (!gate?.approved || gate.banned) {
+    return new Response('Konto nicht freigeschaltet oder gesperrt', { status: 403 });
   }
 
   const formData = await request.formData();

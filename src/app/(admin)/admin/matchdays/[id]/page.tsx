@@ -6,10 +6,10 @@ import { getMatchdayAdmin } from '@/lib/admin';
 import { formatDateRange, formatDateTime } from '@/lib/datetime';
 import { LEAGUE_SECTION_LABELS } from '@/lib/constants';
 import { Breadcrumb } from '@/components/breadcrumb';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FixtureResultForm } from '@/components/fixture-result-form';
 import { LinkButton } from '@/components/link-button';
+import { ConfirmButton } from '@/components/confirm-button';
 import { PageHeader } from '@/components/page-header';
 
 export default async function MatchdayDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -85,10 +85,16 @@ export default async function MatchdayDetailPage({ params }: { params: Promise<{
                         status={f.status}
                         source={f.resultSource}
                       />
+                      {/* Tipps kaskadieren mit — daher Bestätigung mit Partienamen. */}
                       <form action={deleteFixtureAction.bind(null, matchday.id, f.id)}>
-                        <Button type="submit" variant="ghost" size="icon-sm" aria-label="Partie löschen">
+                        <ConfirmButton
+                          confirm={`${f.homeTeam} : ${f.awayTeam} löschen? Alle Tipps dieser Partie werden mitgelöscht.`}
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Partie löschen"
+                        >
                           <Trash2 />
-                        </Button>
+                        </ConfirmButton>
                       </form>
                     </li>
                   ))}

@@ -24,7 +24,7 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
       <CardContent className="px-0 pt-0">
         <div className="overflow-x-auto">
           {view.sections.map((section) => (
-            <table key={section.league} className="border-border/40 w-full border-collapse border-y text-sm">
+            <table key={section.id} className="border-border/40 w-full border-collapse border-y text-sm">
               <thead>
                 <tr>
                   <th
@@ -97,14 +97,25 @@ function SubHeaders() {
 }
 
 function TipperCells({ cell }: { cell: TipCell | undefined }) {
+  const emergencyClass = cell?.emergency ? 'italic' : '';
   const hasTip = cell?.tipHome !== null && cell?.tipHome !== undefined;
+  // Notfalltipp-Ersatzwerte kursiv — so bleibt erkennbar, dass nicht echt getippt wurde.
+  const emergencyTitle = cell?.emergency ? 'Notfalltipp (automatischer Ersatz)' : undefined;
   return (
     <>
-      <td className="border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums">
+      <td
+        title={emergencyTitle}
+        className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${emergencyClass}`}
+      >
         {hasTip ? cell?.tipHome : ''}
       </td>
       <td className="text-muted-foreground px-0 text-center">:</td>
-      <td className="px-1 py-1 text-center font-mono tabular-nums">{hasTip ? cell?.tipAway : ''}</td>
+      <td
+        title={emergencyTitle}
+        className={`px-1 py-1 text-center font-mono tabular-nums ${emergencyClass}`}
+      >
+        {hasTip ? cell?.tipAway : ''}
+      </td>
       <td
         className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${pointsClass(cell?.points)}`}
       >

@@ -68,6 +68,9 @@ export function formatCountdown(deadline: Date): string {
   if (ms <= 0) {
     return 'abgelaufen';
   }
+  if (ms < 60_000) {
+    return `in ${Math.max(1, Math.round(ms / 1000))} Sek`;
+  }
   const mins = Math.round(ms / 60_000);
   if (mins < 60) {
     return `in ${mins} Min`;
