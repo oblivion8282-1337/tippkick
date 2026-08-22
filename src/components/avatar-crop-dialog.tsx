@@ -207,11 +207,17 @@ export function AvatarCropDialog({
           />
         </label>
 
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <Button variant="ghost" size="sm" onClick={() => setPos({ x: 0, y: 0 })}>
-            <RotateCcw className="h-4 w-4" /> Zurücksetzen
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setPos({ x: 0, y: 0 })}
+            aria-label="Ausschnitt zurücksetzen"
+            title="Zurücksetzen"
+          >
+            <RotateCcw className="h-4 w-4" />
           </Button>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onCancel}>
               <X className="h-4 w-4" /> Abbrechen
             </Button>
