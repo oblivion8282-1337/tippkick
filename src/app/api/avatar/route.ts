@@ -13,7 +13,7 @@ const MAGIC_BY_EXT: Record<string, number[]> = {
   png: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
   webp: [0x52, 0x49, 0x46, 0x46], // "RIFF"; vollständige WebP-Validierung: bytes 8..11 = "WEBP"
 };
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_BYTES = 1024 * 1024; // 1 MB — der Client komprimiert vorab auf darunter
 
 /** Profilbild-Upload: speichert unter public/avatars/<userId>.<ext> und setzt user.image. */
 export async function POST(request: Request) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
   const buffer = new Uint8Array(await file.arrayBuffer());
   if (buffer.length > MAX_BYTES) {
-    return new Response('Datei zu groß (max 2 MB)', { status: 400 });
+    return new Response('Datei zu groß (max 1 MB)', { status: 400 });
   }
   // Magic-Bytes prüfen statt nur der MIME-Angabe zu vertrauen.
   for (let i = 0; i < magic.length; i++) {

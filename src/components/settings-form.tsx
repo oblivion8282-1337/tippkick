@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Camera, KeyRound, Mail, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Camera, KeyRound, Mail, User, UserCog } from 'lucide-react';
 
 import { authClient } from '@/lib/auth-client';
+import { compressImage } from '@/lib/image-compress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,14 +24,77 @@ export function SettingsForm({
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-1">
+      <div className="space-y-6 lg:col-span-1">
         <AvatarCard initialImage={initialImage} initialName={initialName} />
       </div>
       <div className="space-y-6 lg:col-span-2">
+        <NameCard initialName={initialName} />
         <EmailCard initialEmail={initialEmail} />
         <PasswordCard />
       </div>
     </div>
+  );
+}
+
+function NameCard({ initialName }: { initialName: string }) {
+  const router = useRouter();
+  const [name, setName] = useState(initialName);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (name.trim() === initialName) {
+      setIsError(true);
+      setMessage('Der Name ist schon gespeichert.');
+      return;
+    }
+    setPending(true);
+    setMessage(null);
+    setIsError(false);
+    const { error } = await authClient.updateUser({ name: name.trim() });
+    setPending(false);
+    if (error) {
+      setIsError(true);
+      setMessage(error.message ?? 'Fehler.');
+    } else {
+      setMessage('Name gespeichert.');
+      router.refresh(); // Session-Daten (z. B. Anzeige oben rechts) aktualisieren
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <UserCog className="text-pitch h-4 w-4" />
+          Benutzername
+        </CardTitle>
+        <CardDescription>Wird in Tipp-Listen und Auswertungen angezeigt.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              minLength={2}
+              maxLength={40}
+              required
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? 'Speichert …' : 'Speichern'}
+            </Button>
+            {message && <p className={cn('text-sm', isError ? 'text-destructive' : 'text-pitch')}>{message}</p>}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -47,14 +112,24 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
     }
     setPending(true);
     setMessage(null);
-    const response = await fetch('/api/avatar', { method: 'POST', body: formData });
-    setPending(false);
-    if (response.ok) {
-      const data = (await response.json()) as { image: string };
-      setImage(`${data.image}?${Date.now()}`); // Cache-Buster
-      setMessage('Profilbild aktualisiert.');
-    } else {
-      setMessage(await response.text());
+    try {
+      // Client-seitig komprimieren (max 512px, JPEG, < 1 MB) — der Server nimmt
+      // grundsätzlich nur ≤ 1 MB an, größer darf es gar nicht erst werden.
+      const blob = await compressImage(file);
+      const upload = new FormData();
+      upload.set('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+      const response = await fetch('/api/avatar', { method: 'POST', body: upload });
+      setPending(false);
+      if (response.ok) {
+        const data = (await response.json()) as { image: string };
+        setImage(`${data.image}?${Date.now()}`); // Cache-Buster
+        setMessage('Profilbild aktualisiert.');
+      } else {
+        setMessage(await response.text());
+      }
+    } catch {
+      setPending(false);
+      setMessage('Bild konnte nicht verarbeitet werden.');
     }
   }
 
@@ -79,7 +154,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
           )}
           <div className="text-muted-foreground text-sm">
             <p className="text-foreground font-medium">{initialName}</p>
-            <p>JPG, PNG oder WebP</p>
+            <p>JPG, PNG oder WebP · wird automatisch verkleinert</p>
           </div>
         </div>
         <form onSubmit={onUpload} className="space-y-2">
