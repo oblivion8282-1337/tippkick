@@ -29,10 +29,12 @@ export function AvatarCropDialog({
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [pending, setPending] = useState(false);
+  const [maskSize, setMaskSize] = useState(MASK_SIZE);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   const natural = loaded ? { w: loaded.w, h: loaded.h } : { w: 0, h: 0 };
   // Scale so, dass die Maske immer vollständig bedeckt ist.
-  const baseScale = natural.w > 0 ? Math.max(MASK_SIZE / natural.w, MASK_SIZE / natural.h) : 1;
+  const baseScale = natural.w > 0 ? Math.max(maskSize / natural.w, maskSize / natural.h) : 1;
   const scale = baseScale * zoom;
   const imgW = natural.w * scale;
   const imgH = natural.h * scale;
@@ -57,7 +59,22 @@ export function AvatarCropDialog({
     };
   }, [file]);
 
-  // Escape schließt Abbrechen — bewusst kein Volume an Native-Dialogen.
+  // Maske an verfügbare Breite anpassen (Karte = Fensterbreite minus Padding).
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const update = () => {
+      const cs = getComputedStyle(el);
+      const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      setMaskSize(Math.min(MASK_SIZE, Math.max(160, el.clientWidth - pad)));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Escape schließt Abbrechen.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
@@ -68,8 +85,8 @@ export function AvatarCropDialog({
 
   // Beim Zoomen Position neu begrenzen, damit die Maske nie leer bleibt.
   function clamp(p: { x: number; y: number }) {
-    const maxX = Math.max(0, (imgW - MASK_SIZE) / 2);
-    const maxY = Math.max(0, (imgH - MASK_SIZE) / 2);
+    const maxX = Math.max(0, (imgW - maskSize) / 2);
+    const maxY = Math.max(0, (imgH - maskSize) / 2);
     return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
   }
 
@@ -103,7 +120,7 @@ export function AvatarCropDialog({
       return;
     }
     // Anzeige-Maske (MASK_SIZE) auf Export-Auflösung hochskaliert übertragen.
-    const f = OUTPUT_SIZE / MASK_SIZE;
+    const f = OUTPUT_SIZE / maskSize;
     const w = imgW * f;
     const h = imgH * f;
     let quality = 0.85;
@@ -140,7 +157,7 @@ export function AvatarCropDialog({
 
   return (
     <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur">
-      <div className="bg-card border-border w-full max-w-sm rounded-xl border p-4 shadow-xl sm:p-6">
+      <div ref={cardRef} className="bg-card border-border w-full max-w-sm rounded-xl border p-4 shadow-xl sm:p-6">
         <h2 className="mb-1 text-lg font-semibold">Profilbild zuschneiden</h2>
         <p className="text-muted-foreground mb-5 text-sm">
           Bild verschieben und zoomen — der Kreis zeigt den Ausschnitt.
@@ -149,7 +166,7 @@ export function AvatarCropDialog({
         <div className="mb-4 flex justify-center">
           <div
             className="border-ring relative cursor-grab touch-none overflow-hidden rounded-full border-4 ring-4 ring-transparent select-none active:cursor-grabbing"
-            style={{ width: MASK_SIZE, height: MASK_SIZE }}
+            style={{ width: maskSize, height: maskSize }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -194,7 +211,7 @@ export function AvatarCropDialog({
           <Button variant="ghost" size="sm" onClick={() => setPos({ x: 0, y: 0 })}>
             <RotateCcw className="h-4 w-4" /> Zurücksetzen
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={onCancel}>
               <X className="h-4 w-4" /> Abbrechen
             </Button>
