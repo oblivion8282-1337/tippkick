@@ -196,7 +196,7 @@ function WeekendHero({
             <TipptagArrow dir="next" target={nextNumber} />
           </div>
 
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 pl-12 text-base">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base sm:pl-12">
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               Deadline <span className="text-foreground font-medium">{deadlineLabel}</span>
@@ -207,7 +207,7 @@ function WeekendHero({
             </span>
           </div>
 
-          <div className="space-y-2 pt-1 pl-12">
+          <div className="space-y-2 pt-1 sm:pl-12">
             <div className="flex items-baseline gap-2">
               <span className="font-display text-3xl font-semibold tabular-nums">
                 {tipped}
@@ -215,7 +215,7 @@ function WeekendHero({
               </span>
               <span className="text-muted-foreground text-sm">getippt</span>
             </div>
-            <div className="bg-foreground/10 h-2 max-w-md overflow-hidden rounded-full" aria-hidden="true">
+            <div className="bg-foreground/10 h-2 w-full overflow-hidden rounded-full sm:max-w-md" aria-hidden="true">
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-500 ease-out',
