@@ -221,8 +221,13 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
                       <span className="text-muted-foreground tabular-nums">
                         {c._count.matchdays} Tipptage · {c._count.sections} Spieltage importiert
                       </span>
-                      <LinkButton href={`/admin/spieltage?season=${season.id}`} size="sm" className="ml-auto">
-                        Bearbeiten
+                      <LinkButton
+                        href={`/admin/spieltage?season=${season.id}`}
+                        size="icon-sm"
+                        className="ml-auto"
+                        aria-label={`${COMPETITION_LABELS[key]} öffnen`}
+                      >
+                        <ChevronRight className="size-4" />
                       </LinkButton>
                     </>
                   ) : (
