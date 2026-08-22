@@ -269,7 +269,9 @@ function FixtureRow({
   return (
     <div
       className={cn(
-        'border-b px-4 py-3 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4 sm:px-6 sm:py-3.5',
+        // Mobil: Partie = eine Einheit (kein Divider zwischen Heim/Gast-Zeile),
+        // dafuer deutlicher Abstand + Trenner zwischen PARTIEN.
+        'border-border/70 border-b px-4 py-4 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4 sm:px-6 sm:py-3.5',
         striped && 'bg-muted/30',
         // Getippte Zeile: neutraler Hintergrund — Blau bleibt Interaktions-Akzent.
         complete && 'bg-muted/50',
@@ -291,7 +293,7 @@ function FixtureRow({
           aria-label={`Tipp ${fixture.homeTeam}`}
         />
       </div>
-      <div className="mt-1.5 flex items-center justify-between gap-3 border-t border-border/40 pt-1.5 sm:hidden">
+      <div className="mt-1 flex items-center justify-between gap-3 sm:hidden">
         <span className="min-w-0 flex-1 truncate text-base font-medium">{fixture.awayTeam}</span>
         <TipInput
           value={away}
