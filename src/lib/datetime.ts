@@ -2,17 +2,34 @@ import { WEEKDAY_LABELS } from '@/lib/constants';
 
 /**
  * Datumsformatierung (SSOT) – einmalig hier, nicht pro Seite dupliziert.
- * Locale de-DE, einheitlich über die App.
- *
- * Zeitzone: alles hier rechnet in Server-Lokalzeit (kein explizites `timeZone`).
- * Das ist korrekt, WEIL der Prozess auf Europe/Berlin festgenagelt ist — `TZ=Europe/Berlin`
- * steht in allen Einstiegspunkten (package.json: dev/build/start/db:seed/sync:results).
+ * Locale de-DE, Zeitzone explizit Europe/Berlin — unabhängig von der Prozess-TZ.
  * Wir tippen deutschen Fußball; Anstoßzeiten und Spieltage sind deutsche Ortszeit.
- *
- * ACHTUNG bei neuen Einstiegspunkten (Cron-Sidecar, Docker-CMD, CI): ohne TZ läuft
- * Node in UTC, dann zeigt die App Anstoßzeiten falsch an UND `dateKeyOf` schneidet
- * Abendspiele auf den Vortag.
+ * (Vorher hing alles an TZ=Europe/Berlin pro Einstiegspunkt — ein fehlender
+ * Cron-Sidecar-Eintrag hätte Abendspiele auf den Vortag verschoben.)
  */
+const TZ = 'Europe/Berlin';
+
+/** Kalenderdatum in Berliner Ortszeit als Teile (für dateKeyOf). */
+function berlinParts(date: Date): { year: number; month: number; day: number; weekday: number } {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  });
+  const parts: Record<string, string> = {};
+  for (const part of fmt.formatToParts(date)) {
+    parts[part.type] = part.value;
+  }
+  const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    weekday: WEEKDAY_INDEX[parts.weekday] ?? 0,
+  };
+}
 
 /**
  * Kalendertag eines Anstoßes als sortierbarer Schlüssel („2026-01-13"), in
@@ -22,14 +39,13 @@ import { WEEKDAY_LABELS } from '@/lib/constants';
  * ein Mittwochsspiel sieben Wochen später). Zwei „Mi" sind dann nicht derselbe Tag.
  */
 export function dateKeyOf(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
+  const { year, month, day } = berlinParts(date);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /** Wochentags-Index eines Anstoßes (0 = So … 6 = Sa), wie `Date.getDay()`. */
 function weekdayOf(date: Date): number {
-  return date.getDay();
+  return berlinParts(date).weekday;
 }
 
 /** Wochentags-Kürzel eines Anstoßes („Fr"). */
@@ -39,6 +55,7 @@ export function weekdayLabelOf(date: Date): string {
 
 export function formatDateTime(date: Date): string {
   return date.toLocaleString('de-DE', {
+    timeZone: TZ,
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -49,12 +66,12 @@ export function formatDateTime(date: Date): string {
 
 /** Wochentag + Uhrzeit („Fr, 20:30") – z. B. für Anstoßzeiten in Listen. */
 export function formatWeekdayTime(date: Date): string {
-  return date.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleString('de-DE', { timeZone: TZ, weekday: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 /** Tag + Monat („31.10.") – kompakte Datumsangabe. */
 export function formatDayMonth(date: Date): string {
-  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  return date.toLocaleDateString('de-DE', { timeZone: TZ, day: '2-digit', month: '2-digit' });
 }
 
 export function formatDateRange(start: Date, end: Date): string {

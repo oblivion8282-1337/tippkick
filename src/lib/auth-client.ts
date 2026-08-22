@@ -15,16 +15,24 @@ export const authClient = createAuthClient({
 
 /** Verifizierungs-Mail auslösen (POST /send-verification-email). */
 export async function requestVerificationEmail(email: string): Promise<void> {
-  await authClient.$fetch('/send-verification-email', {
+  const { error } = await authClient.$fetch('/send-verification-email', {
     method: 'POST',
     body: { email },
   });
+  // better-auth liefert Fehler als { error } statt zu werfen — unbehandelt
+  // hätte die UI "Link geschickt" gezeigt, obwohl der Versand scheiterte.
+  if (error) {
+    throw new Error(error.message || 'Verifizierungs-Mail konnte nicht versendet werden.');
+  }
 }
 
 /** Link zum Zurücksetzen des Passworts anfordern (POST /forget-password). */
 export async function requestPasswordReset(email: string, redirectTo: string): Promise<void> {
-  await authClient.$fetch('/forget-password', {
+  const { error } = await authClient.$fetch('/forget-password', {
     method: 'POST',
     body: { email, redirectTo },
   });
+  if (error) {
+    throw new Error(error.message || 'Reset-Mail konnte nicht versendet werden.');
+  }
 }

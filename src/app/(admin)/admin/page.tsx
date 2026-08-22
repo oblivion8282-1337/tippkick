@@ -177,7 +177,7 @@ export default async function AdminHomePage({
                   return matrix.total > 0 && cnt >= matrix.total;
                 }).length;
                 const openCount = active.length - tippersTipped;
-                const resultsDone = matrix.fixtures.filter((f) => f.resultSource !== 'NONE').length;
+                const resultsDone = matrix.fixtures.filter((f) => f.homeGoals !== null && f.awayGoals !== null).length;
                 return (
                   <TipptagRow
                     key={u.id}

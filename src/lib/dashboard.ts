@@ -79,6 +79,8 @@ export type TipMatrixFixture = {
   awayTeam: string;
   kickoff: Date;
   resultSource: ResultSource;
+  homeGoals: number | null;
+  awayGoals: number | null;
 };
 
 export type MatchdayTipMatrix = {
@@ -109,7 +111,7 @@ export async function getMatchdayTipMatrices(matchdayIds: string[]): Promise<Map
       matchdayId: true,
       fixtures: {
         orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }],
-        select: { id: true, homeTeam: true, awayTeam: true, kickoff: true, resultSource: true },
+        select: { id: true, homeTeam: true, awayTeam: true, kickoff: true, resultSource: true, homeGoals: true, awayGoals: true },
       },
     },
   });

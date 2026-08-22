@@ -64,9 +64,16 @@ function toResultWrite(f: ImportedFixture) {
       syncedAt: new Date(),
     };
   }
-  // Keine Ergebnis-Daten: nur Status ggf. upgraden, vorhandene Goals nicht loeschen.
+  // Keine Ergebnis-Daten (OpenLigaDB hat finish zurückgenommen / Korrektur):
+  // Status downgrade und SYNC-Ergebnisse mit leeren — sonst stände ein
+  // Mischzustand (Tore gesetzt, aber nicht FINISHED) still in der Auswertung.
+  // MANUAL-Zeilen erreichen diesen Pfad nie (Snapshot-Check + WHERE-Klausel).
   return {
     status: derived.status,
+    homeGoals: null,
+    awayGoals: null,
+    htHomeGoals: null,
+    htAwayGoals: null,
     resultSource: 'NONE' as const,
     syncedAt: null,
   };

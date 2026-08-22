@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-import { authClient, requestVerificationEmail } from '@/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { AuthShell } from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
@@ -31,17 +31,6 @@ export default function RegisterPage() {
       return;
     }
 
-    try {
-      await requestVerificationEmail(email);
-    } catch {
-      // SMTP down / network blip: Account existiert bereits, aber die Mail nicht.
-      // User darf nicht im "Registriere …"-Zustand stecken bleiben.
-      setPending(false);
-      setError(
-        'Konto wurde angelegt, aber die Bestätigungs-Mail konnte nicht versendet werden. Versuche es auf der Login-Seite erneut.',
-      );
-      return;
-    }
     setPending(false);
     setDone(true);
   }

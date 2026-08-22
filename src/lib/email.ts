@@ -18,8 +18,11 @@ export async function sendMail(mail: Mail): Promise<void> {
     if (isProd) {
       throw new Error('SMTP_HOST ist in production nicht gesetzt – Mail-Versand abgebrochen');
     }
-    // Dev: Subject + Empfänger ausgeben, Body (mit Token-URLs) NICHT.
+    // Dev: komplette Mail inkl. Token-URL in der Konsole — nur so sind
+    // Verifizierungs-/Reset-Flows ohne SMTP end-to-end testbar. Prod-Logs bleiben
+    // tokenfrei (oberer Zweig wirft bzw. SMTP-Zweig loggt gar nicht).
     console.log(`[dev-mail] an=${mail.to} betreff=${mail.subject}`);
+    console.log(`[dev-mail] body:\n${mail.text}`);
     return;
   }
 

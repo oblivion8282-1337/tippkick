@@ -112,12 +112,20 @@ export async function getTipptageWithStats(seasonId: string): Promise<TipptagLis
 export async function recalcMatchdaySpan(matchdayId: string): Promise<void> {
   const matchday = await prisma.matchday.findUnique({
     where: { id: matchdayId },
-    select: { deadlineManual: true, sections: { include: { fixtures: { select: { kickoff: true } } } } },
+    select: {
+      deadlineManual: true,
+      sections: { include: { fixtures: { select: { kickoff: true, status: true } } } },
+    },
   });
   if (!matchday) {
     return;
   }
-  const kicks = matchday.sections.flatMap((s) => s.fixtures.map((f) => f.kickoff));
+  // Abgesagte/verlegte Partien (nur manuell pflegbar) dürfen Spanne und Deadline
+  // nicht verzerren — ein verlegtes Nachholspiel hat sonst einen falschen Anstoß.
+  const kicks = matchday.sections
+    .flatMap((s) => s.fixtures)
+    .filter((f) => f.status !== 'CANCELLED' && f.status !== 'POSTPONED')
+    .map((f) => f.kickoff);
   const span = spanFromKickoffs(kicks);
   if (!span) {
     return; // leerer Tipptag – Datum bleibt, bis Partien zugeordnet sind

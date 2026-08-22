@@ -13,6 +13,10 @@ import { syncOpenLigaDb } from '@/lib/openligadb-sync';
  */
 export const dynamic = 'force-dynamic';
 
+// Overlap-Lock: ein langsamer Lauf (Next-Dev-Coldstart, träges OpenLigaDB) darf
+// nicht vom nächsten 15-Min-Tick überlappt werden — pro Prozess simple Flag.
+let syncRunning = false;
+
 function unauthorized() {
   return new NextResponse('Unauthorized', { status: 401 });
 }
@@ -27,6 +31,9 @@ export async function POST(request: Request): Promise<Response> {
   const expected = `Bearer ${secret}`;
   // Constant-time-Vergleich: a/b müssen gleich lang sein, sonst wirft timingSafeEqual.
   // Mit Dummy-Compare gleicher Länge verhindern wir den Length-Oracle.
+  if (syncRunning) {
+    return new NextResponse('Sync läuft bereits', { status: 409 });
+  }
   const a = Buffer.from(authHeader);
   const b = Buffer.from(expected);
   const matches = a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
@@ -34,8 +41,13 @@ export async function POST(request: Request): Promise<Response> {
     return unauthorized();
   }
 
-  const summary = await syncOpenLigaDb();
-  return NextResponse.json(summary, {
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  syncRunning = true;
+  try {
+    const summary = await syncOpenLigaDb();
+    return NextResponse.json(summary, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } finally {
+    syncRunning = false;
+  }
 }

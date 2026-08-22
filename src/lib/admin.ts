@@ -124,6 +124,12 @@ export async function createTipptageBatch(
           // parallel runner hat diese Nummer schon angelegt → ok
         }
       }
+      // Tipps der Spieltage dieser Tipptage mitlöschen: Sections wandern per
+      // SetNull zurück in den Pool — blieben die Tipps stehen, würden sie bei
+      // einer späteren Neu-Zuordnung (evtl. nach alter Deadline) wieder auftauchen.
+      await tx.tip.deleteMany({
+        where: { fixture: { section: { matchday: { competitionId, number: { gt: target } } } } },
+      });
       await tx.matchday.deleteMany({ where: { competitionId, number: { gt: target } } });
     },
     { isolationLevel: 'Serializable' },

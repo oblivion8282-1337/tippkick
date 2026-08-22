@@ -29,11 +29,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new Response('Spieltag nicht gefunden', { status: 404 });
   }
 
-  // Saison in den Filename: 25/26 + TT 17 kollidieren sonst mit 26/27 + TT 17.
+  // Saison + Wettbewerb in den Filename: 25/26 + TT 17 kollidieren sonst mit
+  // 26/27 + TT 17 — und BL-TT 3 mit einem späteren CL-TT 3.
   // Auch Windows-verbotene Zeichen ersetzen (\, :, *, ?, ", <, >, |), damit der
   // Download-Dialog nicht crasht.
-  const seasonName = matchday.competition.season.name.replace(/[\\/:*?"<>|]/g, '-');
-  const filename = `${seasonName}_${matchday.number}_TT_Auswertung.xlsx`;
+  const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]/g, '-');
+  const filename = `${sanitize(matchday.competition.season.name)}_${matchday.competition.key}_${matchday.number}_TT_Auswertung.xlsx`;
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': XLSX_TYPE,
