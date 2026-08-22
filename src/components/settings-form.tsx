@@ -23,15 +23,11 @@ export function SettingsForm({
   initialImage: string | null;
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="space-y-6 lg:col-span-1">
-        <AvatarCard initialImage={initialImage} initialName={initialName} />
-      </div>
-      <div className="space-y-6 lg:col-span-2">
-        <NameCard initialName={initialName} />
-        <EmailCard initialEmail={initialEmail} />
-        <PasswordCard />
-      </div>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <AvatarCard initialImage={initialImage} initialName={initialName} />
+      <NameCard initialName={initialName} />
+      <EmailCard initialEmail={initialEmail} />
+      <PasswordCard />
     </div>
   );
 }
@@ -142,7 +138,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
         </CardTitle>
         <CardDescription>Wird im Verein angezeigt.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-wrap items-center gap-6">
         <div className="flex items-center gap-4">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -157,7 +153,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
             <p>JPG, PNG oder WebP · wird automatisch verkleinert</p>
           </div>
         </div>
-        <form onSubmit={onUpload} className="space-y-2">
+        <form onSubmit={onUpload} className="ml-auto flex flex-wrap items-center gap-3">
           <Label htmlFor="file" className="sr-only">
             Bilddatei wählen
           </Label>
@@ -166,7 +162,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
             name="file"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="file:text-foreground cursor-pointer file:mr-3 file:cursor-pointer"
+            className="file:text-foreground w-64 cursor-pointer file:mr-3 file:cursor-pointer"
             required
           />
           <Button type="submit" size="sm" disabled={pending}>
