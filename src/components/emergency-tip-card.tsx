@@ -96,7 +96,7 @@ export function EmergencyTipCard({ emergency, teams }: { emergency: EmergencyCon
             <p className="text-muted-foreground text-sm">Noch keine Sonderregeln.</p>
           )}
 
-          <EmergencyRuleForm teams={teams} />
+          <EmergencyRuleForm teams={teams} usedTeams={new Set((emergency?.rules ?? []).map((r) => r.teamName))} />
         </CardContent>
       </Card>
     </div>
@@ -108,8 +108,13 @@ export function EmergencyTipCard({ emergency, teams }: { emergency: EmergencyCon
  * „Weitere … hinzufügen“-Button (der bleibt immer ganz unten) und verschwinden
  * nach dem Hinzufügen bzw. Abbrechen wieder.
  */
-function EmergencyRuleForm({ teams }: { teams: string[] }) {
+function EmergencyRuleForm({ teams, usedTeams }: { teams: string[]; usedTeams: Set<string> }) {
   const [open, setOpen] = useState(false);
+  // Bereits geregelte Mannschaften ausblenden — pro Team genau eine Regel.
+  const available = teams.filter((t) => !usedTeams.has(t));
+  if (available.length === 0) {
+    return <p className="text-muted-foreground text-sm">Für jede Mannschaft gibt es bereits eine Sonderregel.</p>;
+  }
 
   async function onSubmit(formData: FormData) {
     await addEmergencyRuleAction(formData);
@@ -128,7 +133,7 @@ function EmergencyRuleForm({ teams }: { teams: string[] }) {
               required
               className="border-input bg-background h-9 min-w-52 rounded-md border px-3 text-sm"
             >
-              {teams.map((t) => (
+              {available.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
