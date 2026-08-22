@@ -162,12 +162,16 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
           : null,
     })),
   );
-  const [tipsByUser, emergencyRows] = await Promise.all([
+  const [tipsByUser, emergencyRows, quotaLeft] = await Promise.all([
     loadTipsByUser(scored.map((f) => f.id)),
     prisma.emergencyTip.findMany({
       where: { userId: { in: tippers.map((t) => t.id) } },
       include: { teamRules: true },
     }),
+    // Notfalltipp-Verbrauch: pro Halbserie (Hin 1–17, Rück 18–34) greift er nur
+    // für den ERSTEN vollständig verpassten Tipptag. Dazu genügt zu prüfen, ob der
+    // Tipper in früheren Tipptagen derselben Halbserie schon einen ganz ausgelassen hat.
+    emergencyQuotaLeft(matchday, tippers.map((t) => t.id)),
   ]);
   const emergencyByUser = new Map<string, EmergencyConfig>(
     emergencyRows.map((e) => [
@@ -190,11 +194,15 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
     const daily: DailyPoints = emptyDaily(days);
     const counts: HitCounts = { three: 0, two: 0, one: 0 };
 
+    // Notfalltipp greift nur, wenn der Tipper den GESAMTEN Tipptag verpasst hat
+    // (teilweise Getippte = nicht vergessen) und das Halbserien-Kontingent frei ist.
+    const missedWholeDay = (userTips?.size ?? 0) === 0 && scored.length > 0 && quotaLeft.has(t.id);
     for (const f of scored) {
       const tip = userTips?.get(f.id);
       // Ohne echten Tipp: Notfalltipp-Ersatzwert (falls konfiguriert) — zählt
       // bei der Punkteberechnung wie ein Tipp, bleibt aber als Ersatz markiert.
-      const emergency = !tip ? resolveEmergencyTip(emergencyByUser.get(t.id) ?? null, f.homeTeam, f.awayTeam) : null;
+      const emergency =
+        !tip && missedWholeDay ? resolveEmergencyTip(emergencyByUser.get(t.id) ?? null, f.homeTeam, f.awayTeam) : null;
       const effective = tip ?? emergency;
       const tipHome = effective?.homeGoals ?? null;
       const tipAway = effective?.awayGoals ?? null;
@@ -267,4 +275,54 @@ function aggregateTotals(tippers: TipperRow[], days: DayColumn[]): { totals: Poi
   const n = tippers.length || 1;
   const averages = mapTotals(totals, (v) => Math.round((v / n) * 100) / 100);
   return { totals, averages };
+}
+
+
+/** Tipptag-Grenze der Hinrunde (1–17 Hin-, 18–34 Rückrunde). */
+const HINRUUNDE_MAX_TIPPTAG = 17;
+
+/**
+ * Tiper mit freiem Notfalltipp-Kontingent in der Halbserie des gegebenen Tipptags:
+ * alle, die in keinem früheren Tipptag derselben Halbserie null Tipps hatten.
+ */
+async function emergencyQuotaLeft(
+  matchday: NonNullable<Awaited<ReturnType<typeof getMatchdayAdmin>>>,
+  userIds: string[],
+): Promise<Set<string>> {
+  const halfStart = matchday.number <= HINRUUNDE_MAX_TIPPTAG ? 1 : HINRUUNDE_MAX_TIPPTAG + 1;
+  const earlier = await prisma.matchday.findMany({
+    where: {
+      competitionId: matchday.competitionId,
+      number: { gte: halfStart, lt: matchday.number },
+    },
+    select: { id: true },
+  });
+  if (earlier.length === 0 || userIds.length === 0) {
+    return new Set(userIds);
+  }
+  const tips = await prisma.tip.findMany({
+    where: {
+      userId: { in: userIds },
+      fixture: { section: { matchdayId: { in: earlier.map((m) => m.id) } } },
+    },
+    select: { userId: true, fixture: { select: { section: { select: { matchdayId: true } } } } },
+  });
+  // userId -> Menge der Tipptage mit mind. einem Tipp. Ein Tipptag ohne Eintrag
+  // = vollständig verpasst = Kontingent dieser Halbserie verbraucht.
+  const daysTipped = new Map<string, Set<string>>();
+  for (const tip of tips) {
+    const matchdayId = tip.fixture.section.matchdayId;
+    if (matchdayId === null) continue;
+    const set = daysTipped.get(tip.userId) ?? new Set<string>();
+    set.add(matchdayId);
+    daysTipped.set(tip.userId, set);
+  }
+  const left = new Set<string>();
+  for (const userId of userIds) {
+    const tipped = daysTipped.get(userId);
+    if (!tipped || tipped.size === earlier.length) {
+      left.add(userId);
+    }
+  }
+  return left;
 }

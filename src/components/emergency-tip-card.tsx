@@ -30,8 +30,9 @@ export function EmergencyTipCard({ emergency, teams }: { emergency: EmergencyCon
             Grundregel
           </CardTitle>
           <CardDescription>
-            Gilt für jede Partie, die du nicht rechtzeitig getippt hast — die Deadline bleibt
-            davon unberührt. In der Auswertung erscheint der Ersatz gekennzeichnet.
+            Greift nur, wenn du einen Tipptag komplett vergisst — und nur einmal pro
+            Halbserie (Hin- und Rückrunde jeweils ein Mal). Teilweise getippte Tipptage
+            zählen nicht als vergessen. Nach der Deadline kann weiterhin nicht getippt werden.
           </CardDescription>
         </CardHeader>
         <CardContent>
