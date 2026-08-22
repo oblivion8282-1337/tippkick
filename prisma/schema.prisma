@@ -168,6 +168,38 @@ model Tip {
   // initialen Migration ergänzt (Prisma 7 unterstützt kein @@check nativ).
 }
 
+/**
+ * Notfalltipp eines Tippers: Grund-Standardergebnis für alle ungetippten Partien
+ * (z. B. 2:1 Heimsieg). Wirkt NICHT als gespeicherter Tipp, sondern erst bei der
+ * Auswertung als Fallback — so bleibt erkennbar, dass tatsächlich nicht getippt wurde.
+ */
+model EmergencyTip {
+  id          String              @id @default(cuid())
+  userId      String              @unique
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultHome Int                 @default(2)
+  defaultAway Int                 @default(1)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  teamRules   EmergencyTeamRule[]
+}
+
+/**
+ * Sonderregel im Notfalltipp: eine Mannschaft gewinnt IMMER mit diesem Ergebnis
+ * (heim wie auswärts — auswärts aus Sicht des Heimteams gespiegelt).
+ */
+model EmergencyTeamRule {
+  id           String       @id @default(cuid())
+  emergencyId  String
+  emergency    EmergencyTip @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  teamName     String // exakter Team-Name wie in Fixture.homeTeam/awayTeam
+  goalsFor     Int // Tore FÜR die Regel-Mannschaft
+  goalsAgainst Int // Tore GEGEN die Regel-Mannschaft
+  createdAt    DateTime     @default(now())
+
+  @@unique([emergencyId, teamName])
+}
+
 model User {
   id               String      @id
   name             String
@@ -186,6 +218,7 @@ model User {
   accounts         Account[]
   twofactors       TwoFactor[]
   tips             Tip[]
+  emergencyTip     EmergencyTip?
 
   @@unique([email])
   @@map("user")

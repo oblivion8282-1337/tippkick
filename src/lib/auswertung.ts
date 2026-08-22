@@ -1,9 +1,11 @@
 import { getMatchdayAdmin } from '@/lib/admin';
 import { loadTipsByUser } from '@/lib/tipps';
+import { resolveEmergencyTip, type EmergencyConfig } from '@/lib/emergency-tip';
 import { getEligibleTippers } from '@/lib/tippers';
 import { isFixtureScoreable, scoreTip } from '@/lib/scoring';
 import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER } from '@/lib/constants';
 import { dateKeyOf, formatDateRange, formatDayMonth, weekdayLabelOf } from '@/lib/datetime';
+import { prisma } from '@/lib/prisma';
 import type { FixtureStatus, League } from '@/generated/prisma/client';
 
 /** Tipp-Zelle im 34.TT-Raster: Tipp + berechnete Punkte (null = nicht bewertbar). */
@@ -11,6 +13,8 @@ export type TipCell = {
   tipHome: number | null;
   tipAway: number | null;
   points: 0 | 1 | 2 | 3 | null;
+  /** true = Notfalltipp-Ersatzwert statt echtem Tipp (bei der Auswertung eingesetzt). */
+  emergency: boolean;
 };
 
 export type AuswertungFixture = {
@@ -158,7 +162,23 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
           : null,
     })),
   );
-  const tipsByUser = await loadTipsByUser(scored.map((f) => f.id));
+  const [tipsByUser, emergencyRows] = await Promise.all([
+    loadTipsByUser(scored.map((f) => f.id)),
+    prisma.emergencyTip.findMany({
+      where: { userId: { in: tippers.map((t) => t.id) } },
+      include: { teamRules: true },
+    }),
+  ]);
+  const emergencyByUser = new Map<string, EmergencyConfig>(
+    emergencyRows.map((e) => [
+      e.userId,
+      {
+        defaultHome: e.defaultHome,
+        defaultAway: e.defaultAway,
+        rules: e.teamRules.map((r) => ({ id: r.id, teamName: r.teamName, goalsFor: r.goalsFor, goalsAgainst: r.goalsAgainst })),
+      },
+    ]),
+  );
 
   const days = dayColumnsOf(scored);
 
@@ -172,10 +192,14 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
 
     for (const f of scored) {
       const tip = userTips?.get(f.id);
-      const tipHome = tip?.homeGoals ?? null;
-      const tipAway = tip?.awayGoals ?? null;
-      const points = f.result && tip ? scoreTip(f.result, tip) : null;
-      tipsByFixture.set(f.id, { tipHome, tipAway, points });
+      // Ohne echten Tipp: Notfalltipp-Ersatzwert (falls konfiguriert) — zählt
+      // bei der Punkteberechnung wie ein Tipp, bleibt aber als Ersatz markiert.
+      const emergency = !tip ? resolveEmergencyTip(emergencyByUser.get(t.id) ?? null, f.homeTeam, f.awayTeam) : null;
+      const effective = tip ?? emergency;
+      const tipHome = effective?.homeGoals ?? null;
+      const tipAway = effective?.awayGoals ?? null;
+      const points = f.result && effective ? scoreTip(f.result, effective) : null;
+      tipsByFixture.set(f.id, { tipHome, tipAway, points, emergency: !tip && emergency !== null });
 
       if (points !== null) {
         if (f.league === 'BL') blPoints += points;
