@@ -145,6 +145,9 @@ model Fixture {
 
   @@index([sectionId])
   @@index([sectionId, league])
+  // DB-seitiger Duplikatschutz für Parallel-Imports (Admin + Cron): dieselbe
+  // OpenLigaDB-Partie darf pro Sektion nur einmal existieren (P2002-Retry greift).
+  @@unique([sectionId, externalId])
   // Composite für "Partien einer Sektion, sortiert nach Anstoß" (Spieltag-Übersicht).
   @@index([sectionId, kickoff])
   @@index([externalId])

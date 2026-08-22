@@ -230,18 +230,22 @@ export async function applyGroupingProposal(competitionId: string): Promise<{ mo
   const matchdays = await prisma.matchday.findMany({ where: { competitionId }, select: { id: true, number: true } });
   const idByNumber = new Map(matchdays.map((m) => [m.number, m.id]));
 
+  // Alle Umzüge in EINER Transaktion: ein Abbruch mittendrin darf keine halb
+  // angewendete Zuordnung hinterlassen (Sections schon umgezogen, Spannen/Deadlines noch alt).
   const touched = new Set<number>();
-  for (const change of proposal.changes) {
-    const targetId = idByNumber.get(change.toMatchdayNumber);
-    if (!targetId) {
-      continue;
+  await prisma.$transaction(async (tx) => {
+    for (const change of proposal.changes) {
+      const targetId = idByNumber.get(change.toMatchdayNumber);
+      if (!targetId) {
+        continue;
+      }
+      await tx.matchdaySection.update({ where: { id: change.sectionId }, data: { matchdayId: targetId } });
+      touched.add(change.toMatchdayNumber);
+      if (change.fromMatchdayNumber !== null) {
+        touched.add(change.fromMatchdayNumber);
+      }
     }
-    await prisma.matchdaySection.update({ where: { id: change.sectionId }, data: { matchdayId: targetId } });
-    touched.add(change.toMatchdayNumber);
-    if (change.fromMatchdayNumber !== null) {
-      touched.add(change.fromMatchdayNumber);
-    }
-  }
+  });
 
   await Promise.all(
     [...touched]

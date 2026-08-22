@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { League } from '@/generated/prisma/client';
 
-import { saveTipAction } from '@/app/(app)/tippen/actions';
+import { deleteTipAction, saveTipAction } from '@/app/(app)/tippen/actions';
 import { Input } from '@/components/ui/input';
 import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER, MAX_GOALS, MIN_GOALS } from '@/lib/constants';
 import type { TipFailureReason } from '@/lib/tipps';
@@ -83,8 +83,20 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
     }
 
     clearTimeout(timers.current[fixtureId]);
-    // Nur persistieren, wenn BEIDE Felder gefüllt sind – ein leeres Feld ist
-    // "noch nicht getippt" (oder gerade gelöscht), kein valides 0:0.
+    // Beide Felder geleert und es gab einen gespeicherten Tipp → löschen,
+    // sonst bliebe der alte Tipp unsichtbar in der Auswertung stehen.
+    if (updated.home === '' && updated.away === '') {
+      if (!existingTips[fixtureId]) {
+        setSaveState('idle');
+        return;
+      }
+      setSaveState('saving');
+      timers.current[fixtureId] = setTimeout(() => {
+        void persistDelete(fixtureId);
+      }, DEBOUNCE_MS);
+      return;
+    }
+    // Ein leeres Feld ist "noch nicht getippt", kein valides 0:0.
     if (updated.home === '' || updated.away === '') {
       setSaveState('idle');
       return;
@@ -112,6 +124,17 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
       return;
     }
     setSaveState({ error: result.reason });
+  }
+
+  async function persistDelete(fixtureId: string) {
+    if (!mounted.current) {
+      return;
+    }
+    const result = await deleteTipAction({ fixtureId });
+    if (!mounted.current) {
+      return;
+    }
+    setSaveState(result.ok ? 'saved' : { error: result.reason });
   }
 
   // Sortiere Sections: Single-Liga zuerst (league=null), dann BL, dann L2.

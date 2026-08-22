@@ -1,7 +1,7 @@
 'use server';
 
 import { getSession } from '@/lib/session';
-import { saveTip, type TipFailureReason } from '@/lib/tipps';
+import { deleteTip, saveTip, type TipFailureReason } from '@/lib/tipps';
 
 /**
  * Server Action (Einstiegspunkt für die Tipp-Maske).
@@ -29,6 +29,21 @@ export async function saveTipAction(params: {
   } catch {
     // DB-/Prisma-Fehler werden hier abgefangen, damit die UI nicht in einer
     // 500-Falle landet (kein error.tsx im (app)-Segment vorhanden).
+    return { ok: false, reason: 'error' };
+  }
+}
+
+/** Löscht einen Tipp (beide Felder in der Maske geleert). Gleiche Checks wie save. */
+export async function deleteTipAction(params: {
+  fixtureId: string;
+}): Promise<{ ok: true } | { ok: false; reason: TipFailureReason }> {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { ok: false, reason: 'unauth' };
+    }
+    return await deleteTip({ userId: session.user.id, fixtureId: params.fixtureId });
+  } catch {
     return { ok: false, reason: 'error' };
   }
 }

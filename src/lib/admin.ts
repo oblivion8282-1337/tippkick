@@ -368,11 +368,29 @@ async function populateSectionFixtures(input: {
   // Nur Partien einfügen, deren externalId noch nicht existiert (per-fixture Idempotenz).
   const existing = await prisma.fixture.findMany({
     where: { sectionId: section.id },
-    select: { externalId: true, sortOrder: true },
+    select: { externalId: true, sortOrder: true, kickoff: true },
   });
   const existingExternalIds = new Set(existing.map((f) => f.externalId).filter((id): id is string => id !== null));
   const baseSortOrder = existing.length; // Fortlaufend in der ganzen Sektion, nicht im Subset
   const newFixtures = input.fixtures.filter((f) => !existingExternalIds.has(f.externalId));
+
+  // Verlegte Partien: existierende externalIds erhalten kickoff-Updates (OpenLigaDB
+  // verschiebt Anstöße). Danach muss die Sektionsspanne (und ggf. die Tipptag-Deadline)
+  // neu berechnet werden — der Aufrufer runImportMatchday tut das via recalcMatchdaySpan.
+  const kickoffById = new Map(
+    existing.filter((e) => e.externalId !== null).map((e) => [e.externalId as string, e.kickoff]),
+  );
+  for (const f of input.fixtures) {
+    const current = kickoffById.get(f.externalId);
+    const next = f.kickoff;
+    if (current && current.getTime() !== next.getTime()) {
+      await prisma.fixture.updateMany({
+        where: { sectionId: section.id, externalId: f.externalId },
+        data: { kickoff: next },
+      });
+    }
+  }
+
   if (newFixtures.length === 0) {
     return 0;
   }

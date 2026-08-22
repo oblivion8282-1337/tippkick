@@ -108,3 +108,42 @@ export async function saveTip(params: {
     return { ok: true as const };
   });
 }
+
+
+/**
+ * Tipp löschen (Feld in der Maske geleert). Gleiche Schutzbedingungen wie saveTip:
+ * nach Deadline bzw. bei abgesetzten Partien ist auch Löschen gesperrt.
+ */
+export async function deleteTip(params: {
+  userId: string;
+  fixtureId: string;
+}): Promise<{ ok: true } | { ok: false; reason: Exclude<TipFailureReason, 'unauth' | 'error'> }> {
+  const { userId, fixtureId } = params;
+  const user = await getUserGate(userId);
+  if (!user?.approved) {
+    return { ok: false, reason: 'unapproved' };
+  }
+  if (user.banned) {
+    return { ok: false, reason: 'banned' };
+  }
+  return prisma.$transaction(async (tx) => {
+    const fixture = await tx.fixture.findUnique({
+      where: { id: fixtureId },
+      select: {
+        status: true,
+        section: { select: { matchday: { select: { deadlineAt: true } } } },
+      },
+    });
+    if (!fixture?.section.matchday) {
+      return { ok: false, reason: 'invalid' as const };
+    }
+    if (fixture.status === 'CANCELLED' || fixture.status === 'POSTPONED') {
+      return { ok: false, reason: 'closed' as const };
+    }
+    if (!isTippable(fixture.section.matchday.deadlineAt)) {
+      return { ok: false, reason: 'deadline' as const };
+    }
+    await tx.tip.deleteMany({ where: { userId, fixtureId } });
+    return { ok: true as const };
+  });
+}
