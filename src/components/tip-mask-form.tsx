@@ -277,7 +277,10 @@ function FixtureRow({
       {/* Mobil: beide Vereine untereinander, KOMPLETT ohne truncierte Namen —
           zwei Namen passen nebeneinander auf 375px einfach nicht. */}
       <div className="mb-2 sm:hidden">
-        <p className="text-base leading-snug font-medium">{fixture.homeTeam}</p>
+        <p className="text-base leading-snug font-medium">
+          {fixture.homeTeam}
+          <span className="text-muted-foreground font-mono font-light"> :</span>
+        </p>
         <p className="text-base leading-snug font-medium">{fixture.awayTeam}</p>
       </div>
       <span className="hidden truncate text-right text-base font-medium sm:block sm:text-lg">
