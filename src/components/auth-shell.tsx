@@ -27,11 +27,10 @@ export function AuthShell({
         <div className="relative z-10 max-w-md space-y-4">
           <p className="text-pitch font-mono text-[0.7rem] font-medium tracking-[0.2em] uppercase">V.O.T.Z.E.</p>
           <h2 className="font-display text-3xl leading-tight font-semibold tracking-tight">
-            Jedes Wochenende ein Spieltags­zettel — nur digital.
+            Alles fürs Wochenend-Tippen an einem Ort.
           </h2>
           <p className="text-muted-foreground text-base leading-relaxed">
-            Tippe 1. und 2. Bundesliga online, die Tippleitung lädt am Ende die fertige Auswertung als Excel. Schluss
-            mit E-Mails mit Anhängen, die im Spam landen.
+            1. und 2. Liga, Deine Tipps, die Auswertung — digital und rechtzeitig.
           </p>
         </div>
         <p className="text-muted-foreground relative z-10 text-xs">© {new Date().getFullYear()} V.O.T.Z.E.</p>
