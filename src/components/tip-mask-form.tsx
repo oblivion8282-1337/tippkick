@@ -271,7 +271,8 @@ function FixtureRow({
       className={cn(
         'border-b px-4 py-3 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4 sm:px-6 sm:py-3.5',
         striped && 'bg-muted/30',
-        complete && 'bg-pitch/[0.06] dark:bg-pitch/[0.08]',
+        // Getippte Zeile: neutraler Hintergrund — Blau bleibt Interaktions-Akzent.
+        complete && 'bg-muted/50',
       )}
     >
       {/* Mobil: Vereinsname und zugehoeriges Tipp-Feld in EINER Zeile — die
