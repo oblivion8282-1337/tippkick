@@ -73,9 +73,11 @@ export default async function AdminHomePage({
   // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
   const filter: 'alle' | 'offen' | 'abgeschlossen' =
     filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
-  const entries = chronik.upcoming
-    .map((e) => ({ entry: e, past: false }))
-    .concat(chronik.past.map((e) => ({ entry: e, past: true })))
+  // Abgeschlossene Tipptage zuerst (neueste zuerst — erledigte Arbeit direkt im Blick),
+  // darunter die offenen (nächste Deadline zuerst).
+  const entries = chronik.past
+    .map((e) => ({ entry: e, past: true }))
+    .concat(chronik.upcoming.map((e) => ({ entry: e, past: false })))
     .filter((e) => (filter === 'abgeschlossen' ? e.past : filter === 'offen' ? !e.past : true));
   // Tipp-Matrizen aller angezeigten Tipptage in einem Batch (2 Abfragen statt 2 pro Tipptag).
   const matrixByMatchday = await getMatchdayTipMatrices(entries.map((e) => e.entry.id));
