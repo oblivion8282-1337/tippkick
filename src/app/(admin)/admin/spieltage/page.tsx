@@ -78,8 +78,8 @@ export default async function SpieltagePage({
     }
   }
 
-  // Tab-Navigation (serverseitig per URL-Parameter): Spieltage = Zuordnen, Tipptage = Übersicht.
-  const tab: 'spieltage' | 'tipptage' = tabParam === 'tipptage' ? 'tipptage' : 'spieltage';
+  // Tab-Navigation (serverseitig per URL-Parameter): Tipptage zuerst, Zuordnung daneben.
+  const tab: 'zuordnung' | 'tipptage' = tabParam === 'zuordnung' ? 'zuordnung' : 'tipptage';
 
   return (
     <div className="space-y-8">
@@ -94,17 +94,17 @@ export default async function SpieltagePage({
         <GroupingProposalCard proposal={proposal} competitionId={proposalCompetition.id} seasonId={season.id} />
       )}
 
-      {/* Tabs: Zuordnung (Liga-Spieltage auf Tipptage verteilen) / Tipptage */}
+      {/* Tabs: Tipptage / Zuordnung (Liga-Spieltage auf Tipptage verteilen) */}
       <nav className="border-border/40 flex gap-1 border-b" aria-label="Spieltage-Bereiche">
         {(
           [
-            ['spieltage', `Zuordnung (${rounds.length} Spieltage)`],
             ['tipptage', `Tipptage (${tipptagStats.length})`],
+            ['zuordnung', `Zuordnung (${rounds.length} Spieltage)`],
           ] as const
         ).map(([key, label]) => (
           <Link
             key={key}
-            href={`/admin/spieltage?season=${season.id}${key === 'tipptage' ? '&tab=tipptage' : ''}`}
+            href={`/admin/spieltage?season=${season.id}${key === 'zuordnung' ? '&tab=zuordnung' : ''}`}
             aria-current={tab === key ? 'page' : undefined}
             className={
               tab === key
@@ -119,7 +119,7 @@ export default async function SpieltagePage({
 
       {tab === 'tipptage' && <TipptagList tipptage={tipptagStats} />}
 
-      {tab === 'spieltage' && (
+      {tab === 'zuordnung' && (
       <Card>
         <CardHeader className="border-border/40 border-b">
           <div className="flex flex-wrap items-center justify-between gap-3">
