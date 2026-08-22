@@ -53,6 +53,24 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const mounted = useRef(true);
+  // Gespeicherte Tipps als LIVED-Status (existingTips ist nur der Server-Snapshot):
+  // sonst ließe sich ein in dieser Session gespeicherter Tipp nicht mehr löschen.
+  const [savedTips, setSavedTips] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const id of Object.keys(existingTips)) {
+      init[id] = true;
+    }
+    return init;
+  });
+  // Sequenzierung pro Partie: ein in-flight Save darf ein späteres Delete nicht
+  // durch spätes Landen (Upsert) wieder aufheben — Requests werden verkettet.
+  const inflight = useRef<Record<string, Promise<unknown>>>({});
+  function chain<T>(fixtureId: string, task: () => Promise<T>): Promise<T> {
+    const prev = inflight.current[fixtureId] ?? Promise.resolve();
+    const next = prev.then(task, task);
+    inflight.current[fixtureId] = next;
+    return next;
+  }
 
   // Debounce-Timer beim Unmount abräumen, sonst läuft persist() nach Navigation
   // weiter und feuert setState auf einer unmounted Komponente.
@@ -86,7 +104,7 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
     // Beide Felder geleert und es gab einen gespeicherten Tipp → löschen,
     // sonst bliebe der alte Tipp unsichtbar in der Auswertung stehen.
     if (updated.home === '' && updated.away === '') {
-      if (!existingTips[fixtureId]) {
+      if (!savedTips[fixtureId]) {
         setSaveState('idle');
         return;
       }
@@ -111,15 +129,18 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
     if (!mounted.current) {
       return;
     }
-    const result = await saveTipAction({
-      fixtureId,
-      homeGoals: Number(vals.home),
-      awayGoals: Number(vals.away),
-    });
+    const result = await chain(fixtureId, () =>
+      saveTipAction({
+        fixtureId,
+        homeGoals: Number(vals.home),
+        awayGoals: Number(vals.away),
+      }),
+    );
     if (!mounted.current) {
       return;
     }
     if (result.ok) {
+      setSavedTips((prev) => ({ ...prev, [fixtureId]: true }));
       setSaveState('saved');
       return;
     }
@@ -130,9 +151,12 @@ export function TipMaskForm({ sections, existingTips, open }: Props) {
     if (!mounted.current) {
       return;
     }
-    const result = await deleteTipAction({ fixtureId });
+    const result = await chain(fixtureId, () => deleteTipAction({ fixtureId }));
     if (!mounted.current) {
       return;
+    }
+    if (result.ok) {
+      setSavedTips((prev) => ({ ...prev, [fixtureId]: false }));
     }
     setSaveState(result.ok ? 'saved' : { error: result.reason });
   }

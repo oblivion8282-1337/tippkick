@@ -26,6 +26,7 @@ export function AvatarCropDialog({
 }) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const drag = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const cancelled = useRef(false);
   const [loaded, setLoaded] = useState<{ url: string; w: number; h: number } | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -75,10 +76,18 @@ export function AvatarCropDialog({
     return () => observer.disconnect();
   }, []);
 
+  function cancel() {
+    cancelled.current = true;
+    onCancel();
+  }
+
   // Escape schließt Abbrechen.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') {
+        cancelled.current = true;
+        onCancel();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -110,7 +119,7 @@ export function AvatarCropDialog({
 
   async function confirm() {
     const img = imgRef.current;
-    if (!img) return;
+    if (!img || cancelled.current) return;
     setPending(true);
     const canvas = document.createElement('canvas');
     canvas.width = OUTPUT_SIZE;
@@ -130,7 +139,9 @@ export function AvatarCropDialog({
       quality -= 0.15;
       blob = await render(canvas, ctx, img, w, h, f, quality);
     }
-    onConfirm(blob);
+    if (!cancelled.current) {
+      onConfirm(blob);
+    }
     setPending(false);
   }
 
@@ -221,7 +232,7 @@ export function AvatarCropDialog({
             <RotateCcw className="h-4 w-4" />
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel}>
+            <Button variant="outline" size="sm" onClick={cancel}>
               <X className="h-4 w-4" /> Abbrechen
             </Button>
             <Button size="sm" onClick={confirm} disabled={pending || natural.w === 0}>

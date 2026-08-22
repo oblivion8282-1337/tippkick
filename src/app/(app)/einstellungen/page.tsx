@@ -24,11 +24,9 @@ export default async function EinstellungenPage({
       ? prisma.fixture
           .findMany({
             where: { section: { competition: { seasonId: season.id } } },
-            select: { homeTeam: true },
-            distinct: ['homeTeam'],
-            orderBy: { homeTeam: 'asc' },
+            select: { homeTeam: true, awayTeam: true },
           })
-          .then((rows) => rows.map((r) => r.homeTeam))
+          .then((rows) => [...new Set(rows.flatMap((r) => [r.homeTeam, r.awayTeam]))].sort((a, b) => a.localeCompare(b, 'de')))
       : Promise.resolve([]),
   ]);
 

@@ -66,8 +66,8 @@ export default async function TippenPage({
   }));
 
   const allFixtures = sections.flatMap((s) => s.fixtures);
-  const dateRange = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(matchday.startDate);
-  const endRange = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(matchday.endDate);
+  const dateRange = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit' }).format(matchday.startDate);
+  const endRange = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit' }).format(matchday.endDate);
 
   return (
     <div className="space-y-8">
@@ -109,7 +109,7 @@ export default async function TippenPage({
               <span>
                 Deadline {weekdayLabelOf(matchday.deadlineAt)}{' '}
                 <span className="text-foreground font-medium tabular-nums">
-                  {new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(matchday.deadlineAt)}
+                  {new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(matchday.deadlineAt)}
                 </span>
               </span>
               <span aria-hidden="true">·</span>

@@ -55,7 +55,7 @@ export function normalizeName(name: string): string {
     .trim();
 }
 
-const AUSWERTUNGEN_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../Vorlagen/Auswertungen');
+const AUSWERTUNGEN_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../Vorlagen/Auswertungen');
 
 /** Pfad zur Auswertungs-Datei eines Tipptags (`10` → `…/10_TT_Auswertung.xlsx`). */
 export function auswertungPath(matchdayNumber: number): string {

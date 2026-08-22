@@ -119,13 +119,28 @@ async function main() {
         // Tipper, die es 25/26 nicht gab (z. B. Demo-User aus dem Seed) — nicht vergleichbar.
         continue;
       }
+      // Notfalltipp-Punkte abziehen: die Alt-Excel enthält keine Ersatzwerte —
+      // ein komplett verpasster Tipptag (z. B. TT 9) wäre sonst ein Schein-Diff.
+      const emergencyPoints = { total: 0, bl: 0, l2: 0, three: 0, two: 0, one: 0 };
+      for (const section of view.sections) {
+        for (const fixture of section.fixtures) {
+          const cell = tipper.tipsByFixture.get(fixture.id);
+          if (cell?.emergency && cell.points !== null) {
+            emergencyPoints.total += cell.points;
+            emergencyPoints[section.league === 'BL' ? 'bl' : 'l2'] += cell.points;
+            if (cell.points > 0) {
+              emergencyPoints[cell.points === 3 ? 'three' : cell.points === 2 ? 'two' : 'one'] += 1;
+            }
+          }
+        }
+      }
       const got: Expected = {
-        total: tipper.totalPoints,
-        bl: tipper.blPoints,
-        l2: tipper.l2Points,
-        three: tipper.counts.three,
-        two: tipper.counts.two,
-        one: tipper.counts.one,
+        total: tipper.totalPoints - emergencyPoints.total,
+        bl: tipper.blPoints - emergencyPoints.bl,
+        l2: tipper.l2Points - emergencyPoints.l2,
+        three: tipper.counts.three - emergencyPoints.three,
+        two: tipper.counts.two - emergencyPoints.two,
+        one: tipper.counts.one - emergencyPoints.one,
       };
       for (const key of Object.keys(got) as (keyof Expected)[]) {
         if (got[key] !== want[key]) {

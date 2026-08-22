@@ -51,7 +51,7 @@ export function deriveFixtureFields(f: ImportedFixture): {
  *   Status wird ggf. von FINISHED auf IN_PROGRESS gesetzt (LAUFEND), aber
  *   resultSource=NONE (wir können nicht wissen ob ein ADMIN-Override überschrieben würde)
  */
-function toResultWrite(f: ImportedFixture) {
+function toResultWrite(f: ImportedFixture, current: { status: FixtureStatus }) {
   const derived = deriveFixtureFields(f);
   if (derived.status === 'FINISHED') {
     return {
@@ -64,16 +64,26 @@ function toResultWrite(f: ImportedFixture) {
       syncedAt: new Date(),
     };
   }
-  // Keine Ergebnis-Daten (OpenLigaDB hat finish zurückgenommen / Korrektur):
-  // Status downgrade und SYNC-Ergebnisse mit leeren — sonst stände ein
-  // Mischzustand (Tore gesetzt, aber nicht FINISHED) still in der Auswertung.
-  // MANUAL-Zeilen erreichen diesen Pfad nie (Snapshot-Check + WHERE-Klausel).
+  // OpenLigaDB liefert kein Endergebnis mehr. Zwei Faelle:
+  // 1. DB war FINISHED (SYNC) und OpenLigaDB hat finish zurueckgenommen (Korrektur):
+  //    Ergebnisse mit leeren - sonst stuende ein Mischzustand (Tore gesetzt, aber
+  //    nicht FINISHED) still in der Auswertung. MANUAL-Zeilen kommen hier nie her
+  //    (Snapshot-Check + WHERE-Klausel).
+  // 2. Partie laeuft noch / Zwischenstand: Tore unveraendert lassen (Legacy-Verhalten),
+  //    nur den Status pflegen - ein laufendes Spiel darf keine Tore verlieren.
+  if (current.status === 'FINISHED') {
+    return {
+      status: derived.status,
+      homeGoals: null,
+      awayGoals: null,
+      htHomeGoals: null,
+      htAwayGoals: null,
+      resultSource: 'NONE' as const,
+      syncedAt: null,
+    };
+  }
   return {
     status: derived.status,
-    homeGoals: null,
-    awayGoals: null,
-    htHomeGoals: null,
-    htAwayGoals: null,
     resultSource: 'NONE' as const,
     syncedAt: null,
   };
@@ -146,7 +156,7 @@ export async function syncResults(competitionId?: string): Promise<SyncSummary> 
               // updateMany statt update: 0 affected statt P2025 → kein Batch-Rollback.
               const result = await prisma.fixture.updateMany({
                 where: { id: fixture.id, resultSource: { not: 'MANUAL' } },
-                data: toResultWrite(imp),
+                data: toResultWrite(imp, fixture),
               });
               if (result.count === 1) {
                 updated++;

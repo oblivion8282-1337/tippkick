@@ -9,15 +9,19 @@ import { WEEKDAY_LABELS } from '@/lib/constants';
  */
 const TZ = 'Europe/Berlin';
 
+// Formatter module-level cachen: Konstruktion ist teuer, dateKeyOf läuft in
+// Loops über alle Partien (Chronik, Sync) — pro Aufruf wäre das spürbar.
+const BERLIN_PARTS_FMT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  weekday: 'short',
+});
+
 /** Kalenderdatum in Berliner Ortszeit als Teile (für dateKeyOf). */
 function berlinParts(date: Date): { year: number; month: number; day: number; weekday: number } {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    weekday: 'short',
-  });
+  const fmt = BERLIN_PARTS_FMT;
   const parts: Record<string, string> = {};
   for (const part of fmt.formatToParts(date)) {
     parts[part.type] = part.value;
