@@ -94,10 +94,10 @@ export function EmergencyTipCard({ emergency, teams }: { emergency: EmergencyCon
 
           {/* Formular eingeklappt: nur ein Button, kein leeres Formular-Gerüst. */}
           <details className="group">
-            <summary className="[&::-webkit-details-marker]:hidden">
-              <span className="text-primary inline-flex cursor-pointer items-center gap-1 text-sm hover:underline">
+            <summary className="w-fit list-none [&::-webkit-details-marker]:hidden">
+              <span className="border-border text-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
                 <Plus className="h-4 w-4" />
-                Sonderregel hinzufügen
+                Weitere Sonderregel hinzufügen
               </span>
             </summary>
             <form action={addEmergencyRuleAction} className="mt-4 flex flex-wrap items-end gap-3">
