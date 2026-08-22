@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, KeyRound, Mail, User, UserCog } from 'lucide-react';
 
 import { authClient } from '@/lib/auth-client';
-import { compressImage } from '@/lib/image-compress';
+import { AvatarCropDialog } from '@/components/avatar-crop-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -95,23 +95,23 @@ function NameCard({ initialName }: { initialName: string }) {
 }
 
 function AvatarCard({ initialImage, initialName }: { initialImage: string | null; initialName: string }) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [image, setImage] = useState(initialImage);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function onUpload(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const file = formData.get('file');
-    if (!(file instanceof File) || file.size === 0) {
-      return;
-    }
+  function onPick(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // gleiche Datei nochmal wählen soll erneut öffnen
+    if (file) setCropFile(file);
+  }
+
+  async function uploadCropped(blob: Blob) {
+    setCropFile(null);
     setPending(true);
     setMessage(null);
     try {
-      // Client-seitig komprimieren (max 512px, JPEG, < 1 MB) — der Server nimmt
-      // grundsätzlich nur ≤ 1 MB an, größer darf es gar nicht erst werden.
-      const blob = await compressImage(file);
       const upload = new FormData();
       upload.set('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
       const response = await fetch('/api/avatar', { method: 'POST', body: upload });
@@ -125,7 +125,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
       }
     } catch {
       setPending(false);
-      setMessage('Bild konnte nicht verarbeitet werden.');
+      setMessage('Bild konnte nicht hochgeladen werden.');
     }
   }
 
@@ -153,29 +153,28 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
             <p>JPG, PNG oder WebP · wird automatisch verkleinert</p>
           </div>
         </div>
-        <form onSubmit={onUpload} className="ml-auto flex flex-wrap items-center gap-3">
-          <Label htmlFor="file" className="sr-only">
-            Bilddatei wählen
-          </Label>
-          <Input
-            id="file"
-            name="file"
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <input
+            ref={inputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="file:text-foreground w-64 cursor-pointer file:mr-3 file:cursor-pointer"
-            required
+            onChange={onPick}
+            className="hidden"
           />
-          <Button type="submit" size="sm" disabled={pending}>
+          <Button size="sm" disabled={pending} onClick={() => inputRef.current?.click()}>
             <Camera className="h-4 w-4" />
-            {pending ? 'Lädt …' : 'Hochladen'}
+            {pending ? 'Lädt …' : cropFile ? 'Bild wählen …' : 'Bild auswählen'}
           </Button>
           {message && (
             <p className={cn('text-sm', message.includes('aktualisiert') ? 'text-pitch' : 'text-destructive')}>
               {message}
             </p>
           )}
-        </form>
+        </div>
       </CardContent>
+      {cropFile && (
+        <AvatarCropDialog file={cropFile} onCancel={() => setCropFile(null)} onConfirm={uploadCropped} />
+      )}
     </Card>
   );
 }
