@@ -271,7 +271,7 @@ function FixtureRow({
       className={cn(
         // Mobil: Partie = eine Einheit (kein Divider zwischen Heim/Gast-Zeile),
         // dafuer deutlicher Abstand + Trenner zwischen PARTIEN.
-        'border-border/70 border-b px-4 py-4 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4 sm:px-6 sm:py-3.5',
+        'border-b border-border px-4 py-4 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4 sm:px-6 sm:py-3.5',
         striped && 'bg-muted/30',
         // Getippte Zeile: neutraler Hintergrund — Blau bleibt Interaktions-Akzent.
         complete && 'bg-muted/50',
