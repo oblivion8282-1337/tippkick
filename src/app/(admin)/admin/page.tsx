@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import { CalendarClock, Check, ChevronRight, ClipboardList, Download, Users } from 'lucide-react';
+import { CalendarClock, ChevronRight, Users } from 'lucide-react';
 
 import {
   getCompetitionsOverview,
-  getMatchdayTipMatrix,
+  getMatchdayTipMatrices,
   getTipperList,
   getTipperStats,
   getTipptagChronik,
 } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
-import { formatCountdown, formatDateTime, formatWeekdayTime } from '@/lib/datetime';
+import { formatCountdown, formatDateTime } from '@/lib/datetime';
 import { AdminSeasonPicker } from '@/components/admin-season-picker';
 import { ConfirmButton } from '@/components/confirm-button';
 import { CreateSeasonForm } from '@/components/create-season-form';
@@ -18,6 +18,7 @@ import { SubmitButton } from '@/components/submit-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
+import { TipptagRow } from '@/components/tipptag-row';
 import { getSession } from '@/lib/session';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
@@ -70,17 +71,14 @@ export default async function AdminHomePage({
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
   const selfId = session?.user.id;
   // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
-  // Bei 'alle' nur die nächsten offenen Tipptage + komplette Historie, sonst wird die
-  // Liste bei 34 angelegten Tipptagen einer Saison unleserlich lang.
   const filter: 'alle' | 'offen' | 'abgeschlossen' =
     filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
-  const upcomingShown = filter === 'offen' ? chronik.upcoming : chronik.upcoming.slice(0, 3);
-  const entries = upcomingShown
+  const entries = chronik.upcoming
     .map((e) => ({ entry: e, past: false }))
     .concat(chronik.past.map((e) => ({ entry: e, past: true })))
-    .filter((e) => (filter === 'abgeschlossen' ? e.past : true));
-  // Tipp-Matrix je Tipptag (für die aufklappbare Liste).
-  const matrices = await Promise.all(entries.map((e) => getMatchdayTipMatrix(e.entry.id)));
+    .filter((e) => (filter === 'abgeschlossen' ? e.past : filter === 'offen' ? !e.past : true));
+  // Tipp-Matrizen aller angezeigten Tipptage in einem Batch (2 Abfragen statt 2 pro Tipptag).
+  const matrixByMatchday = await getMatchdayTipMatrices(entries.map((e) => e.entry.id));
   const pending = tippers.filter((u) => !u.approved);
   const active = tippers.filter((u) => u.approved);
 
@@ -132,121 +130,29 @@ export default async function AdminHomePage({
             </p>
           ) : (
             <div className="divide-border/40 divide-y">
-              {entries.map(({ entry: u, past }, i) => {
-                const matrix = matrices[i];
-                // Ein Durchlauf über die aktiven Tipper: Status + zusammenfassung.
-                const rows = active.map((t) => {
+              {entries.map(({ entry: u, past }) => {
+                const matrix = matrixByMatchday.get(u.id) ?? { total: 0, fixtures: [], tipsByUser: new Map() };
+                // Zusammenfassung serverseitig; die Tipper-Matrix lädt die Zeile erst beim Aufklappen.
+                const tippersTipped = active.filter((t) => {
                   const cnt = matrix.tipsByUser.get(t.id)?.size ?? 0;
-                  const done = matrix.total > 0 && cnt >= matrix.total;
-                  return { t, cnt, done, partial: cnt > 0 && !done };
-                });
-                const tippersTipped = rows.filter((r) => r.done).length;
-                const openCount = rows.length - tippersTipped;
+                  return matrix.total > 0 && cnt >= matrix.total;
+                }).length;
+                const openCount = active.length - tippersTipped;
                 const resultsDone = matrix.fixtures.filter((f) => f.resultSource !== 'NONE').length;
                 return (
-                  <details key={u.id} className="group">
-                    <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm [&::-webkit-details-marker]:hidden">
-                      <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
-                      <span className="bg-muted rounded px-2 py-0.5 text-xs font-semibold">
-                        {COMPETITION_SHORT[u.competitionKey]}
-                      </span>
-                      <Link href={`/admin/matchdays/${u.id}`} className="hover:underline">
-                        <span className="font-display font-semibold">Tipptag {u.number}</span>
-                      </Link>
-                      <span className="text-muted-foreground tabular-nums">{matrix.total} Partien</span>
-                      <span className="text-muted-foreground tabular-nums">
-                        {tippersTipped}/{active.length} vollständig
-                        {openCount > 0 && <span className="text-destructive"> · {openCount} offen</span>}
-                      </span>
-                      {past ? (
-                        <span className="ml-auto flex flex-wrap items-center justify-end gap-3">
-                          {resultsDone < matrix.total && (
-                            <span className="text-amber-500 tabular-nums" title="Ergebnisse eintragen oder syncen">
-                              Ergebnisse {resultsDone}/{matrix.total}
-                            </span>
-                          )}
-                          <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs">
-                            abgeschlossen
-                          </span>
-                          <span className="text-muted-foreground tabular-nums">{formatDateTime(u.deadlineAt)}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground ml-auto tabular-nums">
-                          {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
-                        </span>
-                      )}
-                      <LinkButton href={`/admin/matchdays/${u.id}/auswertung`} size="sm" variant="outline">
-                        <ClipboardList className="h-4 w-4" />
-                        Auswertung
-                      </LinkButton>
-                      <LinkButton href={`/admin/matchdays/${u.id}/export`} size="sm" variant="outline">
-                        <Download className="h-4 w-4" />
-                        Excel
-                      </LinkButton>
-                    </summary>
-                    <ul className="border-border/40 border-t">
-                      {rows.map(({ t, cnt, done, partial }) => {
-                        const userTips = matrix.tipsByUser.get(t.id);
-                        return (
-                          <li key={t.id} className="pr-2 pl-10">
-                            <details className="group/tipper">
-                              <summary className="hover:bg-muted/30 flex cursor-pointer items-center gap-2 py-2 pl-2 text-sm [&::-webkit-details-marker]:hidden">
-                                <ChevronRight className="text-muted-foreground h-3.5 w-3.5 shrink-0 transition-transform group-open/tipper:rotate-90" />
-                                <span className="font-medium">{t.name}</span>
-                                {t.role === ROLE_ADMIN && (
-                                  <span className="text-muted-foreground text-xs">Tippleitung</span>
-                                )}
-                                <span
-                                  className={
-                                    done
-                                      ? 'text-primary ml-auto inline-flex items-center gap-1'
-                                      : partial
-                                        ? 'ml-auto text-amber-500'
-                                        : 'text-muted-foreground ml-auto'
-                                  }
-                                >
-                                  {done ? (
-                                    <>
-                                      <Check className="h-3 w-3" /> vollständig
-                                    </>
-                                  ) : partial ? (
-                                    `teilweise (${cnt}/${matrix.total})`
-                                  ) : (
-                                    'noch offen'
-                                  )}
-                                </span>
-                              </summary>
-                              <ul className="border-border/40 border-t pb-2">
-                                {matrix.fixtures.map((f) => {
-                                  const tip = userTips?.get(f.id);
-                                  return (
-                                    <li
-                                      key={f.id}
-                                      className="flex items-center justify-between gap-3 py-1.5 pr-4 pl-6 text-xs"
-                                    >
-                                      <span className="text-muted-foreground shrink-0 tabular-nums">
-                                        {formatWeekdayTime(f.kickoff)}
-                                      </span>
-                                      <span className="flex-1 truncate">
-                                        {f.homeTeam} : {f.awayTeam}
-                                      </span>
-                                      {tip ? (
-                                        <span className="text-primary shrink-0 font-medium tabular-nums">
-                                          {tip.homeGoals} : {tip.awayGoals}
-                                        </span>
-                                      ) : (
-                                        <span className="text-muted-foreground/70 shrink-0 italic">offen</span>
-                                      )}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </details>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </details>
+                  <TipptagRow
+                    key={u.id}
+                    matchdayId={u.id}
+                    competitionShort={COMPETITION_SHORT[u.competitionKey]}
+                    number={u.number}
+                    total={matrix.total}
+                    tippersTipped={tippersTipped}
+                    activeCount={active.length}
+                    openCount={openCount}
+                    deadlineLabel={formatDateTime(u.deadlineAt)}
+                    countdownLabel={past ? undefined : formatCountdown(u.deadlineAt)}
+                    resultsDone={resultsDone}
+                  />
                 );
               })}
             </div>

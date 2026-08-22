@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ROLE_ADMIN } from '@/lib/constants';
 import { eligibleTipperWhere } from '@/lib/tippers';
-import { loadTipsByUser } from '@/lib/tipps';
 import type { CompetitionKey, ResultSource } from '@/generated/prisma/client';
 
 /** Wettbewerbe einer Saison mit Zählwerten (für die Wettbewerbe-Karte). */
@@ -95,16 +94,48 @@ export type MatchdayTipMatrix = {
  * SSOT für die Deadline-Übersicht (sowohl „fertig?‟ als auch die Einzel-Tipps).
  */
 export async function getMatchdayTipMatrix(matchdayId: string): Promise<MatchdayTipMatrix> {
+  const all = await getMatchdayTipMatrices([matchdayId]);
+  return all.get(matchdayId) ?? { total: 0, fixtures: [], tipsByUser: new Map() };
+}
+
+/**
+ * Batch-Variante für Listen (Admin-Chronik): Matrizen für beliebig viele Tipptage
+ * mit nur zwei Abfragen (Partien + Tipps) statt zwei pro Tipptag.
+ */
+export async function getMatchdayTipMatrices(matchdayIds: string[]): Promise<Map<string, MatchdayTipMatrix>> {
   const sections = await prisma.matchdaySection.findMany({
-    where: { matchdayId },
+    where: { matchdayId: { in: matchdayIds } },
     select: {
+      matchdayId: true,
       fixtures: {
         orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }],
         select: { id: true, homeTeam: true, awayTeam: true, kickoff: true, resultSource: true },
       },
     },
   });
-  const fixtures = sections.flatMap((s) => s.fixtures);
-  const tipsByUser = await loadTipsByUser(fixtures.map((f) => f.id));
-  return { total: fixtures.length, fixtures, tipsByUser };
+  const fixtureIds = sections.flatMap((s) => s.fixtures.map((f) => f.id));
+  const tips = await prisma.tip.findMany({
+    where: { fixtureId: { in: fixtureIds } },
+    select: { fixtureId: true, userId: true, homeGoals: true, awayGoals: true },
+  });
+  const tipsByFixture = new Map<string, { userId: string; homeGoals: number; awayGoals: number }[]>();
+  for (const t of tips) {
+    const list = tipsByFixture.get(t.fixtureId) ?? [];
+    list.push(t);
+    tipsByFixture.set(t.fixtureId, list);
+  }
+  const result = new Map<string, MatchdayTipMatrix>();
+  for (const id of matchdayIds) {
+    const fixtures = sections.filter((s) => s.matchdayId === id).flatMap((s) => s.fixtures);
+    const tipsByUser = new Map<string, Map<string, { homeGoals: number; awayGoals: number }>>();
+    for (const f of fixtures) {
+      for (const t of tipsByFixture.get(f.id) ?? []) {
+        const byFixture = tipsByUser.get(t.userId) ?? new Map<string, { homeGoals: number; awayGoals: number }>();
+        byFixture.set(f.id, { homeGoals: t.homeGoals, awayGoals: t.awayGoals });
+        tipsByUser.set(t.userId, byFixture);
+      }
+    }
+    result.set(id, { total: fixtures.length, fixtures, tipsByUser });
+  }
+  return result;
 }
