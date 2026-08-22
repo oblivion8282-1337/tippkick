@@ -1,4 +1,5 @@
 import { CalendarDays, ChevronRight, Lightbulb } from 'lucide-react';
+import Link from 'next/link';
 
 import { getCompetitionsAdmin } from '@/lib/admin';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
@@ -30,9 +31,9 @@ function weekKey(date: Date): string {
 export default async function SpieltagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ season?: string; vorschlag?: string }>;
+  searchParams: Promise<{ season?: string; vorschlag?: string; tab?: string }>;
 }) {
-  const { season: seasonParam, vorschlag } = await searchParams;
+  const { season: seasonParam, vorschlag, tab: tabParam } = await searchParams;
   const [seasons, manageable] = await Promise.all([getSeasons(), getManageableSeason()]);
 
   if (seasons.length === 0 || !manageable) {
@@ -77,6 +78,9 @@ export default async function SpieltagePage({
     }
   }
 
+  // Tab-Navigation (serverseitig per URL-Parameter): Spieltage = Zuordnen, Tipptage = Übersicht.
+  const tab: 'spieltage' | 'tipptage' = tabParam === 'tipptage' ? 'tipptage' : 'spieltage';
+
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -90,8 +94,32 @@ export default async function SpieltagePage({
         <GroupingProposalCard proposal={proposal} competitionId={proposalCompetition.id} seasonId={season.id} />
       )}
 
-      <TipptagList tipptage={tipptagStats} />
+      {/* Tabs: Spieltage / Tipptage */}
+      <nav className="border-border/40 flex gap-1 border-b" aria-label="Spieltage-Bereiche">
+        {(
+          [
+            ['spieltage', `Spieltage (${rounds.length})`],
+            ['tipptage', `Tipptage (${tipptagStats.length})`],
+          ] as const
+        ).map(([key, label]) => (
+          <Link
+            key={key}
+            href={`/admin/spieltage?season=${season.id}${key === 'tipptage' ? '&tab=tipptage' : ''}`}
+            aria-current={tab === key ? 'page' : undefined}
+            className={
+              tab === key
+                ? 'text-primary border-primary -mb-px border-b-2 px-4 py-2 text-sm font-medium'
+                : 'text-muted-foreground border-transparent hover:text-foreground -mb-px border-b-2 px-4 py-2 text-sm'
+            }
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
 
+      {tab === 'tipptage' && <TipptagList tipptage={tipptagStats} />}
+
+      {tab === 'spieltage' && (
       <Card>
         <CardHeader className="border-border/40 border-b">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -202,6 +230,7 @@ export default async function SpieltagePage({
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
