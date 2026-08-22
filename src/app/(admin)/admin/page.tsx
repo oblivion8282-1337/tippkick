@@ -7,6 +7,7 @@ import {
   getTipperList,
   getTipperStats,
   getTipptagChronik,
+  type MatchdayTipMatrix,
 } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 import { formatCountdown, formatDateTime } from '@/lib/datetime';
@@ -26,9 +27,9 @@ import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(ad
 export default async function AdminHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ season?: string; filter?: string }>;
+  searchParams: Promise<{ season?: string; filter?: string; tab?: string }>;
 }) {
-  const { season: seasonParam, filter: filterParam } = await searchParams;
+  const { season: seasonParam, filter: filterParam, tab: tabParam } = await searchParams;
   const seasons = await getSeasons();
 
   if (seasons.length === 0) {
@@ -70,6 +71,13 @@ export default async function AdminHomePage({
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
   const selfId = session?.user.id;
+  const pending = tippers.filter((u) => !u.approved);
+  const active = tippers.filter((u) => u.approved);
+
+  // Tab-Navigation (serverseitig per URL-Parameter, wie der Chronik-Filter).
+  const tab: 'tipptage' | 'wettbewerbe' | 'tipper' =
+    tabParam === 'wettbewerbe' || tabParam === 'tipper' ? tabParam : 'tipptage';
+  const tabHref = (t: string) => `/admin?season=${season.id}&tab=${t}`;
   // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
   const filter: 'alle' | 'offen' | 'abgeschlossen' =
     filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
@@ -80,9 +88,10 @@ export default async function AdminHomePage({
     .concat(chronik.upcoming.map((e) => ({ entry: e, past: false })))
     .filter((e) => (filter === 'abgeschlossen' ? e.past : filter === 'offen' ? !e.past : true));
   // Tipp-Matrizen aller angezeigten Tipptage in einem Batch (2 Abfragen statt 2 pro Tipptag).
-  const matrixByMatchday = await getMatchdayTipMatrices(entries.map((e) => e.entry.id));
-  const pending = tippers.filter((u) => !u.approved);
-  const active = tippers.filter((u) => u.approved);
+  const matrixByMatchday =
+    tab === 'tipptage'
+      ? await getMatchdayTipMatrices(entries.map((e) => e.entry.id))
+      : new Map<string, MatchdayTipMatrix>();
 
   return (
     <div className="space-y-8">
@@ -93,7 +102,31 @@ export default async function AdminHomePage({
         actions={<AdminSeasonPicker seasons={seasons} activeId={season.id} />}
       />
 
-      {/* Tipptag-Chronik: offene Deadlines + abgeschlossene Tipptage in einer Liste */}
+      {/* Tabs: Tipptage / Wettbewerbe / Tipper */}
+      <nav className="border-border/40 flex gap-1 border-b" aria-label="Admin-Bereiche">
+        {(
+          [
+            ['tipptage', 'Tipptage'],
+            ['wettbewerbe', 'Wettbewerbe'],
+            ['tipper', `Tipper${pending.length > 0 ? ` · ${pending.length} wartet` : ''}`],
+          ] as const
+        ).map(([key, label]) => (
+          <Link
+            key={key}
+            href={tabHref(key)}
+            aria-current={tab === key ? 'page' : undefined}
+            className={
+              tab === key
+                ? 'text-primary border-primary -mb-px border-b-2 px-4 py-2 text-sm font-medium'
+                : 'text-muted-foreground border-transparent hover:text-foreground -mb-px border-b-2 px-4 py-2 text-sm'
+            }
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === 'tipptage' && (
       <Card>
         <CardHeader className="border-border/40 flex-row flex-wrap items-center justify-between gap-3 border-b">
           <CardTitle className="flex items-center gap-2">
@@ -161,8 +194,10 @@ export default async function AdminHomePage({
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Wettbewerbe */}
+      {tab === 'wettbewerbe' && (
       <Card>
         <CardHeader className="border-border/40 border-b">
           <CardTitle>Wettbewerbe</CardTitle>
@@ -198,8 +233,10 @@ export default async function AdminHomePage({
           </ul>
         </CardContent>
       </Card>
+      )}
 
       {/* Tipper */}
+      {tab === 'tipper' && (
       <Card>
         <CardHeader className="border-border/40 border-b">
           <CardTitle className="flex items-center gap-2">
@@ -288,6 +325,7 @@ export default async function AdminHomePage({
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
