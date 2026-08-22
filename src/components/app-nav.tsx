@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 import { LinkButton } from '@/components/link-button';
 import { UserMenu } from '@/components/user-menu';
@@ -15,6 +16,11 @@ export function AppNav({
   userImage?: string | null;
   isAdmin: boolean;
 }) {
+  // Aktiver Nav-Punkt: /admin/* markiert Admin, alles andere Dashboard.
+  const pathname = usePathname();
+  const active = (href: string) =>
+    href === '/admin' ? pathname.startsWith('/admin') : pathname.startsWith('/dashboard');
+
   return (
     <header className="border-border/60 bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
@@ -24,11 +30,21 @@ export function AppNav({
           </Link>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <LinkButton href="/dashboard" variant="ghost" className="hidden sm:inline-flex">
+          <LinkButton
+            href="/dashboard"
+            variant="ghost"
+            className={`hidden sm:inline-flex ${active('/dashboard') ? 'bg-primary/15 text-primary' : ''}`}
+            aria-current={active('/dashboard') ? 'page' : undefined}
+          >
             Dashboard
           </LinkButton>
           {isAdmin && (
-            <LinkButton href="/admin" variant="ghost" className="hidden sm:inline-flex">
+            <LinkButton
+              href="/admin"
+              variant="ghost"
+              className={`hidden sm:inline-flex ${active('/admin') ? 'bg-primary/15 text-primary' : ''}`}
+              aria-current={active('/admin') ? 'page' : undefined}
+            >
               Admin
             </LinkButton>
           )}
