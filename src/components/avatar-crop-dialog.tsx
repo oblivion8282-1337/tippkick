@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, RotateCcw, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -155,7 +156,9 @@ export function AvatarCropDialog({
     );
   }
 
-  return (
+  // Portal direkt in den <body>: position:fixed darf durch keinen Vorfahren mit
+  // transform/filter relativiert werden — sonst hängt das Overlay im Seitenfluss.
+  return createPortal(
     <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur">
       <div ref={cardRef} className="bg-card border-border w-full max-w-sm rounded-xl border p-4 shadow-xl sm:p-6">
         <h2 className="mb-1 text-lg font-semibold">Profilbild zuschneiden</h2>
@@ -227,6 +230,7 @@ export function AvatarCropDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
