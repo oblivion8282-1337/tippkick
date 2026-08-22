@@ -178,9 +178,9 @@ function WeekendHero({
     <article className="bg-card border-border/60 relative overflow-hidden rounded-3xl border p-6 shadow-[0_1px_0_oklch(0.21_0.018_255/0.04),0_8px_24px_-12px_oklch(0.21_0.018_255/0.12)] sm:p-10 dark:shadow-[0_1px_0_oklch(0.93_0.01_100/0.04),0_8px_24px_-12px_oklch(0_0_0/0.4)]">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-4">
-          <p className="text-muted-foreground flex items-center gap-2 pl-12 font-mono text-[0.7rem] font-medium tracking-[0.18em] uppercase">
-            <CalendarDays className="h-3.5 w-3.5" />
-            {competitionName}
+          <p className="text-muted-foreground flex items-center gap-2 pl-12 font-mono text-[0.7rem] font-medium tracking-[0.18em] whitespace-nowrap uppercase">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{competitionName}</span>
           </p>
 
           {/* Tipptag + Pfeile zum Schalten (flankierend) */}
