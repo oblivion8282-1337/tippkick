@@ -1,4 +1,4 @@
-import { LifeBuoy, Trash2 } from 'lucide-react';
+import { LifeBuoy, Plus, Trash2 } from 'lucide-react';
 
 import type { EmergencyConfig } from '@/lib/emergency-tip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,34 +92,43 @@ export function EmergencyTipCard({ emergency, teams }: { emergency: EmergencyCon
             <p className="text-muted-foreground text-sm">Noch keine Sonderregeln.</p>
           )}
 
-          <form action={addEmergencyRuleAction} className="flex flex-wrap items-end gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="teamName">Mannschaft</Label>
-              <select
-                id="teamName"
-                name="teamName"
-                required
-                className="border-input bg-background h-9 min-w-52 rounded-md border px-3 text-sm"
-              >
-                {teams.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="goalsFor">gewinnt (Für : Gegen)</Label>
-              <div className="flex items-center gap-2">
-                <Input id="goalsFor" name="goalsFor" type="number" min={0} max={99} defaultValue={4} className="w-20" required />
-                <span className="text-muted-foreground">:</span>
-                <Input name="goalsAgainst" type="number" min={0} max={99} defaultValue={0} className="w-20" required />
+          {/* Formular eingeklappt: nur ein Button, kein leeres Formular-Gerüst. */}
+          <details className="group">
+            <summary className="[&::-webkit-details-marker]:hidden">
+              <span className="text-primary inline-flex cursor-pointer items-center gap-1 text-sm hover:underline">
+                <Plus className="h-4 w-4" />
+                Sonderregel hinzufügen
+              </span>
+            </summary>
+            <form action={addEmergencyRuleAction} className="mt-4 flex flex-wrap items-end gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="teamName">Mannschaft</Label>
+                <select
+                  id="teamName"
+                  name="teamName"
+                  required
+                  className="border-input bg-background h-9 min-w-52 rounded-md border px-3 text-sm"
+                >
+                  {teams.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
-            <SubmitButton size="sm" variant="outline">
-              Hinzufügen
-            </SubmitButton>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="goalsFor">gewinnt (Für : Gegen)</Label>
+                <div className="flex items-center gap-2">
+                  <Input id="goalsFor" name="goalsFor" type="number" min={0} max={99} defaultValue={4} className="w-20" required />
+                  <span className="text-muted-foreground">:</span>
+                  <Input name="goalsAgainst" type="number" min={0} max={99} defaultValue={0} className="w-20" required />
+                </div>
+              </div>
+              <SubmitButton size="sm" variant="outline">
+                Hinzufügen
+              </SubmitButton>
+            </form>
+          </details>
         </CardContent>
       </Card>
     </div>
