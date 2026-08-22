@@ -51,3 +51,24 @@ export async function requireAdmin(): Promise<SessionData> {
   }
   return session;
 }
+
+/**
+ * Anzeige-Daten (Name, Avatar, Rolle) frisch aus der DB — better-auth cached die
+ * Session, weshalb z. B. ein neues Profilbild sonst erst Minuten später im
+ * Kopfbereich auftauchen würde. Auth bleibt die Session, Anzeige kommt hierher.
+ */
+export async function getDisplayUser(userId: string): Promise<{
+  name: string | null;
+  email: string;
+  image: string | null;
+  role: string | null;
+}> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true, image: true, role: true },
+  });
+  if (!u) {
+    throw new Error('User nicht gefunden: ' + userId);
+  }
+  return u;
+}

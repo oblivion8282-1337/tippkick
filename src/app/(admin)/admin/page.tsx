@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LinkButton } from '@/components/link-button';
 import { PageHeader } from '@/components/page-header';
 import { TipptagRow } from '@/components/tipptag-row';
+import { UserAvatar } from '@/components/user-avatar';
 import { getSession } from '@/lib/session';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
@@ -288,6 +289,7 @@ export default async function AdminHomePage({
                 const isSelf = u.id === selfId;
                 return (
                   <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
+                    <UserAvatar name={u.name} image={u.image} className="h-7 w-7 text-xs" />
                     <span className="font-medium">
                       {u.name}
                       {isSelf && <span className="text-muted-foreground ml-1 text-xs">(du)</span>}

@@ -95,6 +95,7 @@ function NameCard({ initialName }: { initialName: string }) {
 }
 
 function AvatarCard({ initialImage, initialName }: { initialImage: string | null; initialName: string }) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [image, setImage] = useState(initialImage);
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -120,6 +121,7 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
         const data = (await response.json()) as { image: string };
         setImage(`${data.image}?${Date.now()}`); // Cache-Buster
         setMessage('Profilbild aktualisiert.');
+        router.refresh(); // Kopfzeile (Avatar oben rechts) sofort aktualisieren
       } else {
         setMessage(await response.text());
       }

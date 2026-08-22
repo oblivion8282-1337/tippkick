@@ -21,6 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       id: t.id,
       name: t.name,
       admin: t.role === ROLE_ADMIN,
+      image: t.image,
       cnt: matrix.tipsByUser.get(t.id)?.size ?? 0,
       total: matrix.total,
       tips: Object.fromEntries(matrix.tipsByUser.get(t.id) ?? []),

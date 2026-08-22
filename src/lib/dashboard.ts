@@ -69,7 +69,7 @@ export async function getTipperStats(): Promise<TipperStats> {
 export async function getTipperList() {
   return prisma.user.findMany({
     orderBy: [{ role: 'asc' }, { name: 'asc' }],
-    select: { id: true, name: true, email: true, role: true, approved: true, emailVerified: true },
+    select: { id: true, name: true, email: true, role: true, approved: true, emailVerified: true, image: true },
   });
 }
 

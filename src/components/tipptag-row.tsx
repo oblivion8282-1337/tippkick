@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, ChevronRight, ClipboardList, Download } from 'lucide-react';
 
 import { LinkButton } from '@/components/link-button';
+import { UserAvatar } from '@/components/user-avatar';
 import { formatWeekdayTime } from '@/lib/datetime';
 
 type TippsData = {
@@ -13,6 +14,7 @@ type TippsData = {
     id: string;
     name: string;
     admin: boolean;
+    image: string | null;
     cnt: number;
     total: number;
     tips: Record<string, { homeGoals: number; awayGoals: number }>;
@@ -108,7 +110,7 @@ export function TipptagRow({
         </p>
       ) : (
         <ul className="border-border/40 border-t">
-          {data.rows.map(({ id, name, admin, cnt, total: rowTotal, tips }) => {
+          {data.rows.map(({ id, name, admin, image, cnt, total: rowTotal, tips }) => {
             const done = rowTotal > 0 && cnt >= rowTotal;
             const partial = cnt > 0 && !done;
             return (
@@ -116,6 +118,7 @@ export function TipptagRow({
                 <details className="group/tipper">
                   <summary className="hover:bg-muted/30 flex cursor-pointer items-center gap-2 py-2 pl-2 text-sm [&::-webkit-details-marker]:hidden">
                     <ChevronRight className="text-muted-foreground h-3.5 w-3.5 shrink-0 transition-transform group-open/tipper:rotate-90" />
+                    <UserAvatar name={name} image={image} className="h-6 w-6 text-[10px]" />
                     <span className="font-medium">{name}</span>
                     {admin && <span className="text-muted-foreground text-xs">Tippleitung</span>}
                     <span
