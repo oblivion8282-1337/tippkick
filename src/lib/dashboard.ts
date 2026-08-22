@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { ROLE_ADMIN } from '@/lib/constants';
 import { eligibleTipperWhere } from '@/lib/tippers';
 import { loadTipsByUser } from '@/lib/tipps';
-import type { CompetitionKey } from '@/generated/prisma/client';
+import type { CompetitionKey, ResultSource } from '@/generated/prisma/client';
 
 /** Wettbewerbe einer Saison mit Zählwerten (für die Wettbewerbe-Karte). */
 export async function getCompetitionsOverview(seasonId: string) {
@@ -13,7 +13,7 @@ export async function getCompetitionsOverview(seasonId: string) {
   });
 }
 
-export type UpcomingTipptag = {
+export type TipptagEntry = {
   id: string;
   number: number;
   deadlineAt: Date;
@@ -22,23 +22,32 @@ export type UpcomingTipptag = {
 };
 
 /**
- * Nächste offene Tipptage einer Saison (deadline > jetzt), competitions-übergreifend.
+ * Tipptag-Chronik einer Saison, competitions-übergreifend: offene Tipptage
+ * (früheste Deadline zuerst) und abgelaufene (neueste zuerst) getrennt.
  * Reine Metadaten — Tipp-Fortschritt und Partien liefert getMatchdayTipMatrix (SSOT).
  */
-export async function getUpcomingTipptage(seasonId: string, limit = 6): Promise<UpcomingTipptag[]> {
+export async function getTipptagChronik(seasonId: string): Promise<{
+  upcoming: TipptagEntry[];
+  past: TipptagEntry[];
+}> {
   const matchdays = await prisma.matchday.findMany({
-    where: { deadlineAt: { gt: new Date() }, competition: { seasonId } },
-    orderBy: { deadlineAt: 'asc' },
-    take: limit,
+    where: { competition: { seasonId } },
+    orderBy: { deadlineAt: 'desc' },
     include: { competition: { select: { key: true, name: true } } },
   });
-  return matchdays.map((md) => ({
+  const map = (md: (typeof matchdays)[number]): TipptagEntry => ({
     id: md.id,
     number: md.number,
     deadlineAt: md.deadlineAt,
     competitionKey: md.competition.key,
     competitionName: md.competition.name,
-  }));
+  });
+  const now = Date.now();
+  const open = matchdays.filter((md) => md.deadlineAt.getTime() > now);
+  return {
+    upcoming: open.reverse().map(map),
+    past: matchdays.filter((md) => md.deadlineAt.getTime() <= now).map(map),
+  };
 }
 
 export type TipperStats = { total: number; tippers: number; admins: number };
@@ -65,7 +74,13 @@ export async function getTipperList() {
   });
 }
 
-export type TipMatrixFixture = { id: string; homeTeam: string; awayTeam: string; kickoff: Date };
+export type TipMatrixFixture = {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  kickoff: Date;
+  resultSource: ResultSource;
+};
 
 export type MatchdayTipMatrix = {
   total: number;
@@ -85,7 +100,7 @@ export async function getMatchdayTipMatrix(matchdayId: string): Promise<Matchday
     select: {
       fixtures: {
         orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }],
-        select: { id: true, homeTeam: true, awayTeam: true, kickoff: true },
+        select: { id: true, homeTeam: true, awayTeam: true, kickoff: true, resultSource: true },
       },
     },
   });

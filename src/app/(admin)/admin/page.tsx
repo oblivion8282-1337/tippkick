@@ -6,7 +6,7 @@ import {
   getMatchdayTipMatrix,
   getTipperList,
   getTipperStats,
-  getUpcomingTipptage,
+  getTipptagChronik,
 } from '@/lib/dashboard';
 import { COMPETITION_LABELS, COMPETITION_ORDER, COMPETITION_SHORT, ROLE_ADMIN, ROLE_USER } from '@/lib/constants';
 import { formatCountdown, formatDateTime, formatWeekdayTime } from '@/lib/datetime';
@@ -22,8 +22,12 @@ import { getSession } from '@/lib/session';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
 
-export default async function AdminHomePage({ searchParams }: { searchParams: Promise<{ season?: string }> }) {
-  const { season: seasonParam } = await searchParams;
+export default async function AdminHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ season?: string; filter?: string }>;
+}) {
+  const { season: seasonParam, filter: filterParam } = await searchParams;
   const seasons = await getSeasons();
 
   if (seasons.length === 0) {
@@ -56,17 +60,27 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
     );
   }
 
-  const [competitions, upcoming, tipperStats, tippers, session] = await Promise.all([
+  const [competitions, chronik, tipperStats, tippers, session] = await Promise.all([
     getCompetitionsOverview(season.id),
-    getUpcomingTipptage(season.id),
+    getTipptagChronik(season.id),
     getTipperStats(),
     getTipperList(),
     getSession(),
   ]);
   const compByKey = new Map(competitions.map((c) => [c.key, c]));
   const selfId = session?.user.id;
-  // Tipp-Matrix je anstehendem Tipptag (für die aufklappbare Deadlines-Liste).
-  const upcomingMatrix = await Promise.all(upcoming.map((u) => getMatchdayTipMatrix(u.id)));
+  // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
+  // Bei 'alle' nur die nächsten offenen Tipptage + komplette Historie, sonst wird die
+  // Liste bei 34 angelegten Tipptagen einer Saison unleserlich lang.
+  const filter: 'alle' | 'offen' | 'abgeschlossen' =
+    filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
+  const upcomingShown = filter === 'offen' ? chronik.upcoming : chronik.upcoming.slice(0, 3);
+  const entries = upcomingShown
+    .map((e) => ({ entry: e, past: false }))
+    .concat(chronik.past.map((e) => ({ entry: e, past: true })))
+    .filter((e) => (filter === 'abgeschlossen' ? e.past : true));
+  // Tipp-Matrix je Tipptag (für die aufklappbare Liste).
+  const matrices = await Promise.all(entries.map((e) => getMatchdayTipMatrix(e.entry.id)));
   const pending = tippers.filter((u) => !u.approved);
   const active = tippers.filter((u) => u.approved);
 
@@ -79,25 +93,47 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
         actions={<AdminSeasonPicker seasons={seasons} activeId={season.id} />}
       />
 
-      {/* Nächste Deadlines (competitions-übergreifend) */}
+      {/* Tipptag-Chronik: offene Deadlines + abgeschlossene Tipptage in einer Liste */}
       <Card>
-        <CardHeader className="border-border/40 border-b">
+        <CardHeader className="border-border/40 flex-row flex-wrap items-center justify-between gap-3 border-b">
           <CardTitle className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4" /> Nächste Deadlines
+            <CalendarClock className="h-4 w-4" /> Tipptage
           </CardTitle>
+          <nav className="flex items-center gap-1 text-xs" aria-label="Chronik filtern">
+            {(['alle', 'offen', 'abgeschlossen'] as const).map((f) => (
+              <Link
+                key={f}
+                href={`/admin?season=${season.id}${f === 'alle' ? '' : `&filter=${f}`}`}
+                aria-current={filter === f ? 'page' : undefined}
+                className={
+                  filter === f
+                    ? 'bg-primary text-primary-foreground rounded px-2.5 py-1 font-medium capitalize'
+                    : 'text-muted-foreground hover:bg-muted rounded px-2.5 py-1 capitalize'
+                }
+              >
+                {f}
+              </Link>
+            ))}
+          </nav>
         </CardHeader>
         <CardContent className="px-0 pt-0">
-          {upcoming.length === 0 ? (
+          {entries.length === 0 ? (
             <p className="text-muted-foreground px-6 py-8 text-sm">
-              Keine offenen Tipptage. Spieltage noch gruppieren?{' '}
-              <Link href="/admin/spieltage" className="text-primary underline">
-                Zur Gruppierung
-              </Link>
+              {chronik.upcoming.length === 0 && chronik.past.length === 0 ? (
+                <>
+                  Noch keine Tipptage. Spieltage gruppieren?{' '}
+                  <Link href="/admin/spieltage" className="text-primary underline">
+                    Zur Gruppierung
+                  </Link>
+                </>
+              ) : (
+                `Keine ${filter === 'offen' ? 'offenen' : 'abgeschlossenen'} Tipptage.`
+              )}
             </p>
           ) : (
             <div className="divide-border/40 divide-y">
-              {upcoming.map((u, i) => {
-                const matrix = upcomingMatrix[i];
+              {entries.map(({ entry: u, past }, i) => {
+                const matrix = matrices[i];
                 // Ein Durchlauf über die aktiven Tipper: Status + zusammenfassung.
                 const rows = active.map((t) => {
                   const cnt = matrix.tipsByUser.get(t.id)?.size ?? 0;
@@ -106,6 +142,7 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
                 });
                 const tippersTipped = rows.filter((r) => r.done).length;
                 const openCount = rows.length - tippersTipped;
+                const resultsDone = matrix.fixtures.filter((f) => f.resultSource !== 'NONE').length;
                 return (
                   <details key={u.id} className="group">
                     <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm [&::-webkit-details-marker]:hidden">
@@ -121,9 +158,23 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
                         {tippersTipped}/{active.length} vollständig
                         {openCount > 0 && <span className="text-destructive"> · {openCount} offen</span>}
                       </span>
-                      <span className="text-muted-foreground ml-auto tabular-nums">
-                        {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
-                      </span>
+                      {past ? (
+                        <span className="ml-auto flex flex-wrap items-center justify-end gap-3">
+                          {resultsDone < matrix.total && (
+                            <span className="text-amber-500 tabular-nums" title="Ergebnisse eintragen oder syncen">
+                              Ergebnisse {resultsDone}/{matrix.total}
+                            </span>
+                          )}
+                          <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs">
+                            abgeschlossen
+                          </span>
+                          <span className="text-muted-foreground tabular-nums">{formatDateTime(u.deadlineAt)}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground ml-auto tabular-nums">
+                          {formatCountdown(u.deadlineAt)} · {formatDateTime(u.deadlineAt)}
+                        </span>
+                      )}
                       <LinkButton href={`/admin/matchdays/${u.id}/auswertung`} size="sm" variant="outline">
                         <ClipboardList className="h-4 w-4" />
                         Auswertung
