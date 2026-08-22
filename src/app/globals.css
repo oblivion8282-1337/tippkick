@@ -65,36 +65,36 @@
   --card-foreground: oklch(0.94 0.008 90);
   --popover: oklch(0.19 0 0);
   --popover-foreground: oklch(0.94 0.008 90);
-  --primary: oklch(0.7 0.16 250); /* Azur-Blau */
+  --primary: oklch(0.92 0 0); /* monochrom: helles Grau-Weiss */
   --primary-foreground: oklch(0.135 0 0);
   --secondary: oklch(0.24 0 0);
   --secondary-foreground: oklch(0.94 0.008 90);
   --muted: oklch(0.22 0 0);
   --muted-foreground: oklch(0.68 0 0); /* gedämpftes Grau */
-  --accent: oklch(0.74 0.13 80); /* #D7B055 — Gold (Ocker) */
-  --accent-foreground: oklch(0.135 0.05 80);
+  --accent: oklch(0.8 0 0); /* monochrom: helles Grau */
+  --accent-foreground: oklch(0.135 0 0);
   --destructive: oklch(0.65 0.18 28); /* #E07263 */
   --border: oklch(0.28 0 0); /* dunkles Grau */
   --input: oklch(0.32 0 0);
-  --ring: oklch(0.7 0.16 250);
-  --chart-1: oklch(0.7 0.16 250);
-  --chart-2: oklch(0.74 0.13 80);
+  --ring: oklch(0.92 0 0);
+  --chart-1: oklch(0.92 0 0);
+  --chart-2: oklch(0.8 0 0);
   --chart-3: oklch(0.65 0.18 28);
   --chart-4: oklch(0.55 0 0);
   --chart-5: oklch(0.4 0 0);
   --radius: 0.45rem;
   --paper: oklch(0.19 0 0);
   --paper-foreground: oklch(0.94 0.008 90);
-  --pitch: oklch(0.7 0.16 250);
+  --pitch: oklch(0.92 0 0);
   --pitch-foreground: oklch(0.135 0 0);
   --sidebar: oklch(0.18 0 0);
   --sidebar-foreground: oklch(0.94 0.008 90);
-  --sidebar-primary: oklch(0.7 0.16 250);
+  --sidebar-primary: oklch(0.92 0 0);
   --sidebar-primary-foreground: oklch(0.135 0 0);
   --sidebar-accent: oklch(0.24 0 0);
   --sidebar-accent-foreground: oklch(0.94 0.008 90);
   --sidebar-border: oklch(0.28 0 0);
-  --sidebar-ring: oklch(0.6 0.02 250);
+  --sidebar-ring: oklch(0.6 0 0);
 }
 
 /* Heller Modus: wärmeres Off-White-Stage mit blauem Akzent — wer es hell mag. */
@@ -105,26 +105,26 @@
   --card-foreground: oklch(0.21 0 0);
   --popover: oklch(0.985 0.008 95);
   --popover-foreground: oklch(0.21 0 0);
-  --primary: oklch(0.52 0.16 250); /* Azur-Blau, dunkler */
+  --primary: oklch(0.25 0 0); /* monochrom: nahezu Schwarz */
   --primary-foreground: oklch(0.985 0.008 95);
   --secondary: oklch(0.92 0.018 90);
   --secondary-foreground: oklch(0.27 0 0);
   --muted: oklch(0.93 0.015 95);
   --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.72 0.13 80);
-  --accent-foreground: oklch(0.21 0.05 80);
+  --accent: oklch(0.45 0 0);
+  --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.5 0.16 28);
   --border: oklch(0.88 0.018 90);
   --input: oklch(0.84 0.02 88);
-  --ring: oklch(0.52 0.16 250);
-  --chart-1: oklch(0.52 0.16 250);
-  --chart-2: oklch(0.72 0.13 80);
+  --ring: oklch(0.25 0 0);
+  --chart-1: oklch(0.25 0 0);
+  --chart-2: oklch(0.45 0 0);
   --chart-3: oklch(0.5 0.16 28);
   --chart-4: oklch(0.65 0.04 250);
   --chart-5: oklch(0.4 0 0);
   --paper: oklch(0.985 0.008 95);
   --paper-foreground: oklch(0.21 0 0);
-  --pitch: oklch(0.52 0.16 250);
+  --pitch: oklch(0.25 0 0);
   --pitch-foreground: oklch(0.985 0.008 95);
   --sidebar: oklch(0.97 0.01 95);
   --sidebar-foreground: oklch(0.21 0 0);
@@ -177,13 +177,13 @@
     color 0.2s ease;
 }
 
-/* Selection in Blau — typografisches Detail. */
+/* Selection — monochromer Hover-Schleier. */
 ::selection {
-  background-color: oklch(0.7 0.16 250 / 0.4);
+  background-color: oklch(0.92 0 0 / 0.35);
   color: oklch(0.94 0.008 90);
 }
 .light ::selection {
-  background-color: oklch(0.52 0.16 250 / 0.25);
+  background-color: oklch(0.25 0 0 / 0.2);
   color: oklch(0.21 0 0);
 }
 
