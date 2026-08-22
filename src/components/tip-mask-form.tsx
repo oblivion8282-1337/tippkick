@@ -274,19 +274,33 @@ function FixtureRow({
         complete && 'bg-pitch/[0.06] dark:bg-pitch/[0.08]',
       )}
     >
-      {/* Mobil: beide Vereine untereinander, KOMPLETT ohne truncierte Namen —
-          zwei Namen passen nebeneinander auf 375px einfach nicht. */}
-      <div className="mb-2 sm:hidden">
-        <p className="text-base leading-snug font-medium">
-          {fixture.homeTeam}
-          <span className="text-muted-foreground font-mono font-light"> :</span>
-        </p>
-        <p className="text-base leading-snug font-medium">{fixture.awayTeam}</p>
-      </div>
+      {/* Mobil: Vereinsname und zugehoeriges Tipp-Feld in EINER Zeile — die
+          Zuordnung ist eindeutig (wie von Wett-Apps gewohnt). */}
       <span className="hidden truncate text-right text-base font-medium sm:block sm:text-lg">
         {fixture.homeTeam}
       </span>
-      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+      {/* Mobil: Name links, Feld rechts — pro Partie zwei solcher Zeilen. */}
+      <div className="flex items-center justify-between gap-3 sm:hidden">
+        <span className="min-w-0 flex-1 truncate text-base font-medium">{fixture.homeTeam}</span>
+        <TipInput
+          value={home}
+          disabled={disabled}
+          placeholder="–"
+          onChange={(v) => onChange('home', v)}
+          aria-label={`Tipp ${fixture.homeTeam}`}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-3 border-t border-border/40 pt-1.5 sm:hidden">
+        <span className="min-w-0 flex-1 truncate text-base font-medium">{fixture.awayTeam}</span>
+        <TipInput
+          value={away}
+          disabled={disabled}
+          placeholder="–"
+          onChange={(v) => onChange('away', v)}
+          aria-label={`Tipp ${fixture.awayTeam}`}
+        />
+      </div>
+      <div className="hidden items-center gap-1.5 sm:flex sm:gap-2">
         <TipInput
           value={home}
           disabled={disabled}
