@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LayoutDashboard, Shield } from 'lucide-react';
 
 import { LinkButton } from '@/components/link-button';
 import { UserMenu } from '@/components/user-menu';
@@ -33,19 +34,24 @@ export function AppNav({
           <LinkButton
             href="/dashboard"
             variant="ghost"
-            className={`hidden sm:inline-flex ${active('/dashboard') ? 'bg-primary/15 text-primary' : ''}`}
+            className={`${active('/dashboard') ? 'bg-primary/15 text-primary' : ''} px-2 sm:px-3`}
             aria-current={active('/dashboard') ? 'page' : undefined}
+            aria-label="Dashboard"
           >
-            Dashboard
+            {/* Mobil nur Icon, ab sm mit Text — Navigation darf auf Handy nicht fehlen */}
+            <LayoutDashboard className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Dashboard</span>
           </LinkButton>
           {isAdmin && (
             <LinkButton
               href="/admin"
               variant="ghost"
-              className={`hidden sm:inline-flex ${active('/admin') ? 'bg-primary/15 text-primary' : ''}`}
+              className={`${active('/admin') ? 'bg-primary/15 text-primary' : ''} px-2 sm:px-3`}
               aria-current={active('/admin') ? 'page' : undefined}
+              aria-label="Admin"
             >
-              Admin
+              <Shield className="h-4 w-4 sm:hidden" />
+              <span className="hidden sm:inline">Admin</span>
             </LinkButton>
           )}
           <div className="bg-border/60 mx-1 hidden h-7 w-px sm:mx-2 sm:block" aria-hidden="true" />
