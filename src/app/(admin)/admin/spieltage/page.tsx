@@ -94,11 +94,11 @@ export default async function SpieltagePage({
         <GroupingProposalCard proposal={proposal} competitionId={proposalCompetition.id} seasonId={season.id} />
       )}
 
-      {/* Tabs: Spieltage / Tipptage */}
+      {/* Tabs: Zuordnung (Liga-Spieltage auf Tipptage verteilen) / Tipptage */}
       <nav className="border-border/40 flex gap-1 border-b" aria-label="Spieltage-Bereiche">
         {(
           [
-            ['spieltage', `Spieltage (${rounds.length})`],
+            ['spieltage', `Zuordnung (${rounds.length} Spieltage)`],
             ['tipptage', `Tipptage (${tipptagStats.length})`],
           ] as const
         ).map(([key, label]) => (
