@@ -1,0 +1,94 @@
+# Produktiv-Stack (Hetzner „Oblivion“): App + eigene Postgres + Cron-Sidecar.
+# Migrationen/Seed laufen ONCE über das tools-Profil (Build-Stage-Image):
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    image: tippkick-app:local
+    container_name: tippkick_app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tippkick}:${POSTGRES_PASSWORD:?set}@db:5432/${POSTGRES_DB:-tippkick}
+      AUTH_SECRET: ${AUTH_SECRET:?set}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?set}
+      CRON_SECRET: ${CRON_SECRET:?set}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tippkick-net
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:3000/api/auth/ok || true']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:17-alpine
+    container_name: tippkick_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tippkick}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set}
+      POSTGRES_DB: ${POSTGRES_DB:-tippkick}
+    volumes:
+      - tippkick-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tippkick} -d ${POSTGRES_DB:-tippkick}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tippkick-net
+
+  # OpenLigaDB-Sync alle 15 Min — außen am App-Container vorbei direkt an die
+  # geschützte Cron-Route (Bearer CRON_SECRET).
+  cron:
+    image: alpine:3.20
+    container_name: tippkick_cron
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set}
+    command: >
+      sh -c 'while true; do
+        wget -q -O- --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/sync-results >/dev/null 2>&1 || true;
+        sleep 900;
+      done'
+    networks:
+      - tippkick-net
+
+  # Einmalig: Migrationen + Admin-Seed (idempotent). Nutzt die Build-Stage mit
+  # vollem node_modules, damit prisma/tsx verfuegbar sind.
+  migrate:
+    profiles: ['tools']
+    build:
+      context: .
+      target: build
+    image: tippkick-tools:local
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tippkick}:${POSTGRES_PASSWORD:?set}@db:5432/${POSTGRES_DB:-tippkick}
+      AUTH_SECRET: ${AUTH_SECRET:?set}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?set}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    command: sh -c "pnpm exec prisma migrate deploy && pnpm db:seed"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tippkick-net
+
+networks:
+  tippkick-net:
+    name: tippkick-net
+volumes:
+  tippkick-db-data:

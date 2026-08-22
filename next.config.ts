@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Slim-Docker-Image: Server + minimale node_modules nach .next/standalone.
+  output: 'standalone',
   async headers() {
     return [
       {
