@@ -78,10 +78,13 @@ export default async function AdminHomePage({
   // Tab-Navigation (serverseitig per URL-Parameter, wie der Chronik-Filter).
   const tab: 'tipptage' | 'wettbewerbe' | 'tipper' =
     tabParam === 'wettbewerbe' || tabParam === 'tipper' ? tabParam : 'tipptage';
-  const tabHref = (t: string) => `/admin?season=${season.id}&tab=${t}`;
+  const tabHref = (t: string) =>
+    `/admin?season=${season.id}&tab=${t}${filter !== 'alle' ? `&filter=${filter}` : ''}`;
   // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
   const filter: 'alle' | 'offen' | 'abgeschlossen' =
     filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
+  const filterHref = (f: string) =>
+    `/admin?season=${season.id}&tab=tipptage${f === 'alle' ? '' : `&filter=${f}`}`;
   // Abgeschlossene Tipptage zuerst (neueste zuerst — erledigte Arbeit direkt im Blick),
   // darunter die offenen (nächste Deadline zuerst).
   const entries = chronik.past
@@ -137,7 +140,7 @@ export default async function AdminHomePage({
             {(['alle', 'offen', 'abgeschlossen'] as const).map((f) => (
               <Link
                 key={f}
-                href={`/admin?season=${season.id}${f === 'alle' ? '' : `&filter=${f}`}`}
+                href={filterHref(f)}
                 aria-current={filter === f ? 'page' : undefined}
                 className={
                   filter === f

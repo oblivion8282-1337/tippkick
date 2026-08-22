@@ -290,13 +290,19 @@ async function emergencyQuotaLeft(
   userIds: string[],
 ): Promise<Set<string>> {
   const halfStart = matchday.number <= HINRUUNDE_MAX_TIPPTAG ? 1 : HINRUUNDE_MAX_TIPPTAG + 1;
-  const earlier = await prisma.matchday.findMany({
+  // Nur Tipptage zählen, die tatsächlich relevant waren: Deadline verstrichen
+  // (Nummerierung ≠ Zeitordnung — nachträglich gruppierte Tipptage könnten früher
+  // nummeriert, aber noch offen sein) UND mindestens eine Partie (leere Tipptage
+  // sind für niemanden tippbar und dürfen kein Kontingent verbrauchen).
+  const earlierAll = await prisma.matchday.findMany({
     where: {
       competitionId: matchday.competitionId,
       number: { gte: halfStart, lt: matchday.number },
+      deadlineAt: { lt: new Date() },
     },
-    select: { id: true },
+    select: { id: true, sections: { select: { fixtures: { select: { id: true }, take: 1 } } } },
   });
+  const earlier = earlierAll.filter((m) => m.sections.some((s) => s.fixtures.length > 0));
   if (earlier.length === 0 || userIds.length === 0) {
     return new Set(userIds);
   }

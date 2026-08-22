@@ -9,11 +9,27 @@ const MIN_GOALS = 0;
 const MAX_GOALS = 99;
 
 function parseGoals(value: FormDataEntryValue | null): number {
+  // Number(null)/Number('') wären 0 — leere Felder müssen aber auffallen.
+  if (value === null || String(value).trim() === '') {
+    throw new Error('Ungültige Torzahl');
+  }
   const n = Number(value);
   if (!Number.isInteger(n) || n < MIN_GOALS || n > MAX_GOALS) {
     throw new Error('Ungültige Torzahl');
   }
   return n;
+}
+
+/** Die in der aktiven Saison tatsächlich existierenden Mannschaften. */
+async function seasonTeams(): Promise<Set<string>> {
+  const { getManageableSeason } = await import('@/lib/matchdays');
+  const season = await getManageableSeason();
+  if (!season) return new Set();
+  const fixtures = await prisma.fixture.findMany({
+    where: { section: { competition: { seasonId: season.id } } },
+    select: { homeTeam: true, awayTeam: true },
+  });
+  return new Set(fixtures.flatMap((f) => [f.homeTeam, f.awayTeam]));
 }
 
 /** Notfalltipp-Grundregel speichern (legt EmergencyTip-Zeile bei Bedarf an). */
@@ -35,7 +51,7 @@ export async function addEmergencyRuleAction(formData: FormData): Promise<void> 
   const teamName = String(formData.get('teamName') ?? '').trim();
   const goalsFor = parseGoals(formData.get('goalsFor'));
   const goalsAgainst = parseGoals(formData.get('goalsAgainst'));
-  if (!teamName || teamName.length > 100) {
+  if (!teamName || teamName.length > 100 || !(await seasonTeams()).has(teamName)) {
     throw new Error('Ungültige Mannschaft');
   }
   const tip = await prisma.emergencyTip.upsert({

@@ -1,12 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { CreateSeasonForm } from '@/components/create-season-form';
 
 /**
  * Saison-Auswahl fürs Admin-Dashboard: Dropdown wechselt die Saison per
  * ?season=-Query (zurück in alte Saisons springen); „Neue Saison" legt eine an.
+ * Tab- und Filter-Parameter bleiben beim Wechsel erhalten.
  */
 export function AdminSeasonPicker({
   seasons,
@@ -16,12 +17,19 @@ export function AdminSeasonPicker({
   activeId: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function switchSeason(seasonId: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('season', seasonId);
+    router.push(`/admin?${params.toString()}`);
+  }
 
   return (
     <div className="flex items-center gap-2">
       <select
         defaultValue={activeId}
-        onChange={(e) => router.push(`/admin?season=${e.target.value}`)}
+        onChange={(e) => switchSeason(e.target.value)}
         className="border-input bg-background h-8 rounded-md border px-2 text-sm"
         aria-label="Saison wählen"
       >
