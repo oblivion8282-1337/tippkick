@@ -186,7 +186,9 @@ function WeekendHero({
           {/* Tipptag + Pfeile zum Schalten (flankierend) */}
           <div className="flex items-center gap-3">
             <TipptagArrow dir="prev" target={prevNumber} />
-            <h2 className="font-display text-5xl font-semibold tracking-tight sm:text-7xl">
+            {/* whitespace-nowrap: „2. Tipptag" muss EINZEILIG bleiben — der Umbruch
+                zwischen Zahl und Wort zerreißt die Überschrift auf schmalen Screens. */}
+            <h2 className="font-display text-4xl font-semibold tracking-tight whitespace-nowrap sm:text-7xl">
               {md.number}. <span className="text-muted-foreground font-display font-normal">Tipptag</span>
             </h2>
             <TipptagArrow dir="next" target={nextNumber} />
