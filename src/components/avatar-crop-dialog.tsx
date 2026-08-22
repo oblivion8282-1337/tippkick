@@ -140,7 +140,7 @@ export function AvatarCropDialog({
 
   return (
     <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur">
-      <div className="bg-card border-border w-full max-w-sm rounded-xl border p-6 shadow-xl">
+      <div className="bg-card border-border w-full max-w-sm rounded-xl border p-4 shadow-xl sm:p-6">
         <h2 className="mb-1 text-lg font-semibold">Profilbild zuschneiden</h2>
         <p className="text-muted-foreground mb-5 text-sm">
           Bild verschieben und zoomen — der Kreis zeigt den Ausschnitt.
@@ -190,7 +190,7 @@ export function AvatarCropDialog({
           />
         </label>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="ghost" size="sm" onClick={() => setPos({ x: 0, y: 0 })}>
             <RotateCcw className="h-4 w-4" /> Zurücksetzen
           </Button>
