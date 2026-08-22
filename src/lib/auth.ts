@@ -14,8 +14,11 @@ import { sendMail } from './email';
  * - Prisma-Adapter: Auth-Tabellen leben in derselben Postgres-DB
  */
 // Prod-Fail-fast: ohne AUTH_SECRET wären Session-Cookies mit better-auths
-// bekanntem Default-Secret fälschbar; ohne APP_URL zeigten Mail-Links auf localhost.
-if (process.env.NODE_ENV === 'production') {
+// bekanntem Default-Secret fälschbar; ohne APP_URL zeigen Mail-Links auf localhost.
+// Nicht beim Build (NEXT_PHASE=phase-production-build): dort ist NODE_ENV schon
+// 'production', Secrets kommen aber erst zur Laufzeit aus dem Compose-Env.
+const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+if (process.env.NODE_ENV === 'production' && !isBuild) {
   if (!process.env.AUTH_SECRET) {
     throw new Error('AUTH_SECRET ist in production nicht gesetzt');
   }
