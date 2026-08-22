@@ -65,6 +65,8 @@ export default async function SpieltagePage({
   // Vorschlag nur berechnen, wenn er auch angezeigt wird (eigene Queries).
   const proposalCompetition = vorschlag ? competitions.find((c) => c.id === vorschlag) : undefined;
   const proposal = proposalCompetition ? await getGroupingProposal(proposalCompetition.id) : null;
+  // Kurzname des Wettbewerbs („Bundesliga (1. + 2. Liga)“ → „Bundesliga“) für Breadcrumb & Titel.
+  const competitionName = competitions[0]?.name.split(' (')[0] ?? 'Wettbewerb';
 
   // Spieltage nach Woche clustern (Datumssortierung bleibt erhalten).
   const clusters: { key: string; rows: typeof rounds }[] = [];
@@ -85,9 +87,12 @@ export default async function SpieltagePage({
     <div className="space-y-8">
       <div className="space-y-3">
         <Breadcrumb
-          items={[{ label: 'Admin', href: `/admin?season=${season.id}` }, { label: 'Spieltage & Tipptage' }]}
+          items={[
+            { label: 'Admin', href: `/admin?season=${season.id}` },
+            { label: `${competitionName} ${season.name}` },
+          ]}
         />
-        <PageHeader title={`${season.name} · Spieltage & Tipptage`} />
+        <PageHeader title={`${competitionName} ${season.name} · Tipptage & Zuordnung`} />
       </div>
 
       {proposal && proposalCompetition && (
