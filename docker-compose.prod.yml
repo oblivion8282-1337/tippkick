@@ -59,7 +59,7 @@ services:
       CRON_SECRET: ${CRON_SECRET:?set}
     command: >
       sh -c 'while true; do
-        wget -q -O- --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/sync-results >/dev/null 2>&1 || true;
+        wget -q -O- --post-data="" --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/sync-results >/dev/null 2>&1 || true;
         sleep 900;
       done'
     networks:
