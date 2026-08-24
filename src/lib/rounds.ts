@@ -29,9 +29,9 @@ export type RoundRow = Prisma.MatchdaySectionGetPayload<{ include: typeof roundO
  * Tipptag und Partien (für die aufklappbare Detailansicht). Die Early-L2-only-Phase
  * zeigt sich von selbst, da BL-Sections erst später beginnen.
  */
-export async function getRoundOverview(seasonId: string): Promise<RoundRow[]> {
+export async function getRoundOverview(competitionId: string): Promise<RoundRow[]> {
   return prisma.matchdaySection.findMany({
-    where: { competition: { seasonId } },
+    where: { competitionId },
     include: roundOverviewInclude,
     orderBy: [{ startDate: 'asc' }, { league: 'asc' }, { number: 'asc' }],
   });
@@ -39,10 +39,10 @@ export async function getRoundOverview(seasonId: string): Promise<RoundRow[]> {
 
 /** Alle Tipptage (Matchdays) einer Saison als Zuordnungsoptionen, sortiert nach Nummer. */
 export async function getTipptageOverview(
-  seasonId: string,
+  competitionId: string,
 ): Promise<{ id: string; number: number; competitionId: string }[]> {
   return prisma.matchday.findMany({
-    where: { competition: { seasonId } },
+    where: { competitionId },
     orderBy: { number: 'asc' },
     select: { id: true, number: true, competitionId: true },
   });
@@ -67,9 +67,9 @@ export type TipptagListItem = {
  * schon durch ist. Gerade die abgeschlossenen Tipptage sind sonst nirgends
  * erreichbar — „Nächste Deadlines" zeigt nur die offenen.
  */
-export async function getTipptageWithStats(seasonId: string): Promise<TipptagListItem[]> {
+export async function getTipptageWithStats(competitionId: string): Promise<TipptagListItem[]> {
   const matchdays = await prisma.matchday.findMany({
-    where: { competition: { seasonId } },
+    where: { competitionId },
     orderBy: { number: 'asc' },
     select: {
       id: true,

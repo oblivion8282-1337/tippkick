@@ -31,9 +31,9 @@ function weekKey(date: Date): string {
 export default async function SpieltagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ season?: string; vorschlag?: string; tab?: string }>;
+  searchParams: Promise<{ season?: string; competition?: string; vorschlag?: string; tab?: string }>;
 }) {
-  const { season: seasonParam, vorschlag, tab: tabParam } = await searchParams;
+  const { season: seasonParam, competition: competitionParam, vorschlag, tab: tabParam } = await searchParams;
   const [seasons, manageable] = await Promise.all([getSeasons(), getManageableSeason()]);
 
   if (seasons.length === 0 || !manageable) {
@@ -55,18 +55,39 @@ export default async function SpieltagePage({
   // Gewählte Saison (aus Query) oder die vom System vorgeschlagene.
   const season = seasons.find((s) => s.id === seasonParam) ?? manageable;
 
-  const [rounds, tipptage, tipptagStats, competitions] = await Promise.all([
-    getRoundOverview(season.id),
-    getTipptageOverview(season.id),
-    getTipptageWithStats(season.id),
-    getCompetitionsAdmin(season.id),
+  const competitions = await getCompetitionsAdmin(season.id);
+  if (competitions.length === 0) {
+    return (
+      <div className="space-y-8">
+        <Breadcrumb items={[{ label: 'Wettbewerbe', href: `/admin?season=${season.id}&tab=wettbewerbe` }]} />
+        <PageHeader title="Tipptage & Zuordnung" />
+        <Card>
+          <CardContent className="text-muted-foreground py-8 text-sm">
+            Für Saison {season.name} existiert noch kein Wettbewerb.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Diese Seite ist eine UNTERSEITE des jeweiligen Wettbewerbs: Auswahl per
+  // ?competition=, Fallback der erste aktive (mit OpenLigaDB-Quelle).
+  const competition =
+    competitions.find((c) => c.id === competitionParam) ??
+    competitions.find((c) => c.sourceShortcuts.length > 0) ??
+    competitions[0];
+
+  const [rounds, tipptage, tipptagStats] = await Promise.all([
+    getRoundOverview(competition.id),
+    getTipptageOverview(competition.id),
+    getTipptageWithStats(competition.id),
   ]);
 
   // Vorschlag nur berechnen, wenn er auch angezeigt wird (eigene Queries).
   const proposalCompetition = vorschlag ? competitions.find((c) => c.id === vorschlag) : undefined;
   const proposal = proposalCompetition ? await getGroupingProposal(proposalCompetition.id) : null;
   // Kurzname des Wettbewerbs („Bundesliga (1. + 2. Liga)“ → „Bundesliga“) für Breadcrumb & Titel.
-  const competitionName = competitions[0]?.name.split(' (')[0] ?? 'Wettbewerb';
+  const competitionName = competition.name.split(' (')[0] ?? 'Wettbewerb';
 
   // Spieltage nach Woche clustern (Datumssortierung bleibt erhalten).
   const clusters: { key: string; rows: typeof rounds }[] = [];
@@ -88,11 +109,14 @@ export default async function SpieltagePage({
       <div className="space-y-3">
         <Breadcrumb
           items={[
-            { label: 'Admin', href: `/admin?season=${season.id}` },
+            { label: 'Wettbewerbe', href: `/admin?season=${season.id}&tab=wettbewerbe` },
             { label: `${competitionName} ${season.name}` },
           ]}
         />
-        <PageHeader title={`${competitionName} ${season.name} · Tipptage & Zuordnung`} />
+        {/* Titel nur der aktiven Unterseite — nicht beides (Nutzer-Wunsch). */}
+        <PageHeader
+          title={`${competitionName} ${season.name} · ${tab === 'zuordnung' ? 'Zuordnung' : 'Tipptage'}`}
+        />
       </div>
 
       {proposal && proposalCompetition && (
@@ -100,7 +124,8 @@ export default async function SpieltagePage({
       )}
 
       {/* Tabs: Tipptage / Zuordnung (Liga-Spieltage auf Tipptage verteilen) */}
-      <nav className="border-border/40 flex gap-1 border-b" aria-label="Spieltage-Bereiche">
+      {/* Desktop regelt die Sidebar (Tipptage/Zuordnung als Unterpunkte) — Tabs nur noch mobil */}
+      <nav className="border-border/40 flex gap-1 overflow-x-auto border-b lg:hidden" aria-label="Spieltage-Bereiche">
         {(
           [
             ['tipptage', `Tipptage (${tipptagStats.length})`],
@@ -109,7 +134,7 @@ export default async function SpieltagePage({
         ).map(([key, label]) => (
           <Link
             key={key}
-            href={`/admin/spieltage?season=${season.id}${key === 'zuordnung' ? '&tab=zuordnung' : ''}`}
+            href={`/admin/spieltage?season=${season.id}&competition=${competition.id}${key === 'zuordnung' ? '&tab=zuordnung' : ''}`}
             aria-current={tab === key ? 'page' : undefined}
             className={
               tab === key
@@ -133,7 +158,7 @@ export default async function SpieltagePage({
             </CardTitle>
             {competitions.length > 0 && !proposal && (
               <LinkButton
-                href={{ query: { season: season.id, vorschlag: competitions[0].id } }}
+                href={{ query: { season: season.id, competition: competition.id, vorschlag: competition.id } }}
                 size="sm"
                 variant="outline"
               >
@@ -143,7 +168,7 @@ export default async function SpieltagePage({
             )}
             {competitions.length > 0 && (
               <form action={createTipptagAction} className="flex items-center gap-2">
-                <input type="hidden" name="competitionId" value={competitions[0].id} />
+                <input type="hidden" name="competitionId" value={competition.id} />
                 <Label htmlFor="count" className="text-muted-foreground text-xs whitespace-nowrap">
                   Tipptage anlegen:
                 </Label>

@@ -202,7 +202,7 @@ export default async function AdminHomePage({
                         {c._count.matchdays} Tipptage · {c._count.sections} Spieltage importiert
                       </span>
                       <LinkButton
-                        href={`/admin/spieltage?season=${season.id}`}
+                        href={`/admin/spieltage?season=${season.id}&competition=${c.id}`}
                         size="icon-sm"
                         className="ml-auto"
                         aria-label={`${COMPETITION_LABELS[key]} öffnen`}
