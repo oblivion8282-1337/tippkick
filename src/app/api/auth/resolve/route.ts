@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { prisma } from '@/lib/prisma';
 import { resolveLoginIdentifier } from '@/lib/resolve-login';
 
 /**
@@ -16,5 +17,9 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
-  return NextResponse.json({ email: user.email });
+  const hasPassword = await prisma.account.findFirst({
+    where: { userId: user.id, providerId: 'credential' },
+    select: { id: true },
+  });
+  return NextResponse.json({ email: user.email, hasPassword: Boolean(hasPassword) });
 }

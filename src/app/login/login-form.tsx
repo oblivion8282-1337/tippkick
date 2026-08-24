@@ -1,20 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { AuthShell } from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+/**
+ * EIN Formular für alles: Name (oder E-Mail) + Passwort.
+ * - Konto ohne Passwort → die Eingabe SETZT das Passwort (Erstaktivierung) und
+ *   loggt direkt ein.
+ * - Konto mit Passwort → ganz normale Anmeldung.
+ */
 export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
-  const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  // Redirect-Grund vom (app)-Layout (requireUser): stummes Bounce vermeiden.
   const [error, setError] = useState<string | null>(gateMessage);
   const [pending, setPending] = useState(false);
 
@@ -23,35 +26,59 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
     setError(null);
     setPending(true);
 
-    // Login mit Tipper-Name ODER E-Mail: better-auth braucht die E-Mail —
-    // ein Name wird hier serverseitig aufgeloest ( Fall ohne '@').
-    let email = identifier;
-    if (!identifier.includes('@')) {
-      const res = await fetch('/api/auth/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier }),
-      });
-      if (!res.ok) {
-        setPending(false);
-        setError('Kein Zugang für diesen Namen gefunden.');
+    try {
+      // 1) Identifikation: Name → E-Mail (better-auth meldet mit E-Mail an).
+      let email = identifier;
+      let hasPassword = true;
+      if (identifier.includes('@')) {
+        email = identifier.toLowerCase();
+        // E-Mail-Pfad: direkte Anmeldung; ohne Passwort bleibt die Aktivierung
+        // bewusst dem Name-Pfad vorbehalten (Neuregistrierung via /register).
+      } else {
+        const res = await fetch('/api/auth/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier }),
+        });
+        if (!res.ok) {
+          setError('Kein Zugang für diesen Namen gefunden. Bitte wende dich an die Tippleitung.');
+          return;
+        }
+        ({ email, hasPassword } = (await res.json()) as { email: string; hasPassword: boolean });
+      }
+
+      // 2) Ohne Passwort: Eingabe setzt das Erstpasswort, danach anmelden.
+      if (!hasPassword) {
+        const activate = await fetch('/api/auth/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier, password }),
+        });
+        if (!activate.ok) {
+          const data = (await activate.json().catch(() => ({}))) as { error?: string };
+          setError(data.error ?? 'Passwort konnte nicht gesetzt werden.');
+          return;
+        }
+      }
+
+      // 3) Anmelden.
+      const { error } = await authClient.signIn.email({ email, password });
+      if (error) {
+        setError(
+          hasPassword
+            ? 'Login fehlgeschlagen — bitte Passwort prüfen.'
+            : 'Login fehlgeschlagen. Bitte versuche es erneut.',
+        );
         return;
       }
-      email = ((await res.json()) as { email: string }).email;
+      window.location.href = '/dashboard';
+    } finally {
+      setPending(false);
     }
-    const { error } = await authClient.signIn.email({ email, password });
-    setPending(false);
-
-    if (error) {
-      setError(error.message ?? 'Login fehlgeschlagen.');
-      return;
-    }
-    router.push('/dashboard');
-    router.refresh();
   }
 
   return (
-    <AuthShell eyebrow="Willkommen zurück" title="Einloggen" subtitle="Setze deine Tipps fürs Wochenende.">
+    <AuthShell eyebrow="Willkommen zurück" title="Einloggen" subtitle="Tipper-Name und Passwort.">
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="identifier">Tipper-Name oder E-Mail</Label>
@@ -69,7 +96,9 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
             id="password"
             type="password"
             required
+            minLength={MIN_PASSWORD_LENGTH}
             autoComplete="current-password"
+            placeholder="Noch kein Passwort? Diese Eingabe setzt es."
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -84,19 +113,10 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
         <Button
           type="submit"
           disabled={pending}
-          className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0.5_0.11_152/0.6)]"
+          className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0_0_0/0.6)]"
         >
-          {pending ? 'Einloggen …' : 'Einloggen'}
+          {pending ? 'Moment …' : 'Einloggen'}
         </Button>
-
-        <div className="text-muted-foreground flex flex-col gap-1 pt-2 text-sm">
-          <Link href="/forgot-password" className="hover:text-foreground hover:underline">
-            Passwort vergessen?
-          </Link>
-          <Link href="/register" className="hover:text-foreground hover:underline">
-            Noch kein Konto? Jetzt registrieren.
-          </Link>
-        </div>
       </form>
     </AuthShell>
   );
