@@ -27,6 +27,12 @@ if (process.env.NODE_ENV === 'production' && !isBuild) {
   }
 }
 
+// E-Mail-Verifizierung nur, wenn Mails auch wirklich versendet werden koennen.
+// Ohne SMTP (Anfangsbetrieb) bleibt die Registrierung offen; die Freischaltung
+// durch die Tippleitung ist dann die einzige und ausreichende Huerde. Sobald
+// SMTP_HOST konfiguriert wird, verifizieren neue Registrierungen automatisch.
+const smtpReady = Boolean(process.env.SMTP_HOST);
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
@@ -35,7 +41,7 @@ export const auth = betterAuth({
   secret: process.env.AUTH_SECRET,
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true, // erst nach Klick auf den Verifizierungs-Link einloggen
+    requireEmailVerification: smtpReady, // erst nach Klick auf den Verifizierungs-Link einloggen
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
