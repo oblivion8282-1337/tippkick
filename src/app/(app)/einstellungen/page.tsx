@@ -61,6 +61,7 @@ export default async function EinstellungenPage({
           initialName={session.user.name ?? ''}
           initialEmail={session.user.email}
           initialImage={session.user.image ?? null}
+          emailVerificationRequired={Boolean(process.env.SMTP_HOST)}
         />
       ) : (
         <EmergencyTipCard emergency={emergency} teams={teams} />

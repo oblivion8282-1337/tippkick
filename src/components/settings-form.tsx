@@ -17,16 +17,18 @@ export function SettingsForm({
   initialName,
   initialEmail,
   initialImage,
+  emailVerificationRequired,
 }: {
   initialName: string;
   initialEmail: string;
   initialImage: string | null;
+  emailVerificationRequired: boolean;
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <AvatarCard initialImage={initialImage} initialName={initialName} />
       <NameCard initialName={initialName} />
-      <EmailCard initialEmail={initialEmail} />
+      <EmailCard initialEmail={initialEmail} verificationRequired={emailVerificationRequired} />
       <PasswordCard />
     </div>
   );
@@ -181,7 +183,14 @@ function AvatarCard({ initialImage, initialName }: { initialImage: string | null
   );
 }
 
-function EmailCard({ initialEmail }: { initialEmail: string }) {
+function EmailCard({
+  initialEmail,
+  verificationRequired,
+}: {
+  initialEmail: string;
+  verificationRequired: boolean;
+}) {
+  const router = useRouter();
   const [email, setEmail] = useState(initialEmail);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -192,13 +201,32 @@ function EmailCard({ initialEmail }: { initialEmail: string }) {
     setPending(true);
     setMessage(null);
     setIsError(false);
-    const { error } = await authClient.changeEmail({ newEmail: email });
+    // Mit SMTP: better-auth-Flow mit Bestaetigungsmail. Ohne SMTP: direkt
+    // speichern (Server-Route prueft Session, Format und Eindeutigkeit).
+    if (verificationRequired) {
+      const { error } = await authClient.changeEmail({ newEmail: email });
+      setPending(false);
+      if (error) {
+        setIsError(true);
+        setMessage(error.message ?? 'Fehler.');
+      } else {
+        setMessage('Bestätigungs-Mail an die neue Adresse geschickt.');
+      }
+      return;
+    }
+    const res = await fetch('/api/auth/change-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newEmail: email }),
+    });
     setPending(false);
-    if (error) {
-      setIsError(true);
-      setMessage(error.message ?? 'Fehler.');
+    if (res.ok) {
+      setMessage('E-Mail-Adresse gespeichert.');
+      router.refresh();
     } else {
-      setMessage('Bestätigungs-Mail an die neue Adresse geschickt.');
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setIsError(true);
+      setMessage(data.error ?? 'Fehler.');
     }
   }
 
@@ -209,7 +237,11 @@ function EmailCard({ initialEmail }: { initialEmail: string }) {
           <Mail className="text-pitch h-4 w-4" />
           E-Mail-Adresse
         </CardTitle>
-        <CardDescription>Änderung muss per Mail bestätigt werden.</CardDescription>
+        <CardDescription>
+          {verificationRequired
+            ? 'Änderung muss per Mail bestätigt werden.'
+            : 'Zum Einloggen nutzbar — wird sofort gespeichert.'}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-3">
