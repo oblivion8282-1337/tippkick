@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 
 export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   // Redirect-Grund vom (app)-Layout (requireUser): stummes Bounce vermeiden.
   const [error, setError] = useState<string | null>(gateMessage);
@@ -23,6 +23,22 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
     setError(null);
     setPending(true);
 
+    // Login mit Tipper-Name ODER E-Mail: better-auth braucht die E-Mail —
+    // ein Name wird hier serverseitig aufgeloest ( Fall ohne '@').
+    let email = identifier;
+    if (!identifier.includes('@')) {
+      const res = await fetch('/api/auth/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier }),
+      });
+      if (!res.ok) {
+        setPending(false);
+        setError('Kein Zugang für diesen Namen gefunden.');
+        return;
+      }
+      email = ((await res.json()) as { email: string }).email;
+    }
     const { error } = await authClient.signIn.email({ email, password });
     setPending(false);
 
@@ -38,14 +54,13 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
     <AuthShell eyebrow="Willkommen zurück" title="Einloggen" subtitle="Setze deine Tipps fürs Wochenende.">
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="email">E-Mail</Label>
+          <Label htmlFor="identifier">Tipper-Name oder E-Mail</Label>
           <Input
-            id="email"
-            type="email"
+            id="identifier"
             required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
           />
         </div>
         <div className="space-y-2">

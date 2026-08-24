@@ -11,44 +11,60 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LinkButton } from '@/components/link-button';
 
-export function RegisterForm({ verificationRequired }: { verificationRequired: boolean }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+/**
+ * Zugang aktivieren oder anlegen. Zwei Wege über EIN Formular:
+ * 1. Tippleitung hat das Konto vorbereitet (ohne Passwort) → hier Erstpasswort
+ *    setzen (Identifikation per Name ODER E-Mail) — der Regelfall im Verein.
+ * 2. Komplett neue E-Mail → klassische Registrierung (wartet auf Freischaltung).
+ */
+export function RegisterForm() {
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState(false);
+  const [doneName, setDoneName] = useState<string | null>(null);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setPending(true);
 
-    const { error } = await authClient.signUp.email({ name, email, password });
-    if (error) {
+    const isEmail = identifier.includes('@');
+
+    if (!isEmail) {
+      // Vorbereiteten Zugang aktivieren (Name) — Passwort selbst wählen.
+      const res = await fetch('/api/auth/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password }),
+      });
       setPending(false);
-      setError(error.message ?? 'Registrierung fehlgeschlagen.');
+      if (res.ok) {
+        const data = (await res.json()) as { name: string };
+        setDoneName(data.name);
+        return;
+      }
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error ?? 'Aktivieren fehlgeschlagen.');
       return;
     }
 
+    // E-Mail: klassische Registrierung (Name aus E-Mail-Präfix, änderbar später).
+    const name = identifier.split('@')[0];
+    const { error } = await authClient.signUp.email({ name, email: identifier, password });
     setPending(false);
-    setDone(true);
+    if (error) {
+      setError(error.message ?? 'Registrierung fehlgeschlagen.');
+      return;
+    }
+    setDoneName(name);
   }
 
-  if (done) {
-    return verificationRequired ? (
-      <AuthShell eyebrow="Fast geschafft" title="Bestätige deine E-Mail" subtitle="Wir haben dir einen Link geschickt.">
+  if (doneName !== null) {
+    return (
+      <AuthShell eyebrow="Fast geschafft" title="Passwort gesetzt" subtitle="Dein Zugang ist aktiv.">
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Klicke auf den Bestätigungs-Link in der Mail, um dein Konto zu aktivieren.
-        </p>
-        <LinkButton href="/login" variant="outline" className="mt-6 w-full">
-          Zum Login
-        </LinkButton>
-      </AuthShell>
-    ) : (
-      <AuthShell eyebrow="Fast geschafft" title="Konto angelegt" subtitle="Du kannst dich jetzt einloggen.">
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          Das Tippen wird freigegeben, sobald die Tippleitung dein Konto freigeschaltet hat.
+          Willkommen, {doneName}! Du kannst dich jetzt einloggen — mit deinem Namen oder deiner E-Mail-Adresse.
         </p>
         <LinkButton href="/login" variant="outline" className="mt-6 w-full">
           Zum Login
@@ -60,30 +76,19 @@ export function RegisterForm({ verificationRequired }: { verificationRequired: b
   return (
     <AuthShell
       eyebrow="Willkommen im Verein"
-      title="Konto erstellen"
-      subtitle="Tipper-Name, E-Mail, Passwort — fertig."
+      title="Zugang aktivieren"
+      subtitle="Dein Konto ist vorbereitet — setze hier dein Passwort."
     >
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
+          <Label htmlFor="identifier">Tipper-Name oder E-Mail</Label>
           <Input
-            id="name"
+            id="identifier"
             required
-            autoComplete="nickname"
-            placeholder="So kennt dich die Tippleitung"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">E-Mail</Label>
-          <Input
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            placeholder="z. B. Willi60"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -109,14 +114,14 @@ export function RegisterForm({ verificationRequired }: { verificationRequired: b
         <Button
           type="submit"
           disabled={pending}
-          className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0.5_0.11_152/0.6)]"
+          className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-11 w-full text-base shadow-[0_8px_24px_-8px_oklch(0_0_0/0.6)]"
         >
-          {pending ? 'Registriere …' : 'Konto erstellen'}
+          {pending ? 'Moment …' : 'Passwort setzen'}
         </Button>
 
         <p className="text-muted-foreground text-center text-sm">
           <Link href="/login" className="hover:text-foreground hover:underline">
-            Schon ein Konto? Einloggen.
+            Schon ein Passwort gesetzt? Einloggen.
           </Link>
         </p>
       </form>
