@@ -78,8 +78,6 @@ export default async function AdminHomePage({
   // Tab-Navigation (serverseitig per URL-Parameter, wie der Chronik-Filter).
   const tab: 'tipptage' | 'wettbewerbe' | 'tipper' =
     tabParam === 'wettbewerbe' || tabParam === 'tipper' ? tabParam : 'tipptage';
-  const tabHref = (t: string) =>
-    `/admin?season=${season.id}&tab=${t}${filter !== 'alle' ? `&filter=${filter}` : ''}`;
   // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
   const filter: 'alle' | 'offen' | 'abgeschlossen' =
     filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
@@ -106,29 +104,13 @@ export default async function AdminHomePage({
         actions={<AdminSeasonPicker seasons={seasons} activeId={season.id} />}
       />
 
-      {/* Tabs: Tipptage / Wettbewerbe / Tipper */}
-      <nav className="border-border/40 flex gap-1 border-b" aria-label="Admin-Bereiche">
-        {(
-          [
-            ['tipptage', 'Tipptage'],
-            ['wettbewerbe', 'Wettbewerbe'],
-            ['tipper', `Tipper${pending.length > 0 ? ` · ${pending.length} wartet` : ''}`],
-          ] as const
-        ).map(([key, label]) => (
-          <Link
-            key={key}
-            href={tabHref(key)}
-            aria-current={tab === key ? 'page' : undefined}
-            className={
-              tab === key
-                ? 'text-primary border-primary -mb-px border-b-2 px-4 py-2 text-sm font-medium'
-                : 'text-muted-foreground border-transparent hover:text-foreground -mb-px border-b-2 px-4 py-2 text-sm'
-            }
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
+      {/* Bereichs-Navigation uebernimmt die Admin-Sidebar (layout); der
+          Warteschlangen-Hinweis der Tipper bleibt hier sichtbar. */}
+      {tab === 'tipper' && pending.length > 0 && (
+        <p className="bg-primary/10 text-primary rounded-lg px-4 py-2 text-sm font-medium">
+          {pending.length} Tipper warten auf Freischaltung.
+        </p>
+      )}
 
       {tab === 'tipptage' && (
       <Card>
