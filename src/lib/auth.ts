@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { admin } from 'better-auth/plugins';
 import { twoFactor } from 'better-auth/plugins';
@@ -42,6 +43,18 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: smtpReady, // erst nach Klick auf den Verifizierungs-Link einloggen
+  },
+  // Neuregistrierung gesperrt: Konten werden von der Tippleitung vorbereitet,
+  // das Erstpasswort setzt man über den Login. Gilt auch für die API-Route.
+  hooks: {
+    before: async (ctx) => {
+      const path = ctx.request ? new URL(ctx.request.url).pathname : '';
+      if (path.startsWith('/api/auth/sign-up')) {
+        throw new APIError('FORBIDDEN', {
+          message: 'Neuregistrierung ist deaktiviert. Bitte wende dich an die Tippleitung.',
+        });
+      }
+    },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
