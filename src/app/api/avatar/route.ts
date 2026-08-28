@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { getSession, getUserGate } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { AVATAR_DIR } from '@/lib/avatars';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,9 +49,8 @@ export async function POST(request: Request) {
   }
 
   const filename = `${session.user.id}.${ext}`;
-  const dir = path.join(process.cwd(), 'public', 'avatars');
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  await mkdir(AVATAR_DIR, { recursive: true });
+  await writeFile(path.join(AVATAR_DIR, filename), Buffer.from(await file.arrayBuffer()));
 
   // Vorheriges Bild (anderer Extension) loeschen, sonst wachst /public/avatars
   // mit jedem Format-Wechsel um eine verwaiste Datei. Sanitisieren: nur Dateinamen
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       !previousName.includes('..') &&
       /^[A-Za-z0-9._-]+$/.test(previousName)
     ) {
-      await unlink(path.join(dir, previousName)).catch(() => {
+      await unlink(path.join(AVATAR_DIR, previousName)).catch(() => {
         // bewusst still – wenn die Datei schon weg ist, ist das ok.
       });
     }

@@ -21,6 +21,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # Profilbilder überleben Image-Rebuilds (Auslieferung via /avatars/[file]-Route)
+      - ./data/avatars:/app/data/avatars
     networks:
       - tippkick-net
     healthcheck:
