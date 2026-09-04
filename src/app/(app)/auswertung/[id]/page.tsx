@@ -93,21 +93,20 @@ export default async function UserAuswertungPage({ params }: { params: Promise<{
         />
       </div>
 
-      {!view.hasAnyScoreable ? (
+      {/* Tipps sind ab Deadline sichtbar; Punkte/Summen erst mit beendeten Partien. */}
+      <AuswertungGrid view={view} />
+      {view.hasAnyScoreable ? (
+        <AuswertungWeekly view={view} />
+      ) : (
         <Card>
           <CardContent className="flex items-center gap-3 py-8">
             <CalendarClock className="text-muted-foreground h-5 w-5" />
             <p className="text-muted-foreground text-sm">
-              Noch keine Ergebnisse: Sobald die Partien beendet sind, werden hier Punkte, Tages- und Wochenauswertung
+              Noch keine Ergebnisse: Sobald die Partien beendet sind, werden hier Punkte und die Wochenauswertung
               berechnet.
             </p>
           </CardContent>
         </Card>
-      ) : (
-        <>
-          <AuswertungGrid view={view} />
-          <AuswertungWeekly view={view} />
-        </>
       )}
     </div>
   );
