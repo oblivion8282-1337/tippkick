@@ -46,7 +46,7 @@ export const COMPETITION_ORDER: CompetitionKey[] = ['BL', 'CL', 'DFB', 'EM', 'WM
  */
 export const OPENLIGADB_SHORTCUTS: Record<CompetitionKey, string[]> = {
   BL: ['bl1', 'bl2'],
-  CL: ['cl'],
+  CL: ['ucl'],
   DFB: ['dfb'],
   EM: [],
   WM: [],

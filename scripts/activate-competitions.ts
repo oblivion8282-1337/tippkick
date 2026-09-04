@@ -42,8 +42,8 @@ async function main(): Promise<void> {
           sourceShortcuts: OPENLIGADB_SHORTCUTS[key],
         },
       }));
-    // Nachträglich gesetzte Quelle auch bei evtl. vorhandener Zeile ergänzen.
-    if (existing && existing.sourceShortcuts.length === 0) {
+    // Quelle immer auf den aktuellen Stand bringen (z. B. Shortcut-Wechsel bei OpenLigaDB).
+    if (existing && JSON.stringify(existing.sourceShortcuts) !== JSON.stringify(OPENLIGADB_SHORTCUTS[key])) {
       await prisma.competition.update({
         where: { id: existing.id },
         data: { sourceShortcuts: OPENLIGADB_SHORTCUTS[key] },
