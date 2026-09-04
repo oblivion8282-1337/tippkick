@@ -64,9 +64,22 @@ export async function createCredentialUser(input: {
 }
 
 /**
+ * Sortierung wie die Alt-Auswertungen: deutsche Alphabet-Regeln, Groß-/Klein-
+ * schreibung egal („derHanseat" bei D, „kl.Schalke" bei K). Postgres' Standard-
+ * Kollation sortiert Kleinbuchstaben hinter alle Großbuchstaben — deshalb
+ * app-seitig mit Intl.Collator statt orderBy.
+ */
+const NAME_COLLATOR = new Intl.Collator('de', { sensitivity: 'base', numeric: true });
+
+export function compareTipperNames(a: string | null, b: string | null): number {
+  return NAME_COLLATOR.compare(a ?? '', b ?? '');
+}
+
+/**
  * Zur Auswertung zugelassene Tipper (SSOT): freigeschaltet und nicht gebannt.
- * Reihenfolge name asc. Wird vom Excel-Export UND der Online-Auswertung gemeinsam
- * genutzt, damit beide dieselben Zeilen/Reihenfolge liefern.
+ * Reihenfolge: deutsche, groß/klein-unabhängige Alphabet-Sortierung. Wird vom
+ * Excel-Export UND der Online-Auswertung gemeinsam genutzt, damit beide
+ * dieselben Zeilen/Reihenfolge liefern.
  *
  * BEWUSST OHNE Rollen-Filter: die Rolle sagt, was jemand DARF — nicht, ob er
  * mitspielt. Die Tippleitung ist im Verein selbst Tipper; ein eigenes
@@ -75,9 +88,9 @@ export async function createCredentialUser(input: {
  * bekommt — samt seiner Tipps, still und ohne Fehlermeldung.
  */
 export async function getEligibleTippers(): Promise<EligibleTipper[]> {
-  return prisma.user.findMany({
+  const tippers = await prisma.user.findMany({
     where: eligibleTipperWhere(),
-    orderBy: { name: 'asc' },
     select: { id: true, name: true },
   });
+  return tippers.sort((a, b) => compareTipperNames(a.name, b.name));
 }

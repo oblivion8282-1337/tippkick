@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { compareTipperNames } from '@/lib/tippers';
 import { ROLE_ADMIN } from '@/lib/constants';
 import { eligibleTipperWhere } from '@/lib/tippers';
 import type { CompetitionKey, ResultSource } from '@/generated/prisma/client';
@@ -73,10 +74,12 @@ export async function getTipperStats(): Promise<TipperStats> {
 
 /** Alle Tipper namentlich (Tippleitung zuerst, dann Name) für die Tipper-Liste. */
 export async function getTipperList() {
-  return prisma.user.findMany({
-    orderBy: [{ role: 'asc' }, { name: 'asc' }],
+  const users = await prisma.user.findMany({
+    orderBy: { role: 'asc' },
     select: { id: true, name: true, email: true, role: true, approved: true, emailVerified: true, image: true },
   });
+  // Gleiche Reihenfolge wie die Auswertung (deutsch, Groß/Klein egal).
+  return users.sort((a, b) => compareTipperNames(a.name, b.name));
 }
 
 export type TipMatrixFixture = {
