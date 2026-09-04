@@ -88,7 +88,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   if (visibleRows.length === 0) {
     return <div className="text-muted-foreground py-24 text-center">Aktuell keine tippspielfähigen Tipptage.</div>;
   }
-  const focusRow = visibleRows.find((r) => r.open && r.tipped < r.total) ?? visibleRows[0];
+  // Hero ist fix die Bundesliga (Vereins-Hauptwettbewerb); CL/DFB stehen darunter.
+  // Fallback: erster verfuegbarer Wettbewerb, falls es (noch) keine Bundesliga gibt.
+  const focusRow = visibleRows.find((r) => r.c.key === 'BL') ?? visibleRows[0];
 
   // Hero = Fokus-Wettbewerb, Tipptag per ?matchday= schaltbar.
   const heroC = focusRow.c;
