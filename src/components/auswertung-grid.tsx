@@ -5,6 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const MASTER_STICKY = 'sticky left-0 z-10 bg-card';
 
+const PILL_BASE = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap';
+
+/** Status-Pill je Spiel-Stand: farbcodiert — läuft gefüllt grün, beendet grün
+    umrandet, geplant grau, abgesagt rot, verlegt amber. */
+function StatusPill({ status }: { status: keyof typeof FIXTURE_STATUS_LABELS }) {
+  const styles: Record<keyof typeof FIXTURE_STATUS_LABELS, string> = {
+    IN_PROGRESS: 'bg-pitch/20 text-pitch font-semibold',
+    FINISHED: 'border border-pitch/50 text-pitch',
+    SCHEDULED: 'bg-muted text-muted-foreground',
+    CANCELLED: 'bg-destructive/15 text-destructive',
+    POSTPONED: 'bg-amber-500/15 text-amber-600',
+  };
+  return <span className={cn(PILL_BASE, styles[status])}>{FIXTURE_STATUS_LABELS[status]}</span>;
+}
+
 function pointsClass(points: TipCell['points'] | undefined): string {
   if (points === 3) return 'text-primary font-semibold';
   if (points === 2) return 'text-emerald-600';
@@ -93,7 +108,7 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
                         )}
                       </span>
                     </td>
-                    <td className="text-muted-foreground px-2 py-1.5 text-xs">{FIXTURE_STATUS_LABELS[f.status]}</td>
+                    <td className="px-2 py-1.5"><StatusPill status={f.status} /></td>
                     {view.tippers.map((t) => {
                       const cell = t.tipsByFixture.get(f.id);
                       return <TipperCells key={t.id} cell={cell} />;
