@@ -189,6 +189,43 @@
 }
 
 /*
+ * Einheitliche Scrollbars — vertikal (Seitenrand) und horizontal (z.B.
+ * Wettbewerbs-Pills): duenn, abgerundet, mit Abstand zum Track. Farben laufen
+ * ueber --foreground und passen damit automatisch zu Hell- UND Dunkel-Theme.
+ * Firefox: scrollbar-width/scrollbar-color; Chrome/Safari/Edge: ::-webkit-*.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 24%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 0.6rem;
+  height: 0.6rem;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--foreground) 24%, transparent);
+  /* Transparenter Rand haelt Abstand zum Track — Thumb wirkt wie schwebend. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 40%, transparent);
+  background-clip: padding-box;
+}
+
+/*
  * Stage-Hintergrund: einfarbig (keine Verläufe/Glows).
  */
 .bg-stage {
