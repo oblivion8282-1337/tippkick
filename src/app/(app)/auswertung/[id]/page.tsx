@@ -29,7 +29,8 @@ export default async function UserAuswertungPage({ params }: { params: Promise<{
 
   // Vor der Deadline stehen noch nicht alle Tipps fest — die Auswertung
   // bleibt bis dahin versiegelt, sonst wären fremde Tipps vorzeitig sichtbar.
-  const sealed = !isTippable(md.deadlineAt);
+  // Versiegelt = noch tippbar (Deadline in der Zukunft).
+  const sealed = isTippable(md.deadlineAt);
   if (sealed) {
     const deadlineLabel = new Intl.DateTimeFormat('de-DE', {
       weekday: 'short',
