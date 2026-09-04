@@ -78,7 +78,7 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
                         </span>
                         {live ? (
                           // Live-Zwischenstand: pitch-farbig + pulsierender Punkt
-                          <span className="bg-pitch/15 text-pitch-foreground inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums">
+                          <span className="bg-pitch/15 text-pitch inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums">
                             <span className="bg-pitch h-1.5 w-1.5 animate-pulse rounded-full" aria-hidden="true" />
                             {f.resultHome !== null && f.resultAway !== null ? `${f.resultHome}:${f.resultAway}` : 'läuft'}
                           </span>

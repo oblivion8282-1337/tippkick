@@ -11,7 +11,19 @@ const NUM = 'px-3 py-2 text-center font-mono tabular-nums';
  * Tipptags. Bei einer englischen Woche stehen hier Di/Mi/Do statt Fr/Sa/So, und
  * die Tagespunkte summieren sich immer auf TW-Ges.
  */
+/** Podiums-Farben (Gold/Silber/Bronze, dezent) — Rang dynamisch aus den Punkten. */
+function rankBg(rank: number): string {
+  if (rank === 1) return 'bg-amber-400/15';
+  if (rank === 2) return 'bg-foreground/10';
+  if (rank === 3) return 'bg-orange-400/10';
+  return '';
+}
+
 export function AuswertungWeekly({ view }: { view: AuswertungView }) {
+  // Rang = Position in der absteigend sortierten Gesamt-Punkteliste (geteilt bei Gleichstand).
+  const totalsDesc = view.tippers.map((t) => t.totalPoints).sort((a, b) => b - a);
+  const rankOf = (points: number) => totalsDesc.indexOf(points) + 1;
+
   return (
     <Card>
       <CardHeader className="border-border/40 border-b">
@@ -37,9 +49,12 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
               </tr>
             </thead>
             <tbody>
-              {view.tippers.map((t) => (
-                <tr key={t.id} className="border-border/40 border-b">
-                  <td className="bg-card sticky left-0 z-10 px-4 py-1.5 font-medium">{t.name}</td>
+              {view.tippers.map((t) => {
+                const bg = rankBg(rankOf(t.totalPoints));
+                return (
+                <tr key={t.id} className={`border-border/40 border-b ${bg}`}>
+                  {/* Sticky-Zelle muss den Zeilen-Hintergrund mitnehmen, sonst Silber/Bronze-Balken abgehackt. */}
+                  <td className={`sticky left-0 z-10 px-4 py-1.5 font-medium ${bg || 'bg-card'}`}>{t.name}</td>
                   {view.days.map((day) => (
                     <td key={day.key} className={NUM}>
                       {fmt(t.daily[day.key] ?? 0)}
@@ -52,7 +67,8 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
                   <td className={NUM}>{t.counts.one}</td>
                   <td className={`${NUM} text-primary font-semibold`}>{t.totalPoints}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             <tfoot>
               <TotalRow label="Summe" days={view.days} data={view.totals} />
