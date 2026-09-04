@@ -28,6 +28,8 @@ import type { CompetitionKey } from '@/generated/prisma/client';
 
 /** Vorschau abgeschlossener Tipptage, bevor die Liste eingeklappt wird. */
 const PAST_PREVIEW = 3;
+/** Vorschau offener Tipptage — die Saison ist komplett importiert, sonst wäre die Liste endlos. */
+const UPCOMING_PREVIEW = 3;
 
 export default async function AdminHomePage({
   searchParams,
@@ -103,16 +105,19 @@ export default async function AdminHomePage({
     availableKeys.map((key) => [key, chronik.upcoming.filter((e) => e.competitionKey === key).length]),
   );
   const entries = allEntries.filter((e) => e.entry.competitionKey === selectedKey);
-  // Offene zuerst (nächste Deadline zuerst), darunter abgeschlossen (neueste zuerst),
-  // davon nur die letzten PAST_PREVIEW als Vorschau — der Rest hinter „Alle anzeigen".
+  // „Aktuell“-Vorschau: die nächsten offenen Tipptage (Deadline aufsteigend) und
+  // die neuesten abgeschlossenen — der jeweilige Rest ist eingeklappt.
   const upcomingEntries = entries.filter((e) => !e.past);
   const pastEntries = entries.filter((e) => e.past);
-  const visibleEntries = upcomingEntries.concat(pastEntries.slice(0, PAST_PREVIEW));
-  const foldedEntries = pastEntries.slice(PAST_PREVIEW);
-  // Tipp-Matrizen aller angezeigten Tipptage in einem Batch (2 Abfragen statt 2 pro Tipptag).
+  const upcomingVisible = upcomingEntries.slice(0, UPCOMING_PREVIEW);
+  const upcomingFolded = upcomingEntries.slice(UPCOMING_PREVIEW);
+  const pastVisible = pastEntries.slice(0, PAST_PREVIEW);
+  const pastFolded = pastEntries.slice(PAST_PREVIEW);
+  // Tipp-Matrizen in einem Batch (2 Abfragen statt 2 pro Tipptag) — inkl. der
+  // eingeklappten Zeilen, damit sie beim Aufklappen sofort Kennzahlen zeigen.
   const matrixByMatchday =
     tab === 'tipptage'
-      ? await getMatchdayTipMatrices(visibleEntries.map((e) => e.entry.id))
+      ? await getMatchdayTipMatrices(entries.map((e) => e.entry.id))
       : new Map<string, MatchdayTipMatrix>();
 
   // Zeile eines Tipptags (offen/abgeschlossen) — Zusammenfassung serverseitig;
@@ -218,15 +223,33 @@ export default async function AdminHomePage({
                 </p>
               )}
               <div className="divide-border/40 divide-y">
-                {visibleEntries.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                {upcomingVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
               </div>
-              {foldedEntries.length > 0 && (
+              {upcomingFolded.length > 0 && (
                 <details className="border-border/40 border-t">
                   <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
-                    Weitere {foldedEntries.length} abgeschlossene Tipptage anzeigen
+                    Weitere {upcomingFolded.length} offene Tipptage anzeigen
                   </summary>
                   <div className="divide-border/40 divide-y border-t border-border/40">
-                    {foldedEntries.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                    {upcomingFolded.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                  </div>
+                </details>
+              )}
+              {pastVisible.length > 0 && (
+                <p className="text-muted-foreground px-6 pt-4 pb-1 text-xs font-medium tracking-wide uppercase">
+                  Abgeschlossen
+                </p>
+              )}
+              <div className="divide-border/40 divide-y">
+                {pastVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+              </div>
+              {pastFolded.length > 0 && (
+                <details className="border-border/40 border-t">
+                  <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
+                    Weitere {pastFolded.length} abgeschlossene Tipptage anzeigen
+                  </summary>
+                  <div className="divide-border/40 divide-y border-t border-border/40">
+                    {pastFolded.map(({ entry: u, past }) => renderTipptagRow(u, past))}
                   </div>
                 </details>
               )}
