@@ -87,15 +87,18 @@ export default async function AdminHomePage({
   // Chronik-Ansicht: pro Wettbewerb (Pills) — die Liste wäre bei BL+CL+DFB
   // (48+ Tipptage) sonst unbedienbar lang. Der Status-Filter (offen/abgeschlossen)
   // ist entfallen: offene stehen oben, abgeschlossene sind eingeklappt.
+  type RowState = 'open' | 'running' | 'done';
   const allEntries = chronik.past
-    .map((e) => ({ entry: e, past: true }))
-    .concat(chronik.upcoming.map((e) => ({ entry: e, past: false })));
+    .map((e) => ({ entry: e, state: 'done' as RowState }))
+    .concat(chronik.running.map((e) => ({ entry: e, state: 'running' as RowState })))
+    .concat(chronik.upcoming.map((e) => ({ entry: e, state: 'open' as RowState })));
   const availableKeys = COMPETITION_ORDER.filter((key) =>
     allEntries.some((e) => e.entry.competitionKey === key),
   );
-  // Default: der Wettbewerb mit der frühesten offenen Deadline, sonst der erste.
+  // Default: der Wettbewerb mit der frühesten offenen Deadline, sonst der
+  // aktuell laufende, sonst der erste.
   const defaultKey =
-    chronik.upcoming[0]?.competitionKey ?? availableKeys[0] ?? 'BL';
+    chronik.upcoming[0]?.competitionKey ?? chronik.running[0]?.competitionKey ?? availableKeys[0] ?? 'BL';
   const selectedKey: CompetitionKey = availableKeys.includes(competitionParam as CompetitionKey)
     ? (competitionParam as CompetitionKey)
     : defaultKey;
@@ -105,10 +108,11 @@ export default async function AdminHomePage({
     availableKeys.map((key) => [key, chronik.upcoming.filter((e) => e.competitionKey === key).length]),
   );
   const entries = allEntries.filter((e) => e.entry.competitionKey === selectedKey);
-  // „Aktuell“-Vorschau: die nächsten offenen Tipptage (Deadline aufsteigend) und
-  // die neuesten abgeschlossenen — der jeweilige Rest ist eingeklappt.
-  const upcomingEntries = entries.filter((e) => !e.past);
-  const pastEntries = entries.filter((e) => e.past);
+  // Drei Phasen: läuft (Deadline vorbei, Ergebnisse fehlen noch), kommende
+  // Tipptage (Deadline aufsteigend), abgeschlossen (alles beendet, neueste zuerst).
+  const runningEntries = entries.filter((e) => e.state === 'running');
+  const upcomingEntries = entries.filter((e) => e.state === 'open');
+  const pastEntries = entries.filter((e) => e.state === 'done');
   const upcomingVisible = upcomingEntries.slice(0, UPCOMING_PREVIEW);
   const upcomingFolded = upcomingEntries.slice(UPCOMING_PREVIEW);
   const pastVisible = pastEntries.slice(0, PAST_PREVIEW);
@@ -120,16 +124,17 @@ export default async function AdminHomePage({
       ? await getMatchdayTipMatrices(entries.map((e) => e.entry.id))
       : new Map<string, MatchdayTipMatrix>();
 
-  // Zeile eines Tipptags (offen/abgeschlossen) — Zusammenfassung serverseitig;
+  // Zeile eines Tipptags (offen/läuft/abgeschlossen) — Zusammenfassung serverseitig;
   // die Tipper-Matrix lädt die Zeile erst beim Aufklappen.
-  const renderTipptagRow = (u: (typeof chronik.upcoming)[number], past: boolean) => {
+  const renderTipptagRow = (u: (typeof chronik.upcoming)[number], state: 'open' | 'running' | 'done') => {
     const matrix = matrixByMatchday.get(u.id) ?? { total: 0, fixtures: [], tipsByUser: new Map() };
     const tippersTipped = active.filter((t) => {
       const cnt = matrix.tipsByUser.get(t.id)?.size ?? 0;
       return matrix.total > 0 && cnt >= matrix.total;
     }).length;
     const openCount = active.length - tippersTipped;
-    const resultsDone = matrix.fixtures.filter((f) => f.homeGoals !== null && f.awayGoals !== null).length;
+    // Nur FINISHED zählt — Live-Zwischenstände sind kein Endergebnis.
+    const resultsDone = matrix.fixtures.filter((f) => f.status === 'FINISHED').length;
     return (
       <TipptagRow
         key={u.id}
@@ -142,7 +147,8 @@ export default async function AdminHomePage({
         activeCount={active.length}
         openCount={openCount}
         deadlineLabel={formatDateTime(u.deadlineAt)}
-        countdownLabel={past ? undefined : formatCountdown(u.deadlineAt)}
+        countdownLabel={state === 'open' ? formatCountdown(u.deadlineAt) : undefined}
+        state={state}
         resultsDone={resultsDone}
       />
     );
@@ -205,7 +211,7 @@ export default async function AdminHomePage({
         <CardContent className="px-0 pt-0">
           {entries.length === 0 ? (
             <p className="text-muted-foreground px-6 py-8 text-sm">
-              {chronik.upcoming.length === 0 && chronik.past.length === 0 ? (
+              {chronik.upcoming.length === 0 && chronik.running.length === 0 && chronik.past.length === 0 ? (
                 <>
                   Noch keine Tipptage. Spieltage gruppieren?{' '}
                   <Link href="/admin/spieltage" className="text-primary underline">
@@ -218,8 +224,26 @@ export default async function AdminHomePage({
             </p>
           ) : (
             <>
+              {/* Läuft: Deadline vorbei, Ergebnisse stehen (teilweise) noch aus.
+                  Erscheint nur, wenn gerade etwas läuft. */}
+              {runningEntries.length > 0 && (
+                <>
+                  <p className="text-pitch flex items-center gap-2 px-6 pt-4 pb-2 text-xs font-semibold tracking-wide uppercase">
+                    <span className="bg-pitch h-1.5 w-1.5 animate-pulse rounded-full" aria-hidden="true" />
+                    Läuft · {runningEntries.length}
+                  </p>
+                  <div className="divide-border/40 divide-y">
+                    {runningEntries.map(({ entry: u, state }) => renderTipptagRow(u, state))}
+                  </div>
+                </>
+              )}
+              {runningEntries.length > 0 && upcomingEntries.length > 0 && (
+                <p className="text-muted-foreground px-6 pt-4 pb-2 text-xs font-semibold tracking-wide uppercase">
+                  Kommende Tipptage
+                </p>
+              )}
               <div className="divide-border/40 divide-y">
-                {upcomingVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                {upcomingVisible.map(({ entry: u, state }) => renderTipptagRow(u, state))}
               </div>
               {upcomingFolded.length > 0 && (
                 <details className="border-border/40 border-t">
@@ -227,7 +251,7 @@ export default async function AdminHomePage({
                     Weitere {upcomingFolded.length} offene Tipptage anzeigen
                   </summary>
                   <div className="divide-border/40 divide-y border-t border-border/40">
-                    {upcomingFolded.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                    {upcomingFolded.map(({ entry: u, state }) => renderTipptagRow(u, state))}
                   </div>
                 </details>
               )}
@@ -248,7 +272,7 @@ export default async function AdminHomePage({
           </CardHeader>
           <CardContent className="px-0 pt-0">
             <div className="divide-border/40 divide-y">
-              {pastVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+              {pastVisible.map(({ entry: u, state }) => renderTipptagRow(u, state))}
             </div>
             {pastFolded.length > 0 && (
               <details className="border-border/40 border-t">
@@ -256,7 +280,7 @@ export default async function AdminHomePage({
                   Weitere {pastFolded.length} abgeschlossene Tipptage anzeigen
                 </summary>
                 <div className="divide-border/40 divide-y border-t border-border/40">
-                  {pastFolded.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                  {pastFolded.map(({ entry: u, state }) => renderTipptagRow(u, state))}
                 </div>
               </details>
             )}

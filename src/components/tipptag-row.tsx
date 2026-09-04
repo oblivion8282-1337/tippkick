@@ -38,6 +38,7 @@ export function TipptagRow({
   openCount,
   deadlineLabel,
   countdownLabel,
+  state,
   resultsDone,
 }: {
   matchdayId: string;
@@ -50,6 +51,7 @@ export function TipptagRow({
   openCount: number;
   deadlineLabel: string;
   countdownLabel?: string;
+  state: 'open' | 'running' | 'done';
   resultsDone: number;
 }) {
   const [data, setData] = useState<TippsData | null>(null);
@@ -65,9 +67,10 @@ export function TipptagRow({
     }
   };
 
-  // Abgeschlossene Tipptage (kein Countdown mehr) visuell zurücknehmen: gedimmt,
-  // Wettbewerbs-Badge neutral statt akzentuiert — der Fokus liegt auf dem Offenen.
-  const closed = countdownLabel === undefined;
+  // „done“: wirklich abgeschlossen → gedimmt, neutrales Wettbewerbs-Badge.
+  // „running“: Deadline vorbei, aber Ergebnisse stehen noch aus → akzentuiert
+  // mit Live-Pill. „open“: tippen möglich, Countdown läuft.
+  const closed = state === 'done';
 
   return (
     <details
@@ -110,7 +113,14 @@ export function TipptagRow({
                 Ergebnisse {resultsDone}/{total}
               </span>
             )}
-            <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs">abgeschlossen</span>
+            {state === 'running' ? (
+              <span className="bg-pitch/20 text-pitch inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold">
+                <span className="bg-pitch h-1.5 w-1.5 animate-pulse rounded-full" aria-hidden="true" />
+                läuft
+              </span>
+            ) : (
+              <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs">abgeschlossen</span>
+            )}
             <span className="text-muted-foreground tabular-nums">{deadlineLabel}</span>
           </span>
         )}

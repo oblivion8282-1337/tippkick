@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { compareTipperNames } from '@/lib/tippers';
 import { ROLE_ADMIN } from '@/lib/constants';
 import { eligibleTipperWhere } from '@/lib/tippers';
-import type { CompetitionKey, ResultSource } from '@/generated/prisma/client';
+import type { CompetitionKey, FixtureStatus, ResultSource } from '@/generated/prisma/client';
 
 /** Wettbewerbe einer Saison mit Zählwerten (für die Wettbewerbe-Karte). */
 export async function getCompetitionsOverview(seasonId: string) {
@@ -23,18 +23,24 @@ export type TipptagEntry = {
 };
 
 /**
- * Tipptag-Chronik einer Saison, competitions-übergreifend: offene Tipptage
- * (früheste Deadline zuerst) und abgelaufene (neueste zuerst) getrennt.
+ * Tipptag-Chronik einer Saison, competitions-übergreifend, in drei Phasen:
+ * - upcoming: Deadline in der Zukunft (früheste zuerst)
+ * - running:  Deadline abgelaufen, aber noch Partien ohne Endergebnis (neueste zuerst)
+ * - past:     alle Partien beendet/abgesagt — wirklich abgeschlossen (neueste zuerst)
  * Reine Metadaten — Tipp-Fortschritt und Partien liefert getMatchdayTipMatrix (SSOT).
  */
 export async function getTipptagChronik(seasonId: string): Promise<{
   upcoming: TipptagEntry[];
+  running: TipptagEntry[];
   past: TipptagEntry[];
 }> {
   const matchdays = await prisma.matchday.findMany({
     where: { competition: { seasonId } },
     orderBy: { deadlineAt: 'desc' },
-    include: { competition: { select: { key: true, name: true } }, sections: { select: { id: true } } },
+    include: {
+      competition: { select: { key: true, name: true } },
+      sections: { select: { fixtures: { select: { status: true } } } },
+    },
   });
   const map = (md: (typeof matchdays)[number]): TipptagEntry => ({
     id: md.id,
@@ -48,11 +54,18 @@ export async function getTipptagChronik(seasonId: string): Promise<{
   // Leere Platzhalter-Tipptage (z.B. DFB-Runden ohne Auslosung) tragen als
   // Deadline ihr Anlegedatum — sie sind weder offen noch abgeschlossen und
   // tauchen deshalb in der Chronik gar nicht auf.
-  const real = matchdays.filter((md) => md.sections.length > 0);
-  const open = real.filter((md) => md.deadlineAt.getTime() > now);
+  const real = matchdays.filter((md) => md.sections.some((s) => s.fixtures.length > 0));
+  // „Erledigt“ = FINISHED oder CANCELLED (abgesagte Partien bekommen nie ein
+  // Ergebnis und würden eine Auswertung sonst ewig blockieren).
+  const settled = (md: (typeof matchdays)[number]) =>
+    md.sections.every((s) => s.fixtures.every((f) => f.status === 'FINISHED' || f.status === 'CANCELLED'));
+  const byDeadline = (md: (typeof matchdays)[number]) => md.deadlineAt.getTime() > now;
+  const open = real.filter(byDeadline);
+  const expired = real.filter((md) => !byDeadline(md));
   return {
     upcoming: open.reverse().map(map),
-    past: real.filter((md) => md.deadlineAt.getTime() <= now).map(map),
+    running: expired.filter((md) => !settled(md)).map(map),
+    past: expired.filter(settled).map(map),
   };
 }
 
@@ -87,6 +100,7 @@ export type TipMatrixFixture = {
   homeTeam: string;
   awayTeam: string;
   kickoff: Date;
+  status: FixtureStatus;
   resultSource: ResultSource;
   homeGoals: number | null;
   awayGoals: number | null;
@@ -120,7 +134,16 @@ export async function getMatchdayTipMatrices(matchdayIds: string[]): Promise<Map
       matchdayId: true,
       fixtures: {
         orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }],
-        select: { id: true, homeTeam: true, awayTeam: true, kickoff: true, resultSource: true, homeGoals: true, awayGoals: true },
+        select: {
+          id: true,
+          homeTeam: true,
+          awayTeam: true,
+          kickoff: true,
+          status: true,
+          resultSource: true,
+          homeGoals: true,
+          awayGoals: true,
+        },
       },
     },
   });
