@@ -209,7 +209,7 @@ export default async function AdminHomePage({
           </nav>
         </CardHeader>
         <CardContent className="px-0 pt-0">
-          {entries.length === 0 ? (
+          {entries.length === 0 && (
             <p className="text-muted-foreground px-6 py-8 text-sm">
               {chronik.upcoming.length === 0 && chronik.running.length === 0 && chronik.past.length === 0 ? (
                 <>
@@ -222,43 +222,54 @@ export default async function AdminHomePage({
                 `Keine Tipptage für ${COMPETITION_LABELS[selectedKey]}.`
               )}
             </p>
-          ) : (
-            <>
-              {/* Läuft: Deadline vorbei, Ergebnisse stehen (teilweise) noch aus.
-                  Erscheint nur, wenn gerade etwas läuft. */}
-              {runningEntries.length > 0 && (
-                <>
-                  <p className="text-pitch flex items-center gap-2 px-6 pt-4 pb-2 text-xs font-semibold tracking-wide uppercase">
-                    <span className="bg-pitch h-1.5 w-1.5 animate-pulse rounded-full" aria-hidden="true" />
-                    Läuft · {runningEntries.length}
-                  </p>
-                  <div className="divide-border/40 divide-y">
-                    {runningEntries.map(({ entry: u, state }) => renderTipptagRow(u, state))}
-                  </div>
-                </>
-              )}
-              {runningEntries.length > 0 && upcomingEntries.length > 0 && (
-                <p className="text-muted-foreground px-6 pt-4 pb-2 text-xs font-semibold tracking-wide uppercase">
-                  Kommende Tipptage
-                </p>
-              )}
-              <div className="divide-border/40 divide-y">
-                {upcomingVisible.map(({ entry: u, state }) => renderTipptagRow(u, state))}
-              </div>
-              {upcomingFolded.length > 0 && (
-                <details className="border-border/40 border-t">
-                  <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
-                    Weitere {upcomingFolded.length} offene Tipptage anzeigen
-                  </summary>
-                  <div className="divide-border/40 divide-y border-t border-border/40">
-                    {upcomingFolded.map(({ entry: u, state }) => renderTipptagRow(u, state))}
-                  </div>
-                </details>
-              )}
-            </>
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Läuft: eigene Karte — Deadline vorbei, Ergebnisse stehen (teilweise)
+          noch aus. Erscheint nur, wenn gerade etwas läuft. */}
+      {tab === 'tipptage' && runningEntries.length > 0 && (
+        <Card>
+          <CardHeader className="border-border/40 border-b">
+            <CardTitle className="text-pitch flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
+              <span className="bg-pitch h-1.5 w-1.5 animate-pulse rounded-full" aria-hidden="true" />
+              Läuft · {runningEntries.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 pt-0">
+            <div className="divide-border/40 divide-y">
+              {runningEntries.map(({ entry: u, state }) => renderTipptagRow(u, state))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Kommende Tipptage: eigene Karte — Deadline in der Zukunft. */}
+      {tab === 'tipptage' && upcomingEntries.length > 0 && (
+        <Card>
+          <CardHeader className="border-border/40 border-b">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
+              <CalendarClock className="text-muted-foreground h-4 w-4" />
+              Kommende Tipptage · {upcomingEntries.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 pt-0">
+            <div className="divide-border/40 divide-y">
+              {upcomingVisible.map(({ entry: u, state }) => renderTipptagRow(u, state))}
+            </div>
+            {upcomingFolded.length > 0 && (
+              <details className="border-border/40 border-t">
+                <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
+                  Weitere {upcomingFolded.length} offene Tipptage anzeigen
+                </summary>
+                <div className="divide-border/40 divide-y border-t border-border/40">
+                  {upcomingFolded.map(({ entry: u, state }) => renderTipptagRow(u, state))}
+                </div>
+              </details>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Abgeschlossen: eigene Karte — klare optische Trennung vom Offenen. */}
