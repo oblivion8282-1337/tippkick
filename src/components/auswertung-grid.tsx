@@ -39,12 +39,14 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
             <table className="border-border/40 w-full border-collapse border-y text-sm">
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th
-                    colSpan={2 + view.tippers.length * 6}
-                    className="bg-muted border-border/40 font-display px-4 py-2 text-left text-base font-semibold"
-                  >
-                    {section.label} ·{' '}
-                    <span className="text-muted-foreground font-normal">{section.sectionNumber}. Spieltag</span>
+                  {/* Titel-zelle reicht ueber die ganze Tabellenbreite; der Inhalt
+                      klebt sticky am linken Rand, damit die Liga-Kennung beim
+                      horizontalen Scrollen sichtbar bleibt. */}
+                  <th colSpan={2 + view.tippers.length * 6} className="bg-muted border-border/40">
+                    <span className="bg-muted font-display sticky left-0 flex px-4 py-2 text-left text-base font-semibold">
+                      {section.label} ·{' '}
+                      <span className="text-muted-foreground font-normal">{section.sectionNumber}. Spieltag</span>
+                    </span>
                   </th>
                 </tr>
                 <tr className="bg-card border-border/40 text-xs">
