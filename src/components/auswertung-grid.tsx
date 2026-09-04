@@ -22,31 +22,33 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
         <CardTitle>{view.matchdayNumber}.TT — Tipps &amp; Punkte</CardTitle>
       </CardHeader>
       <CardContent className="px-0 pt-0">
-        <div className="overflow-x-auto">
+        {/* Eigener Scroll-Container (beide Achsen): Haederaelle (Tipper-Namen)
+            bleiben beim Vertikalscrollen fixiert, die Master-Spalte beim Horizontalen. */}
+        <div className="max-h-[75vh] overflow-auto">
           {view.sections.map((section) => (
             <table key={section.id} className="border-border/40 w-full border-collapse border-y text-sm">
-              <thead>
+              <thead className="sticky top-0 z-20">
                 <tr>
                   <th
                     colSpan={2 + view.tippers.length * 6}
-                    className="bg-muted/40 border-border/40 font-display px-4 py-2 text-left text-base font-semibold"
+                    className="bg-muted border-border/40 font-display px-4 py-2 text-left text-base font-semibold"
                   >
                     {section.label} ·{' '}
                     <span className="text-muted-foreground font-normal">{section.sectionNumber}. Spieltag</span>
                   </th>
                 </tr>
-                <tr className="border-border/40 border-b text-xs">
-                  <th className={`${MASTER_STICKY} px-4 py-2 text-left`}>Partie · Erg.</th>
-                  <th className="px-2 py-2 text-left font-medium">Status</th>
+                <tr className="bg-card border-border/40 text-xs">
+                  <th className={`${MASTER_STICKY} z-30 px-4 py-2 text-left`}>Partie · Erg.</th>
+                  <th className="bg-card px-2 py-2 text-left font-medium">Status</th>
                   {view.tippers.map((t) => (
-                    <th key={t.id} colSpan={6} className="border-border/40 border-l px-2 py-1 text-center font-medium">
+                    <th key={t.id} colSpan={6} className="bg-card border-border/40 border-l px-2 py-1 text-center font-medium">
                       {t.name}
                     </th>
                   ))}
                 </tr>
-                <tr className="text-muted-foreground border-border/40 border-b text-[10px] uppercase">
-                  <th className={`${MASTER_STICKY} px-4 py-1`}></th>
-                  <th className="px-2 py-1"></th>
+                <tr className="bg-card text-muted-foreground border-border/40 text-[10px] uppercase">
+                  <th className={`${MASTER_STICKY} z-30 px-4 py-1`}></th>
+                  <th className="bg-card px-2 py-1"></th>
                   {view.tippers.map((t) => (
                     <SubHeaders key={t.id} />
                   ))}
