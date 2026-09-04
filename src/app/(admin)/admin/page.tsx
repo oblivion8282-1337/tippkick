@@ -95,10 +95,14 @@ export default async function AdminHomePage({
   const availableKeys = COMPETITION_ORDER.filter((key) =>
     allEntries.some((e) => e.entry.competitionKey === key),
   );
-  // Default: der Wettbewerb mit der frühesten offenen Deadline, sonst der
-  // aktuell laufende, sonst der erste.
+  // Default: Bundesliga (Vereins-Hauptwettbewerb) — analog zum Dashboard-Hero.
+  // Fallbacks: früheste offene Deadline, sonst der laufende, sonst der erste.
   const defaultKey =
-    chronik.upcoming[0]?.competitionKey ?? chronik.running[0]?.competitionKey ?? availableKeys[0] ?? 'BL';
+    (availableKeys.includes('BL') ? ('BL' as CompetitionKey) : undefined) ??
+    chronik.upcoming[0]?.competitionKey ??
+    chronik.running[0]?.competitionKey ??
+    availableKeys[0] ??
+    'BL';
   const selectedKey: CompetitionKey = availableKeys.includes(competitionParam as CompetitionKey)
     ? (competitionParam as CompetitionKey)
     : defaultKey;
