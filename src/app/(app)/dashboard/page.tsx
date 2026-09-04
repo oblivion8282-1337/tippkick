@@ -132,7 +132,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       )}
 
       {session.user.role === ROLE_ADMIN && (
-        <aside className="border-border/60 bg-card/50 flex items-center justify-between gap-4 rounded-2xl border px-5 py-4">
+        <aside className="border-border/60 bg-card/50 flex flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-4">
           <div className="flex items-center gap-3">
             <ShieldCheck className="text-pitch" />
             <div>
@@ -142,7 +142,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               </p>
             </div>
           </div>
-          <LinkButton href="/admin" variant="outline" size="sm">
+          <LinkButton href="/admin" variant="outline" size="sm" className="w-full sm:w-auto">
             Zum Admin-Bereich
             <ChevronRight />
           </LinkButton>
