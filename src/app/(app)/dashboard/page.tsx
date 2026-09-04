@@ -244,7 +244,7 @@ function WeekendHero({
               className="h-10 px-4 text-sm"
             >
               <BarChart3 className="h-4 w-4" />
-              Auswertung
+              Fieber
             </LinkButton>
           )}
         </div>

@@ -44,13 +44,13 @@ export default async function UserAuswertungPage({ params }: { params: Promise<{
         <Breadcrumb
           items={[
             { label: 'Dashboard', href: '/dashboard' },
-            { label: 'Auswertung' },
+            { label: 'Fieber' },
           ]}
         />
         <Card>
           <CardContent className="flex flex-col items-start gap-3 py-10">
             <Lock className="text-muted-foreground h-6 w-6" />
-            <p className="font-medium">Diese Auswertung ist noch versiegelt.</p>
+            <p className="font-medium">Dieses Fieber ist noch versiegelt.</p>
             <p className="text-muted-foreground text-sm">
               Sie wird freigegeben, sobald die Tipp-Deadline am {deadlineLabel} Uhr abgelaufen ist.
             </p>
@@ -78,12 +78,12 @@ export default async function UserAuswertungPage({ params }: { params: Promise<{
           items={[
             { label: 'Dashboard', href: '/dashboard' },
             { label: `${view.matchdayNumber}. Tipptag`, href: '/dashboard' },
-            { label: 'Auswertung' },
+            { label: 'Fieber' },
           ]}
         />
         <PageHeader
           eyebrow={`${view.competitionName} · ${view.seasonName} · ${view.dateRangeLabel}`}
-          title={`${view.matchdayNumber}. Tipptag — Online-Auswertung`}
+          title={`${view.matchdayNumber}. Tipptag — Fieber`}
           actions={
             <LinkButton href="/dashboard" size="sm" variant="outline">
               <ChevronLeft className="h-4 w-4" />
