@@ -21,17 +21,10 @@ export function AuthShell({
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <aside className="from-card via-card to-pitch/8 dark:from-card dark:via-card dark:to-pitch/12 relative hidden overflow-hidden bg-gradient-to-br p-12 lg:flex lg:flex-col lg:justify-between dark:bg-gradient-to-br">
-        <Link href="/" className="relative z-10 inline-flex">
-          <Wordmark size="lg" />
-        </Link>
-        <div className="relative z-10 max-w-md space-y-4">
-          <p className="text-pitch font-mono text-[0.7rem] font-medium tracking-[0.2em] uppercase">V.O.T.Z.E.</p>
-          <h2 className="font-display text-3xl leading-tight font-semibold tracking-tight">
-            Alles fürs Wochenend-Tippen an einem Ort.
-          </h2>
-          <p className="text-muted-foreground text-base leading-relaxed">
-            1. und 2. Liga, Deine Tipps, die Auswertung — digital und rechtzeitig.
-          </p>
+        <div className="relative z-10 flex flex-1 items-center pb-24">
+          <Link href="/" className="inline-flex">
+            <Wordmark size="lg" />
+          </Link>
         </div>
         <p className="text-muted-foreground relative z-10 text-xs">© {new Date().getFullYear()} V.O.T.Z.E.</p>
       </aside>
@@ -40,7 +33,7 @@ export function AuthShell({
         <div className="w-full max-w-sm space-y-7">
           <div className="space-y-2 lg:hidden">
             <Link href="/" className="inline-flex">
-              <Wordmark size="md" />
+              <Wordmark size="lg" />
             </Link>
           </div>
           <div className="space-y-2">
