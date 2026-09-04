@@ -1,8 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { CalendarClock, House, Shuffle, Trophy, Users } from 'lucide-react';
+import { CalendarClock, ChevronDown, House, Shuffle, Trophy, Users } from 'lucide-react';
 
 export type SidebarCompetition = { id: string; seasonId: string; label: string; active: boolean };
 
@@ -24,6 +25,10 @@ export function AdminSidebar({ competitions }: { competitions: SidebarCompetitio
     competitions.find((c) => c.id === competitionParam) ??
     (inSpieltage ? (competitions.find((c) => c.active) ?? competitions[0]) : undefined);
 
+  // Akkordeon: Unterebene (Tipptage/Zuordnung) nur des GEWAHLTEN Wettbewerbs
+  // offen, alle anderen zu. Initial der aktive Wettbewerb der aktuellen Seite.
+  const [openCompetitionId, setOpenCompetitionId] = useState<string | null>(activeCompetition?.id ?? null);
+
   const wettbewerbeActive = (pathname === '/admin' && tab === 'wettbewerbe') || inSpieltage;
   const startActive = pathname === '/admin' && !tab;
 
@@ -43,8 +48,8 @@ export function AdminSidebar({ competitions }: { competitions: SidebarCompetitio
             <SidebarLink href="/admin" icon={House} label="Start" active={startActive} />
           </li>
           <li>
-            {/* Wettbewerbe samt Unterebene immer sichtbar — der Inhalt ist klein,
-                ein Einklapp-Toggle versteckt nur die Navigation (Tipptage/Zuordnung). */}
+            {/* Wettbewerbe: Liste immer sichtbar, Unterebene (Tipptage/Zuordnung)
+                als Akkordeon — nur der gewählte Wettbewerb ist offen. */}
             <Link
               href="/admin?tab=wettbewerbe"
               aria-current={wettbewerbeActive && !activeCompetition ? 'page' : undefined}
@@ -59,26 +64,38 @@ export function AdminSidebar({ competitions }: { competitions: SidebarCompetitio
               {competitions.length === 0 && (
                 <li className="text-muted-foreground px-3 py-1.5 text-xs">Noch keine Wettbewerbe</li>
               )}
-              {competitions.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={compHref(c)}
-                    className={`hover:bg-muted/60 flex flex-1 items-center gap-2 rounded-lg py-1.5 pr-1.5 pl-4 text-sm ${
-                      compIsActive(c) ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
-                    } ${c.active ? '' : 'opacity-50'}`}
-                  >
-                    {c.label}
-                  </Link>
-                  <ul className="mt-0.5 space-y-0.5 pl-8">
-                    <li>
-                      <SidebarLink href={subHref(c, 'tipptage')} icon={CalendarClock} label="Tipptage" small active={subIsActive(c, 'tipptage')} />
-                    </li>
-                    <li>
-                      <SidebarLink href={subHref(c, 'zuordnung')} icon={Shuffle} label="Zuordnung" small active={subIsActive(c, 'zuordnung')} />
-                    </li>
-                  </ul>
-                </li>
-              ))}
+              {competitions.map((c) => {
+                const open = openCompetitionId === c.id;
+                return (
+                  <li key={c.id}>
+                    <div className="flex items-center">
+                      <Link
+                        href={compHref(c)}
+                        onClick={() => setOpenCompetitionId((v) => (v === c.id ? null : c.id))}
+                        className={`hover:bg-muted/60 flex flex-1 items-center gap-2 rounded-lg py-1.5 pr-1.5 pl-4 text-sm ${
+                          compIsActive(c) ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+                        } ${c.active ? '' : 'opacity-50'}`}
+                      >
+                        {c.label}
+                        <ChevronDown
+                          className={`text-muted-foreground h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`}
+                          aria-hidden="true"
+                        />
+                      </Link>
+                    </div>
+                    {open && (
+                      <ul className="mt-0.5 space-y-0.5 pl-8">
+                        <li>
+                          <SidebarLink href={subHref(c, 'tipptage')} icon={CalendarClock} label="Tipptage" small active={subIsActive(c, 'tipptage')} />
+                        </li>
+                        <li>
+                          <SidebarLink href={subHref(c, 'zuordnung')} icon={Shuffle} label="Zuordnung" small active={subIsActive(c, 'zuordnung')} />
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </li>
           <li>
