@@ -24,13 +24,17 @@ import { UserAvatar } from '@/components/user-avatar';
 import { getSession } from '@/lib/session';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
 import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
+import type { CompetitionKey } from '@/generated/prisma/client';
+
+/** Vorschau abgeschlossener Tipptage, bevor die Liste eingeklappt wird. */
+const PAST_PREVIEW = 3;
 
 export default async function AdminHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ season?: string; filter?: string; tab?: string }>;
+  searchParams: Promise<{ season?: string; tab?: string; competition?: string }>;
 }) {
-  const { season: seasonParam, filter: filterParam, tab: tabParam } = await searchParams;
+  const { season: seasonParam, tab: tabParam, competition: competitionParam } = await searchParams;
   const seasons = await getSeasons();
 
   if (seasons.length === 0) {
@@ -78,22 +82,65 @@ export default async function AdminHomePage({
   // Tab-Navigation (serverseitig per URL-Parameter, wie der Chronik-Filter).
   const tab: 'tipptage' | 'wettbewerbe' | 'tipper' =
     tabParam === 'wettbewerbe' || tabParam === 'tipper' ? tabParam : 'tipptage';
-  // Chronik-Ansicht: 'alle' (Default) | 'offen' | 'abgeschlossen' — serverseitig gefiltert.
-  const filter: 'alle' | 'offen' | 'abgeschlossen' =
-    filterParam === 'offen' || filterParam === 'abgeschlossen' ? filterParam : 'alle';
-  const filterHref = (f: string) =>
-    `/admin?season=${season.id}&tab=tipptage${f === 'alle' ? '' : `&filter=${f}`}`;
-  // Abgeschlossene Tipptage zuerst (neueste zuerst — erledigte Arbeit direkt im Blick),
-  // darunter die offenen (nächste Deadline zuerst).
-  const entries = chronik.past
+  // Chronik-Ansicht: pro Wettbewerb (Pills) — die Liste wäre bei BL+CL+DFB
+  // (48+ Tipptage) sonst unbedienbar lang. Der Status-Filter (offen/abgeschlossen)
+  // ist entfallen: offene stehen oben, abgeschlossene sind eingeklappt.
+  const allEntries = chronik.past
     .map((e) => ({ entry: e, past: true }))
-    .concat(chronik.upcoming.map((e) => ({ entry: e, past: false })))
-    .filter((e) => (filter === 'abgeschlossen' ? e.past : filter === 'offen' ? !e.past : true));
+    .concat(chronik.upcoming.map((e) => ({ entry: e, past: false })));
+  const availableKeys = COMPETITION_ORDER.filter((key) =>
+    allEntries.some((e) => e.entry.competitionKey === key),
+  );
+  // Default: der Wettbewerb mit der frühesten offenen Deadline, sonst der erste.
+  const defaultKey =
+    chronik.upcoming[0]?.competitionKey ?? availableKeys[0] ?? 'BL';
+  const selectedKey: CompetitionKey = availableKeys.includes(competitionParam as CompetitionKey)
+    ? (competitionParam as CompetitionKey)
+    : defaultKey;
+  const competitionHref = (key: CompetitionKey) =>
+    `/admin?season=${season.id}&tab=tipptage${key === defaultKey ? '' : `&competition=${key}`}`;
+  const openCountByKey = new Map<CompetitionKey, number>(
+    availableKeys.map((key) => [key, chronik.upcoming.filter((e) => e.competitionKey === key).length]),
+  );
+  const entries = allEntries.filter((e) => e.entry.competitionKey === selectedKey);
+  // Offene zuerst (nächste Deadline zuerst), darunter abgeschlossen (neueste zuerst),
+  // davon nur die letzten PAST_PREVIEW als Vorschau — der Rest hinter „Alle anzeigen".
+  const upcomingEntries = entries.filter((e) => !e.past);
+  const pastEntries = entries.filter((e) => e.past);
+  const visibleEntries = upcomingEntries.concat(pastEntries.slice(0, PAST_PREVIEW));
+  const foldedEntries = pastEntries.slice(PAST_PREVIEW);
   // Tipp-Matrizen aller angezeigten Tipptage in einem Batch (2 Abfragen statt 2 pro Tipptag).
   const matrixByMatchday =
     tab === 'tipptage'
-      ? await getMatchdayTipMatrices(entries.map((e) => e.entry.id))
+      ? await getMatchdayTipMatrices(visibleEntries.map((e) => e.entry.id))
       : new Map<string, MatchdayTipMatrix>();
+
+  // Zeile eines Tipptags (offen/abgeschlossen) — Zusammenfassung serverseitig;
+  // die Tipper-Matrix lädt die Zeile erst beim Aufklappen.
+  const renderTipptagRow = (u: (typeof chronik.upcoming)[number], past: boolean) => {
+    const matrix = matrixByMatchday.get(u.id) ?? { total: 0, fixtures: [], tipsByUser: new Map() };
+    const tippersTipped = active.filter((t) => {
+      const cnt = matrix.tipsByUser.get(t.id)?.size ?? 0;
+      return matrix.total > 0 && cnt >= matrix.total;
+    }).length;
+    const openCount = active.length - tippersTipped;
+    const resultsDone = matrix.fixtures.filter((f) => f.homeGoals !== null && f.awayGoals !== null).length;
+    return (
+      <TipptagRow
+        key={u.id}
+        matchdayId={u.id}
+        competitionShort={COMPETITION_SHORT[u.competitionKey]}
+        number={u.number}
+        total={matrix.total}
+        tippersTipped={tippersTipped}
+        activeCount={active.length}
+        openCount={openCount}
+        deadlineLabel={formatDateTime(u.deadlineAt)}
+        countdownLabel={past ? undefined : formatCountdown(u.deadlineAt)}
+        resultsDone={resultsDone}
+      />
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -118,21 +165,35 @@ export default async function AdminHomePage({
           <CardTitle className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4" /> Tipptage
           </CardTitle>
-          <nav className="flex items-center gap-1 text-xs" aria-label="Chronik filtern">
-            {(['alle', 'offen', 'abgeschlossen'] as const).map((f) => (
-              <Link
-                key={f}
-                href={filterHref(f)}
-                aria-current={filter === f ? 'page' : undefined}
-                className={
-                  filter === f
-                    ? 'bg-primary text-primary-foreground rounded px-2.5 py-1 font-medium capitalize'
-                    : 'text-muted-foreground hover:bg-muted rounded px-2.5 py-1 capitalize'
-                }
-              >
-                {f}
-              </Link>
-            ))}
+          <nav className="flex flex-wrap items-center gap-1 text-xs" aria-label="Wettbewerb wählen">
+            {availableKeys.map((key) => {
+              const open = openCountByKey.get(key) ?? 0;
+              return (
+                <Link
+                  key={key}
+                  href={competitionHref(key)}
+                  aria-current={key === selectedKey ? 'page' : undefined}
+                  className={
+                    key === selectedKey
+                      ? 'bg-primary text-primary-foreground flex items-center gap-1.5 rounded px-2.5 py-1 font-medium'
+                      : 'text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded px-2.5 py-1'
+                  }
+                >
+                  {COMPETITION_SHORT[key]}
+                  {open > 0 && (
+                    <span
+                      className={
+                        key === selectedKey
+                          ? 'bg-primary-foreground/20 rounded-full px-1.5 py-0.5 text-[0.65rem] tabular-nums'
+                          : 'bg-muted-foreground/15 rounded-full px-1.5 py-0.5 text-[0.65rem] tabular-nums'
+                      }
+                    >
+                      {open}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
         </CardHeader>
         <CardContent className="px-0 pt-0">
@@ -146,37 +207,30 @@ export default async function AdminHomePage({
                   </Link>
                 </>
               ) : (
-                `Keine ${filter === 'offen' ? 'offenen' : 'abgeschlossenen'} Tipptage.`
+                `Keine Tipptage für ${COMPETITION_LABELS[selectedKey]}.`
               )}
             </p>
           ) : (
-            <div className="divide-border/40 divide-y">
-              {entries.map(({ entry: u, past }) => {
-                const matrix = matrixByMatchday.get(u.id) ?? { total: 0, fixtures: [], tipsByUser: new Map() };
-                // Zusammenfassung serverseitig; die Tipper-Matrix lädt die Zeile erst beim Aufklappen.
-                const tippersTipped = active.filter((t) => {
-                  const cnt = matrix.tipsByUser.get(t.id)?.size ?? 0;
-                  return matrix.total > 0 && cnt >= matrix.total;
-                }).length;
-                const openCount = active.length - tippersTipped;
-                const resultsDone = matrix.fixtures.filter((f) => f.homeGoals !== null && f.awayGoals !== null).length;
-                return (
-                  <TipptagRow
-                    key={u.id}
-                    matchdayId={u.id}
-                    competitionShort={COMPETITION_SHORT[u.competitionKey]}
-                    number={u.number}
-                    total={matrix.total}
-                    tippersTipped={tippersTipped}
-                    activeCount={active.length}
-                    openCount={openCount}
-                    deadlineLabel={formatDateTime(u.deadlineAt)}
-                    countdownLabel={past ? undefined : formatCountdown(u.deadlineAt)}
-                    resultsDone={resultsDone}
-                  />
-                );
-              })}
-            </div>
+            <>
+              {upcomingEntries.length > 0 && (
+                <p className="text-muted-foreground px-6 pt-4 pb-1 text-xs font-medium tracking-wide uppercase">
+                  Offen
+                </p>
+              )}
+              <div className="divide-border/40 divide-y">
+                {visibleEntries.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+              </div>
+              {foldedEntries.length > 0 && (
+                <details className="border-border/40 border-t">
+                  <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
+                    Weitere {foldedEntries.length} abgeschlossene Tipptage anzeigen
+                  </summary>
+                  <div className="divide-border/40 divide-y border-t border-border/40">
+                    {foldedEntries.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                  </div>
+                </details>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
