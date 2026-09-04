@@ -30,6 +30,7 @@ export type ImportedFixture = {
   awayTeam: string;
   kickoff: Date;
   groupOrderId: number;
+  roundName?: string; // Gruppen-/Rundenname („1. Runde", „1.Spieltag") fuer Labels
   finished: boolean;
   homeGoals?: number; // Endergebnis (falls schon gespielt)
   awayGoals?: number;
@@ -111,6 +112,7 @@ function toImported(match: OpenLigaMatch): ImportedFixture {
     awayTeam: match.team2.teamName,
     kickoff: new Date(kickoffUtc),
     groupOrderId: match.group.groupOrderID,
+    roundName: match.group.groupName,
     finished: match.matchIsFinished,
     ...extractResult(match),
   };

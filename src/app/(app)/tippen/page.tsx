@@ -101,7 +101,12 @@ export default async function TippenPage({
               {competition.name} · Tipprunde
             </p>
             <h1 className="font-display text-5xl font-semibold tracking-tight sm:text-6xl">
-              {matchday.number}. <span className="text-muted-foreground font-display font-normal">Tipptag</span>
+              {matchday.label ?? (
+                <>
+                  {matchday.number}.{' '}
+                  <span className="text-muted-foreground font-display font-normal">Tipptag</span>
+                </>
+              )}
             </h1>
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
               <span>{dateRange === endRange ? dateRange : `${dateRange} – ${endRange}`}</span>

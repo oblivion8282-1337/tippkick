@@ -16,6 +16,7 @@ type MatchdaySummary = {
   md: {
     id: string;
     number: number;
+    label: string | null;
     deadlineAt: Date;
     startDate: Date;
     endDate: Date;
@@ -37,6 +38,7 @@ async function loadMatchdaySummary(
     select: {
       id: true,
       number: true,
+      label: true,
       deadlineAt: true,
       startDate: true,
       endDate: true,
@@ -191,7 +193,13 @@ function WeekendHero({
             {/* whitespace-nowrap: „2. Tipptag" muss EINZEILIG bleiben — der Umbruch
                 zwischen Zahl und Wort zerreißt die Überschrift auf schmalen Screens. */}
             <h2 className="font-display text-4xl font-semibold tracking-tight whitespace-nowrap sm:text-7xl">
-              {md.number}. <span className="text-muted-foreground font-display font-normal">Tipptag</span>
+              {md.label ? (
+                md.label
+              ) : (
+                <>
+                  {md.number}. <span className="text-muted-foreground font-display font-normal">Tipptag</span>
+                </>
+              )}
             </h2>
             <TipptagArrow dir="next" target={nextNumber} />
           </div>

@@ -16,6 +16,7 @@ export type TipptagEntry = {
   id: string;
   number: number;
   deadlineAt: Date;
+  label: string | null;
   competitionKey: CompetitionKey;
   competitionName: string;
 };
@@ -38,6 +39,7 @@ export async function getTipptagChronik(seasonId: string): Promise<{
     id: md.id,
     number: md.number,
     deadlineAt: md.deadlineAt,
+    label: md.label ?? null,
     competitionKey: md.competition.key,
     competitionName: md.competition.name,
   });

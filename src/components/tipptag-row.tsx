@@ -31,6 +31,7 @@ export function TipptagRow({
   matchdayId,
   competitionShort,
   number,
+  label = null,
   total,
   tippersTipped,
   activeCount,
@@ -42,6 +43,7 @@ export function TipptagRow({
   matchdayId: string;
   competitionShort: string;
   number: number;
+  label?: string | null;
   total: number;
   tippersTipped: number;
   activeCount: number;
@@ -90,7 +92,7 @@ export function TipptagRow({
           {competitionShort}
         </span>
         <Link href={`/admin/matchdays/${matchdayId}`} className="hover:underline">
-          <span className="font-display font-semibold">Tipptag {number}</span>
+          <span className="font-display font-semibold">{label ?? `Tipptag ${number}`}</span>
         </Link>
         <span className="text-muted-foreground tabular-nums">{total} Partien</span>
         <span className="text-muted-foreground tabular-nums">

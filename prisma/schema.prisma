@@ -83,6 +83,7 @@ model Matchday {
   endDate        DateTime // = MAX(kickoff) aller Sektionen
   deadlineAt     DateTime // Tipp-Deadline, i. d. R. 1 Min vor frühestem Anstoß
   deadlineManual Boolean           @default(false) // true: recalcMatchdaySpan überschreibt die Deadline nicht
+  label          String? // Rundenname aus OpenLigaDB („Achtelfinale") statt nur Nummer — null = normale Tipptag-Nummer
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   sections       MatchdaySection[]
@@ -111,6 +112,7 @@ model MatchdaySection {
   startDate      DateTime // = MIN(kickoff) der Partien
   endDate        DateTime // = MAX(kickoff) der Partien
   sourceShortcut String? // OpenLigaDB-Shortcut (bl1/bl2/cl/...), falls per Import angelegt
+  roundName      String? // Rundenname aus OpenLigaDB („1. Runde", „Achtelfinale", …)
   fixtures       Fixture[]
 
   // Kanonische Identität pro Wettbewerb. Hinweis (Prisma 7): nullable Composite-Keys sind

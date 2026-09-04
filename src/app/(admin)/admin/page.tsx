@@ -136,6 +136,7 @@ export default async function AdminHomePage({
         matchdayId={u.id}
         competitionShort={COMPETITION_SHORT[u.competitionKey]}
         number={u.number}
+        label={u.label}
         total={matrix.total}
         tippersTipped={tippersTipped}
         activeCount={active.length}

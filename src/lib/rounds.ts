@@ -51,6 +51,7 @@ export async function getTipptageOverview(
 export type TipptagListItem = {
   id: string;
   number: number;
+  label: string | null;
   startDate: Date;
   endDate: Date;
   deadlineAt: Date;
@@ -74,6 +75,7 @@ export async function getTipptageWithStats(competitionId: string): Promise<Tippt
     select: {
       id: true,
       number: true,
+      label: true,
       startDate: true,
       endDate: true,
       deadlineAt: true,
@@ -94,6 +96,7 @@ export async function getTipptageWithStats(competitionId: string): Promise<Tippt
     return {
       id: md.id,
       number: md.number,
+      label: md.label ?? null,
       startDate: md.startDate,
       endDate: md.endDate,
       deadlineAt: md.deadlineAt,

@@ -28,6 +28,7 @@ export async function upsertSection(input: {
   startDate: Date;
   endDate: Date;
   sourceShortcut?: string | null;
+  roundName?: string | null;
 }): Promise<{ id: string; created: boolean }> {
   try {
     const section = await prisma.matchdaySection.create({
@@ -38,6 +39,7 @@ export async function upsertSection(input: {
         startDate: input.startDate,
         endDate: input.endDate,
         ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
+        ...(input.roundName ? { roundName: input.roundName } : {}),
       },
       select: { id: true },
     });
@@ -56,6 +58,7 @@ export async function upsertSection(input: {
             startDate: input.startDate,
             endDate: input.endDate,
             ...(input.sourceShortcut ? { sourceShortcut: input.sourceShortcut } : {}),
+            ...(input.roundName ? { roundName: input.roundName } : {}),
           },
         });
         return { id: existing.id, created: false };
@@ -369,6 +372,7 @@ async function populateSectionFixtures(input: {
     startDate: earliest,
     endDate: latest,
     sourceShortcut: input.sourceShortcut,
+    roundName: input.fixtures[0]?.roundName ?? null,
   });
 
   // Nur Partien einfügen, deren externalId noch nicht existiert (per-fixture Idempotenz).
@@ -466,4 +470,64 @@ async function populateSectionFixtures(input: {
     }
   }
   return newFixtures.length;
+}
+
+/**
+ * Auto-Zuordnung für „einfache" Wettbewerbe (CL/DFB/EM/WM): dort ist
+ * 1 Tipptag = 1 importierter Spieltag/Runde. Jede noch nicht zugeordnete Sektion
+ * bekommt ihren Tipptag (gleiche Nummer, Label = Rundenname aus OpenLigaDB),
+ * danach werden Spanne/Deadline berechnet. Idempotent — der Cron ruft das nach
+ * jedem Import auf, neu veröffentlichte Runden (z.B. CL-Achtelfinale-Auslosung)
+ * erscheinen damit automatisch als tippbarer Tipptag.
+ */
+export async function autoAssignSimpleTipptage(competitionId: string): Promise<number> {
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    select: { key: true },
+  });
+  if (!competition || competition.key === 'BL') {
+    return 0; // Bundesliga: 2 Sektionen pro Tipptag — bleibt Admin-Entscheidung.
+  }
+  const sections = await prisma.matchdaySection.findMany({
+    where: { competitionId },
+    select: { id: true, number: true, roundName: true, matchdayId: true },
+  });
+  let assigned = 0;
+  for (const section of sections) {
+    const matchday = await prisma.matchday.upsert({
+      where: { competitionId_number: { competitionId, number: section.number } },
+      create: {
+        competitionId,
+        number: section.number,
+        startDate: new Date(),
+        endDate: new Date(),
+        deadlineAt: new Date(),
+      },
+      update: {},
+      select: { id: true },
+    });
+    if (section.matchdayId !== matchday.id) {
+      await prisma.matchdaySection.update({ where: { id: section.id }, data: { matchdayId: matchday.id } });
+      assigned++;
+    }
+    // Rundenname als Label („Achtelfinale") — reine „N. Spieltag"-Namen sind
+    // als Label wertlos, da die Tipptag-Nummer dasselbe aussagt.
+    const label = roundLabelOf(section.roundName);
+    if (label) {
+      await prisma.matchday.updateMany({
+        where: { id: matchday.id, label: null },
+        data: { label },
+      });
+    }
+    await recalcMatchdaySpan(matchday.id);
+  }
+  return assigned;
+}
+
+/** Macht aus einem OpenLigaDB-Gruppennamen ein Tipptag-Label (null = numerisch lassen). */
+function roundLabelOf(roundName: string | null): string | null {
+  if (!roundName) {
+    return null;
+  }
+  return /^\d+\.?\s*Spieltag$/i.test(roundName.trim()) ? null : roundName.trim();
 }

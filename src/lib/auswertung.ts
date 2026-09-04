@@ -72,6 +72,8 @@ export type PointTotals = {
 
 export type AuswertungView = {
   matchdayNumber: number;
+  /** Rundenname statt nur Nummer (Achtelfinale etc.) - null = normale Nummerierung. */
+  matchdayLabel: string | null;
   /** Tagesspalten dieses Tipptags, chronologisch nach frühestem Anstoß. */
   days: DayColumn[];
   competitionName: string;
@@ -227,6 +229,7 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
 
   return {
     matchdayNumber: matchday.number,
+    matchdayLabel: matchday.label ?? null,
     days,
     competitionName: matchday.competition.name,
     seasonName: matchday.competition.season.name,

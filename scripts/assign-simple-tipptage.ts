@@ -12,8 +12,7 @@
 import 'dotenv/config';
 
 import { prisma } from '../src/lib/prisma';
-import { createTipptageBatch } from '../src/lib/admin';
-import { recalcMatchdaySpan } from '../src/lib/rounds';
+import { autoAssignSimpleTipptage, createTipptageBatch } from '../src/lib/admin';
 import type { CompetitionKey } from '../src/generated/prisma/client';
 
 async function main(): Promise<void> {
@@ -46,17 +45,7 @@ async function main(): Promise<void> {
     select: { id: true, number: true },
   });
 
-  let assigned = 0;
-  for (const section of sections) {
-    const md = matchdays.find((m) => m.number === section.number);
-    if (!md) {
-      console.warn(`  Sektion ${section.number}: kein Tipptag ${section.number} — Tipptag-Anzahl erhoehen?`);
-      continue;
-    }
-    await prisma.matchdaySection.update({ where: { id: section.id }, data: { matchdayId: md.id } });
-    await recalcMatchdaySpan(md.id);
-    assigned++;
-  }
+  const assigned = await autoAssignSimpleTipptage(competition.id);
   console.log(`${key}: ${assigned} Spieltage zugeordnet, Spannen/Deadlines aktualisiert.`);
 
   await prisma.$disconnect();

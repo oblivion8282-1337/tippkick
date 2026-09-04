@@ -77,13 +77,13 @@ export default async function UserAuswertungPage({ params }: { params: Promise<{
         <Breadcrumb
           items={[
             { label: 'Dashboard', href: '/dashboard' },
-            { label: `${view.matchdayNumber}. Tipptag`, href: '/dashboard' },
+            { label: view.matchdayLabel ?? `${view.matchdayNumber}. Tipptag`, href: '/dashboard' },
             { label: 'Fieber' },
           ]}
         />
         <PageHeader
           eyebrow={`${view.competitionName} · ${view.seasonName} · ${view.dateRangeLabel}`}
-          title={`${view.matchdayNumber}. Tipptag — Fieber`}
+          title={view.matchdayLabel ? `${view.matchdayLabel} — Fieber` : `${view.matchdayNumber}. Tipptag — Fieber`}
           actions={
             <LinkButton href="/dashboard" size="sm" variant="outline">
               <ChevronLeft className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { importSeasonFromOpenLigaDb } from '@/lib/admin';
+import { autoAssignSimpleTipptage, importSeasonFromOpenLigaDb } from '@/lib/admin';
 import { syncResults } from '@/lib/result-sync';
 
 export type OpenLigaDbSyncSummary = {
@@ -16,8 +16,9 @@ export type OpenLigaDbSyncSummary = {
  * alle Spieltage + Ansetzungen je Wettbewerb mit Quelle (neu veröffentlichte
  * Spieltage kommen automatisch dazu) und aktualisiert danach die Ergebnisse.
  *
- * Das Gruppieren der Spieltage zu Tipptagen bleibt dem Admin überlassen — das ist
- * die Vereins-Entscheidung, die kein Automatismus treffen kann.
+ * Bundesliga: Gruppierung (2 Sektionen je Tipptag) bleibt Admin-Entscheidung.
+ * Einfache Wettbewerbe (CL/DFB/EM/WM, 1 Sektion je Tipptag) werden automatisch
+ * zugeordnet — neue Runden erscheinen damit selbstständig als Tipptag.
  */
 export async function syncOpenLigaDb(): Promise<OpenLigaDbSyncSummary> {
   const competitions = await prisma.competition.findMany({
@@ -34,6 +35,7 @@ export async function syncOpenLigaDb(): Promise<OpenLigaDbSyncSummary> {
       if (result.ok) {
         sections += result.sections;
         fixtures += result.fixtures;
+        await autoAssignSimpleTipptage(competition.id);
       } else {
         failures.push({ competitionId: competition.id, reason: result.reason, message: result.message });
         console.warn(

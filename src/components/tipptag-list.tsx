@@ -39,7 +39,7 @@ export function TipptagList({ tipptage }: { tipptage: TipptagListItem[] }) {
                     : `${tt.finishedCount}/${tt.fixtureCount} Ergebnisse`;
               return (
                 <div key={tt.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3.5 text-sm">
-                  <span className="font-display w-28 shrink-0 font-semibold">Tipptag {tt.number}</span>
+                  <span className="font-display w-28 shrink-0 font-semibold">{tt.label ?? `Tipptag ${tt.number}`}</span>
                   {assigned && (
                     <span className="text-muted-foreground w-28 shrink-0 tabular-nums">
                       {formatDateRange(tt.startDate, tt.endDate)}

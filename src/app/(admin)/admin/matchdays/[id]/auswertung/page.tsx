@@ -24,13 +24,13 @@ export default async function AuswertungPage({ params }: { params: Promise<{ id:
         <Breadcrumb
           items={[
             { label: 'Admin', href: `/admin/matchdays/${id}` },
-            { label: `${view.matchdayNumber}. Tipptag`, href: `/admin/matchdays/${id}` },
+            { label: view.matchdayLabel ?? `${view.matchdayNumber}. Tipptag`, href: `/admin/matchdays/${id}` },
             { label: 'Auswertung' },
           ]}
         />
         <PageHeader
           eyebrow={`${view.competitionName} · ${view.seasonName} · ${view.dateRangeLabel}`}
-          title={`${view.matchdayNumber}. Tipptag — Online-Auswertung`}
+          title={view.matchdayLabel ? `${view.matchdayLabel} — Online-Auswertung` : `${view.matchdayNumber}. Tipptag — Online-Auswertung`}
           actions={
             <div className="flex gap-2">
               <LinkButton href={`/admin/matchdays/${id}/export`} size="sm" variant="outline">
