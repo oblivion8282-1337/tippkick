@@ -49,11 +49,21 @@ export const matchdaySectionsInclude = {
  * Default-Spieltag für Tipper-Ansicht: der nächstliegende noch nicht abgelaufene
  * Matchday (sortiert nach deadlineAt aufsteigend, nicht nach Tipptag-Nummer).
  * So landet der Tipper automatisch auf dem Wochenende mit der frühesten Deadline.
+ *
+ * Fallback: kein offener Tipptag (z.B. DFB zwischen zwei Runden) → der letzte
+ * Tipptag MIT Partien, damit der Wettbewerb trotzdem sichtbar/anschaubar bleibt.
  */
-export function pickDefaultMatchday<T extends { deadlineAt: Date }>(matchdays: T[]): T | undefined {
-  return matchdays
+export function pickDefaultMatchday<T extends { deadlineAt: Date; _count?: { sections: number } }>(
+  matchdays: T[],
+): T | undefined {
+  const tippable = matchdays
     .filter((m) => isTippable(m.deadlineAt))
     .sort((a, b) => a.deadlineAt.getTime() - b.deadlineAt.getTime())[0];
+  if (tippable) {
+    return tippable;
+  }
+  const withSections = matchdays.filter((m) => (m._count?.sections ?? 0) > 0);
+  return withSections[withSections.length - 1];
 }
 
 /**
