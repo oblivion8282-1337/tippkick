@@ -34,7 +34,9 @@ export function deriveFixtureFields(f: ImportedFixture): {
       status: 'FINISHED',
     };
   }
-  const inProgress = !hasResult && f.kickoff.getTime() < Date.now();
+  // OpenLigaDB liefert bei laufenden Partien bereits Zwischenstaende als
+  // "Endergebnis"-Eintrag — hasResult darf daher NICHT gegen "laeuft" sprechen.
+  const inProgress = !f.finished && f.kickoff.getTime() < Date.now();
   return {
     homeGoals: hasResult ? (f.homeGoals ?? null) : null,
     awayGoals: hasResult ? (f.awayGoals ?? null) : null,
