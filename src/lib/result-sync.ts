@@ -86,6 +86,11 @@ function toResultWrite(f: ImportedFixture, current: { status: FixtureStatus }) {
   }
   return {
     status: derived.status,
+    // Live-Zwischenstand mitschreiben (falls gemeldet) — Punkte werden erst bei
+    // FINISHED berechnet, ein laufender Score verfälscht also nichts.
+    ...(derived.status === 'IN_PROGRESS'
+      ? { homeGoals: derived.homeGoals, awayGoals: derived.awayGoals }
+      : {}),
     resultSource: 'NONE' as const,
     syncedAt: null,
   };

@@ -1,4 +1,5 @@
 import { FIXTURE_STATUS_LABELS } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import type { AuswertungView, TipCell } from '@/lib/auswertung';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -22,11 +23,12 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
         <CardTitle>{view.matchdayNumber}.TT — Tipps &amp; Punkte</CardTitle>
       </CardHeader>
       <CardContent className="px-0 pt-0">
-        {/* Eigener Scroll-Container (beide Achsen): Haederaelle (Tipper-Namen)
-            bleiben beim Vertikalscrollen fixiert, die Master-Spalte beim Horizontalen. */}
-        <div className="max-h-[75vh] overflow-auto">
-          {view.sections.map((section) => (
-            <table key={section.id} className="border-border/40 w-full border-collapse border-y text-sm">
+        {/* Pro Sektion ein eigener Scroll-Container (beide Achsen): 1. und 2. Liga
+            scrollen horizontal UNABHAENGIG voneinander, Kopfzeilen (Liga + Tipper-
+            Namen) bleiben beim Vertikalscrollen fixiert, die Master-Spalte beim Horizontalen. */}
+        {view.sections.map((section) => (
+          <div key={section.id} className="max-h-[75vh] overflow-auto">
+            <table className="border-border/40 w-full border-collapse border-y text-sm">
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th
@@ -55,18 +57,28 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
                 </tr>
               </thead>
               <tbody>
-                {section.fixtures.map((f) => (
-                  <tr key={f.id} className="border-border/40 border-b">
-                    <td className={`${MASTER_STICKY} px-4 py-1.5`}>
+                {section.fixtures.map((f) => {
+                  const live = f.status === 'IN_PROGRESS';
+                  return (
+                  <tr key={f.id} className={cn('border-border/40 border-b', live && 'bg-pitch/5')}>
+                    <td className={`${MASTER_STICKY} ${live ? 'bg-pitch/5' : ''} px-4 py-1.5`}>
                       <span className="flex items-center gap-2">
                         <span>
                           <span className="font-medium">{f.homeTeam}</span>
                           <span className="text-muted-foreground mx-1">:</span>
                           <span className="font-medium">{f.awayTeam}</span>
                         </span>
-                        <span className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono text-xs tabular-nums">
-                          {f.resultHome !== null && f.resultAway !== null ? `${f.resultHome}:${f.resultAway}` : '–'}
-                        </span>
+                        {live ? (
+                          // Live-Zwischenstand: pitch-farbig + pulsierender Punkt
+                          <span className="bg-pitch/15 text-pitch-foreground inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums">
+                            <span className="bg-pitch h-1.5 w-1.5 animate-pulse rounded-full" aria-hidden="true" />
+                            {f.resultHome !== null && f.resultAway !== null ? `${f.resultHome}:${f.resultAway}` : 'läuft'}
+                          </span>
+                        ) : (
+                          <span className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono text-xs tabular-nums">
+                            {f.resultHome !== null && f.resultAway !== null ? `${f.resultHome}:${f.resultAway}` : '–'}
+                          </span>
+                        )}
                       </span>
                     </td>
                     <td className="text-muted-foreground px-2 py-1.5 text-xs">{FIXTURE_STATUS_LABELS[f.status]}</td>
@@ -75,11 +87,12 @@ export function AuswertungGrid({ view }: { view: AuswertungView }) {
                       return <TipperCells key={t.id} cell={cell} />;
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
-          ))}
-        </div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
