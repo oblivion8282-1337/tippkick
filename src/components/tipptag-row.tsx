@@ -7,6 +7,7 @@ import { Check, ChevronRight, ClipboardList, Download } from 'lucide-react';
 import { LinkButton } from '@/components/link-button';
 import { UserAvatar } from '@/components/user-avatar';
 import { formatWeekdayTime } from '@/lib/datetime';
+import { cn } from '@/lib/utils';
 
 type TippsData = {
   fixtures: { id: string; homeTeam: string; awayTeam: string; kickoff: string }[];
@@ -62,6 +63,10 @@ export function TipptagRow({
     }
   };
 
+  // Abgeschlossene Tipptage (kein Countdown mehr) visuell zurücknehmen: gedimmt,
+  // Wettbewerbs-Badge neutral statt akzentuiert — der Fokus liegt auf dem Offenen.
+  const closed = countdownLabel === undefined;
+
   return (
     <details
       className="group"
@@ -69,9 +74,21 @@ export function TipptagRow({
         if ((e.target as HTMLDetailsElement).open) void load();
       }}
     >
-      <summary className="hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm [&::-webkit-details-marker]:hidden">
+      <summary
+        className={cn(
+          'hover:bg-muted/30 flex cursor-pointer flex-wrap items-center gap-3 px-6 py-4 text-sm transition-opacity [&::-webkit-details-marker]:hidden',
+          closed ? 'opacity-60 hover:opacity-100' : 'opacity-100',
+        )}
+      >
         <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
-        <span className="bg-muted rounded px-2 py-0.5 text-xs font-semibold">{competitionShort}</span>
+        <span
+          className={cn(
+            'rounded px-2 py-0.5 text-xs font-semibold',
+            closed ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary',
+          )}
+        >
+          {competitionShort}
+        </span>
         <Link href={`/admin/matchdays/${matchdayId}`} className="hover:underline">
           <span className="font-display font-semibold">Tipptag {number}</span>
         </Link>

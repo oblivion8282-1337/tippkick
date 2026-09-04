@@ -218,9 +218,10 @@ export default async function AdminHomePage({
           ) : (
             <>
               {upcomingEntries.length > 0 && (
-                <p className="text-muted-foreground px-6 pt-4 pb-1 text-xs font-medium tracking-wide uppercase">
-                  Offen
-                </p>
+                <div className="flex items-center gap-2 px-6 pt-4 pb-1">
+                  <span className="bg-pitch h-1.5 w-1.5 rounded-full" aria-hidden="true" />
+                  <p className="text-foreground text-xs font-semibold tracking-wide uppercase">Offen</p>
+                </div>
               )}
               <div className="divide-border/40 divide-y">
                 {upcomingVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
@@ -236,9 +237,12 @@ export default async function AdminHomePage({
                 </details>
               )}
               {pastVisible.length > 0 && (
-                <p className="text-muted-foreground px-6 pt-4 pb-1 text-xs font-medium tracking-wide uppercase">
-                  Abgeschlossen
-                </p>
+                <div className="flex items-center gap-2 px-6 pt-4 pb-1">
+                  <span className="bg-muted-foreground/40 h-1.5 w-1.5 rounded-full" aria-hidden="true" />
+                  <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                    Abgeschlossen
+                  </p>
+                </div>
               )}
               <div className="divide-border/40 divide-y">
                 {pastVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
