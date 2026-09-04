@@ -217,12 +217,6 @@ export default async function AdminHomePage({
             </p>
           ) : (
             <>
-              {upcomingEntries.length > 0 && (
-                <div className="flex items-center gap-2 px-6 pt-4 pb-1">
-                  <span className="bg-pitch h-1.5 w-1.5 rounded-full" aria-hidden="true" />
-                  <p className="text-foreground text-xs font-semibold tracking-wide uppercase">Offen</p>
-                </div>
-              )}
               <div className="divide-border/40 divide-y">
                 {upcomingVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
               </div>
@@ -236,31 +230,37 @@ export default async function AdminHomePage({
                   </div>
                 </details>
               )}
-              {pastVisible.length > 0 && (
-                <div className="flex items-center gap-2 px-6 pt-4 pb-1">
-                  <span className="bg-muted-foreground/40 h-1.5 w-1.5 rounded-full" aria-hidden="true" />
-                  <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                    Abgeschlossen
-                  </p>
-                </div>
-              )}
-              <div className="divide-border/40 divide-y">
-                {pastVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
-              </div>
-              {pastFolded.length > 0 && (
-                <details className="border-border/40 border-t">
-                  <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
-                    Weitere {pastFolded.length} abgeschlossene Tipptage anzeigen
-                  </summary>
-                  <div className="divide-border/40 divide-y border-t border-border/40">
-                    {pastFolded.map(({ entry: u, past }) => renderTipptagRow(u, past))}
-                  </div>
-                </details>
-              )}
             </>
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Abgeschlossen: eigene Karte — klare optische Trennung vom Offenen. */}
+      {tab === 'tipptage' && pastEntries.length > 0 && (
+        <Card>
+          <CardHeader className="border-border/40 border-b">
+            <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-semibold tracking-wide uppercase">
+              <span className="bg-muted-foreground/40 h-1.5 w-1.5 rounded-full" aria-hidden="true" />
+              Abgeschlossen · {pastEntries.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 pt-0">
+            <div className="divide-border/40 divide-y">
+              {pastVisible.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+            </div>
+            {pastFolded.length > 0 && (
+              <details className="border-border/40 border-t">
+                <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
+                  Weitere {pastFolded.length} abgeschlossene Tipptage anzeigen
+                </summary>
+                <div className="divide-border/40 divide-y border-t border-border/40">
+                  {pastFolded.map(({ entry: u, past }) => renderTipptagRow(u, past))}
+                </div>
+              </details>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Wettbewerbe */}
