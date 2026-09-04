@@ -32,7 +32,7 @@ export async function getTipptagChronik(seasonId: string): Promise<{
   const matchdays = await prisma.matchday.findMany({
     where: { competition: { seasonId } },
     orderBy: { deadlineAt: 'desc' },
-    include: { competition: { select: { key: true, name: true } } },
+    include: { competition: { select: { key: true, name: true } }, sections: { select: { id: true } } },
   });
   const map = (md: (typeof matchdays)[number]): TipptagEntry => ({
     id: md.id,
@@ -42,10 +42,14 @@ export async function getTipptagChronik(seasonId: string): Promise<{
     competitionName: md.competition.name,
   });
   const now = Date.now();
-  const open = matchdays.filter((md) => md.deadlineAt.getTime() > now);
+  // Leere Platzhalter-Tipptage (z.B. DFB-Runden ohne Auslosung) tragen als
+  // Deadline ihr Anlegedatum — sie sind weder offen noch abgeschlossen und
+  // tauchen deshalb in der Chronik gar nicht auf.
+  const real = matchdays.filter((md) => md.sections.length > 0);
+  const open = real.filter((md) => md.deadlineAt.getTime() > now);
   return {
     upcoming: open.reverse().map(map),
-    past: matchdays.filter((md) => md.deadlineAt.getTime() <= now).map(map),
+    past: real.filter((md) => md.deadlineAt.getTime() <= now).map(map),
   };
 }
 
