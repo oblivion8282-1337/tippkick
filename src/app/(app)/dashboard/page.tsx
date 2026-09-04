@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, ShieldCheck } from 'lucide-react';
+import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Clock, ShieldCheck } from 'lucide-react';
 
 import { getCompetitions, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
@@ -227,7 +227,7 @@ function WeekendHero({
           </div>
         </div>
 
-        <div className="flex flex-col items-stretch sm:items-end">
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
           <LinkButton
             href={{ pathname: '/tippen', query: { competition: competitionKey, matchday: md.number } }}
             size="lg"
@@ -236,6 +236,17 @@ function WeekendHero({
             {open ? 'Jetzt tippen' : 'Ansehen'}
             <ChevronRight />
           </LinkButton>
+          {/* Auswertung erst nach Deadline — vorher wären fremde Tipps sichtbar. */}
+          {!open && (
+            <LinkButton
+              href={`/auswertung/${md.id}`}
+              variant="outline"
+              className="h-10 px-4 text-sm"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Auswertung
+            </LinkButton>
+          )}
         </div>
       </div>
     </article>
