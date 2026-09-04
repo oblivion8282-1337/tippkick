@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { CalendarClock, ChevronDown, House, Shuffle, Trophy, Users } from 'lucide-react';
+import { CalendarClock, House, Shuffle, Trophy, Users } from 'lucide-react';
 
 export type SidebarCompetition = { id: string; seasonId: string; label: string; active: boolean };
 
@@ -25,11 +24,6 @@ export function AdminSidebar({ competitions }: { competitions: SidebarCompetitio
     competitions.find((c) => c.id === competitionParam) ??
     (inSpieltage ? (competitions.find((c) => c.active) ?? competitions[0]) : undefined);
 
-  // Aufklappzustand: zum aktuellen Ort geoeffnet starten. Lazy-Init reicht
-  // (kein Effect noetig) — SSR rendert zu, der Client oeffnet beim Hydraten.
-  const [openCompetitions, setOpenCompetitions] = useState(inSpieltage);
-  const [openCompetitionId, setOpenCompetitionId] = useState<string | null>(activeCompetition?.id ?? null);
-
   const wettbewerbeActive = (pathname === '/admin' && tab === 'wettbewerbe') || inSpieltage;
   const startActive = pathname === '/admin' && !tab;
 
@@ -49,70 +43,43 @@ export function AdminSidebar({ competitions }: { competitions: SidebarCompetitio
             <SidebarLink href="/admin" icon={House} label="Start" active={startActive} />
           </li>
           <li>
-            {/* Parent: Uebersichtsseite + Aufklapp-Toggle daneben */}
-            <div className="flex items-center">
-              <Link
-                href="/admin?tab=wettbewerbe"
-                aria-current={wettbewerbeActive && !activeCompetition ? 'page' : undefined}
-                className={`hover:bg-muted/60 flex flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${
-                  wettbewerbeActive ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Trophy className="h-4 w-4 shrink-0" />
-                Wettbewerbe
-              </Link>
-              <button
-                type="button"
-                onClick={() => setOpenCompetitions((v) => !v)}
-                aria-expanded={openCompetitions}
-                aria-label="Wettbewerbe aufklappen"
-                className="text-muted-foreground hover:text-foreground -ml-8 rounded p-1.5"
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform ${openCompetitions ? '' : '-rotate-90'}`} />
-              </button>
-            </div>
-            {openCompetitions && (
-              <ul className="mt-0.5 space-y-0.5 pl-3">
-                {competitions.length === 0 && (
-                  <li className="text-muted-foreground px-3 py-1.5 text-xs">Noch keine Wettbewerbe</li>
-                )}
-                {competitions.map((c) => (
-                  <li key={c.id}>
-                    <div className="flex items-center">
-                      <Link
-                        href={compHref(c)}
-                        className={`hover:bg-muted/60 flex flex-1 items-center gap-2 rounded-lg py-1.5 pr-1.5 pl-4 text-sm ${
-                          compIsActive(c) ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
-                        } ${c.active ? '' : 'opacity-50'}`}
-                      >
-                        {c.label}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => setOpenCompetitionId((v) => (v === c.id ? null : c.id))}
-                        aria-expanded={openCompetitionId === c.id}
-                        aria-label={`${c.label} aufklappen`}
-                        className="text-muted-foreground hover:text-foreground -ml-7 rounded p-1"
-                      >
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 transition-transform ${openCompetitionId === c.id ? '' : '-rotate-90'}`}
-                        />
-                      </button>
-                    </div>
-                    {openCompetitionId === c.id && (
-                      <ul className="mt-0.5 space-y-0.5 pl-8">
-                        <li>
-                          <SidebarLink href={subHref(c, 'tipptage')} icon={CalendarClock} label="Tipptage" small active={subIsActive(c, 'tipptage')} />
-                        </li>
-                        <li>
-                          <SidebarLink href={subHref(c, 'zuordnung')} icon={Shuffle} label="Zuordnung" small active={subIsActive(c, 'zuordnung')} />
-                        </li>
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* Wettbewerbe samt Unterebene immer sichtbar — der Inhalt ist klein,
+                ein Einklapp-Toggle versteckt nur die Navigation (Tipptage/Zuordnung). */}
+            <Link
+              href="/admin?tab=wettbewerbe"
+              aria-current={wettbewerbeActive && !activeCompetition ? 'page' : undefined}
+              className={`hover:bg-muted/60 flex flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${
+                wettbewerbeActive ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Trophy className="h-4 w-4 shrink-0" />
+              Wettbewerbe
+            </Link>
+            <ul className="mt-0.5 space-y-0.5 pl-3">
+              {competitions.length === 0 && (
+                <li className="text-muted-foreground px-3 py-1.5 text-xs">Noch keine Wettbewerbe</li>
+              )}
+              {competitions.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    href={compHref(c)}
+                    className={`hover:bg-muted/60 flex flex-1 items-center gap-2 rounded-lg py-1.5 pr-1.5 pl-4 text-sm ${
+                      compIsActive(c) ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+                    } ${c.active ? '' : 'opacity-50'}`}
+                  >
+                    {c.label}
+                  </Link>
+                  <ul className="mt-0.5 space-y-0.5 pl-8">
+                    <li>
+                      <SidebarLink href={subHref(c, 'tipptage')} icon={CalendarClock} label="Tipptage" small active={subIsActive(c, 'tipptage')} />
+                    </li>
+                    <li>
+                      <SidebarLink href={subHref(c, 'zuordnung')} icon={Shuffle} label="Zuordnung" small active={subIsActive(c, 'zuordnung')} />
+                    </li>
+                  </ul>
+                </li>
+              ))}
+            </ul>
           </li>
           <li>
             <SidebarLink
