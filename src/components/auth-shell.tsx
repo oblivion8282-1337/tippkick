@@ -23,7 +23,7 @@ export function AuthShell({
       <aside className="from-card via-card to-pitch/8 dark:from-card dark:via-card dark:to-pitch/12 relative hidden overflow-hidden bg-gradient-to-br p-12 lg:flex lg:flex-col lg:justify-between dark:bg-gradient-to-br">
         <div className="relative z-10 flex flex-1 items-center pb-24">
           <Link href="/" className="inline-flex">
-            <Wordmark size="lg" />
+            <Wordmark size="xl" />
           </Link>
         </div>
         <p className="text-muted-foreground relative z-10 text-xs">© {new Date().getFullYear()} V.O.T.Z.E.</p>
@@ -33,7 +33,7 @@ export function AuthShell({
         <div className="w-full max-w-sm space-y-7">
           <div className="space-y-2 lg:hidden">
             <Link href="/" className="inline-flex">
-              <Wordmark size="lg" />
+              <Wordmark size="xl" />
             </Link>
           </div>
           <div className="space-y-2">

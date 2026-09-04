@@ -6,13 +6,13 @@ import { cn } from '@/lib/utils';
  * Logo ist helle Grafik auf transparent — funktioniert auf dunklem Grund
  * (Default-Theme).
  */
-export function Wordmark({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
-  // lg = Login-Branding: fuellt die verfuegbare Breite (Logo links, Schrift rechts).
-  const isLarge = size === 'lg';
-  const logoH = size === 'sm' ? 'h-6' : isLarge ? 'h-28 sm:h-48' : 'h-8';
-  const textSize = size === 'sm' ? 'text-sm' : isLarge ? 'text-5xl sm:text-7xl' : 'text-base';
+export function Wordmark({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  // xl = Login-Branding (riesig); lg = kompakt-gross (Navbar/Leerzustand).
+  const isGiant = size === 'xl';
+  const logoH = size === 'sm' ? 'h-6' : isGiant ? 'h-24 lg:h-48' : size === 'lg' ? 'h-10' : 'h-8';
+  const textSize = size === 'sm' ? 'text-sm' : isGiant ? 'text-5xl lg:text-7xl' : size === 'lg' ? 'text-xl' : 'text-base';
   return (
-    <span className={cn('flex items-center', isLarge ? 'gap-3 sm:gap-4' : 'gap-2.5', className)}>
+    <span className={cn('flex items-center', isGiant ? 'gap-3 sm:gap-4' : 'gap-2.5', className)}>
       <Image
         src="/vote-logo.png"
         alt="V.O.T.Z.E. Logo"
