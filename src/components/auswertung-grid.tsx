@@ -12,6 +12,14 @@ function pointsClass(points: TipCell['points'] | undefined): string {
   return 'text-muted-foreground/60';
 }
 
+/** Heatmap-Hintergrund für den ganzen 6-Spalten-Block (Volltreffer am kräftigsten). */
+function pointsBg(points: TipCell['points'] | undefined): string {
+  if (points === 3) return 'bg-pitch/25';
+  if (points === 2) return 'bg-pitch/10';
+  if (points === 1) return 'bg-amber-500/10';
+  return '';
+}
+
 /**
  * TT-Raster: Partien als Zeilen, pro Tipper ein originalgetreuer 6-Spalten-Block
  * (Tipp-Heim | : | Tipp-Gast | Pkt | 3er | 2er). Ergebnis aus Fixture, Punkte berechnet.
@@ -116,28 +124,29 @@ function TipperCells({ cell }: { cell: TipCell | undefined }) {
   const hasTip = cell?.tipHome !== null && cell?.tipHome !== undefined;
   // Notfalltipp-Ersatzwerte kursiv — so bleibt erkennbar, dass nicht echt getippt wurde.
   const emergencyTitle = cell?.emergency ? 'Notfalltipp (automatischer Ersatz)' : undefined;
+  const bg = pointsBg(cell?.points);
   return (
     <>
       <td
         title={emergencyTitle}
-        className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${emergencyClass}`}
+        className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${bg} ${emergencyClass}`}
       >
         {hasTip ? cell?.tipHome : ''}
       </td>
-      <td className="text-muted-foreground px-0 text-center">:</td>
+      <td className={`text-muted-foreground px-0 text-center ${bg}`}>:</td>
       <td
         title={emergencyTitle}
-        className={`px-1 py-1 text-center font-mono tabular-nums ${emergencyClass}`}
+        className={`px-1 py-1 text-center font-mono tabular-nums ${bg} ${emergencyClass}`}
       >
         {hasTip ? cell?.tipAway : ''}
       </td>
       <td
-        className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${pointsClass(cell?.points)}`}
+        className={`border-border/40 border-l px-1 py-1 text-center font-mono tabular-nums ${bg} ${pointsClass(cell?.points)}`}
       >
         {cell?.points ?? '–'}
       </td>
-      <td className="px-1 py-1 text-center"></td>
-      <td className="px-1 py-1 text-center"></td>
+      <td className={`px-1 py-1 text-center ${bg}`}></td>
+      <td className={`px-1 py-1 text-center ${bg}`}></td>
     </>
   );
 }
