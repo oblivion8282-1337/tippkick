@@ -7,3 +7,9 @@ node_modules
 Vorlagen
 *.xlsx
 scripts/screenshots.cjs
+# Lokaler pnpm-Store des Servers (~900 MB) — der Build installiert im Image neu.
+.pnpm-store
+# Laufzeitdaten: Profilbilder kommen per Volume-Mount, gehoeren nie ins Image.
+data
+# Inkrementeller tsc-Cache, im Image wertlos.
+tsconfig.tsbuildinfo
