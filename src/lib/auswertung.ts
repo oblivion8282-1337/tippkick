@@ -2,7 +2,7 @@ import { getMatchdayAdmin } from '@/lib/admin';
 import { loadTipsByUser } from '@/lib/tipps';
 import { resolveEmergencyTip, type EmergencyConfig } from '@/lib/emergency-tip';
 import { getEligibleTippers } from '@/lib/tippers';
-import { isFixtureScoreable, scoreTip } from '@/lib/scoring';
+import { isFixtureProvisional, isFixtureScoreable, scoreTip } from '@/lib/scoring';
 import { LEAGUE_SECTION_LABELS, LEAGUE_SECTION_ORDER } from '@/lib/constants';
 import { dateKeyOf, formatDateRange, formatDayMonth, weekdayLabelOf } from '@/lib/datetime';
 import { prisma } from '@/lib/prisma';
@@ -13,6 +13,13 @@ export type TipCell = {
   tipHome: number | null;
   tipAway: number | null;
   points: 0 | 1 | 2 | 3 | null;
+  /**
+   * Vorläufige Punkte aus dem Live-Zwischenstand einer laufenden Partie.
+   * Bewusst getrennt von `points`: reine Anzeige — zählt NICHT in Summen,
+   * Tagespunkte, 3er/2er/1er oder den Excel-Export, weil sich der Stand
+   * bis zum Abpfiff noch ändern kann. Gesetzt genau dann, wenn `points === null`.
+   */
+  livePoints: 0 | 1 | 2 | 3 | null;
   /** true = Notfalltipp-Ersatzwert statt echtem Tipp (bei der Auswertung eingesetzt). */
   emergency: boolean;
 };
@@ -25,6 +32,8 @@ export type AuswertungFixture = {
   resultHome: number | null;
   resultAway: number | null;
   scoreable: boolean;
+  /** true = läuft und hat schon einen Zwischenstand (bewertbar, aber nur vorläufig). */
+  provisional: boolean;
   status: FixtureStatus;
 };
 
@@ -121,7 +130,17 @@ function dayColumnsOf(fixtures: { kickoff: Date }[]): DayColumn[] {
   });
 }
 
-type ScoredFixture = AuswertungFixture & { league: League; result: { homeGoals: number; awayGoals: number } | null };
+type FixtureGoals = { homeGoals: number; awayGoals: number };
+
+/**
+ * `result` = Endergebnis (zählt), `liveResult` = Zwischenstand einer laufenden
+ * Partie (nur Anzeige). Immer höchstens eins von beiden gesetzt.
+ */
+type ScoredFixture = AuswertungFixture & {
+  league: League;
+  result: FixtureGoals | null;
+  liveResult: FixtureGoals | null;
+};
 
 /**
  * Online-Auswertung (SSOT): TT-Raster + TW-Aggregate pro Tipper, berechnet
@@ -151,20 +170,23 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
         resultHome: f.homeGoals,
         resultAway: f.awayGoals,
         scoreable: isFixtureScoreable(f),
+        provisional: isFixtureProvisional(f),
         status: f.status,
       })),
     }));
 
   // Flache, mit Liga/Ergebnis angereicherte Partien-Liste für die Aggregation.
   const scored: ScoredFixture[] = sections.flatMap((s) =>
-    s.fixtures.map((f) => ({
-      ...f,
-      league: s.league,
-      result:
-        f.scoreable && f.resultHome !== null && f.resultAway !== null
-          ? { homeGoals: f.resultHome, awayGoals: f.resultAway }
-          : null,
-    })),
+    s.fixtures.map((f) => {
+      const goals =
+        f.resultHome !== null && f.resultAway !== null ? { homeGoals: f.resultHome, awayGoals: f.resultAway } : null;
+      return {
+        ...f,
+        league: s.league,
+        result: f.scoreable ? goals : null,
+        liveResult: f.provisional ? goals : null,
+      };
+    }),
   );
   const [tipsByUser, emergencyRows, quotaLeft] = await Promise.all([
     loadTipsByUser(scored.map((f) => f.id)),
@@ -175,7 +197,10 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
     // Notfalltipp-Verbrauch: pro Halbserie (Hin 1–17, Rück 18–34) greift er nur
     // für den ERSTEN vollständig verpassten Tipptag. Dazu genügt zu prüfen, ob der
     // Tipper in früheren Tipptagen derselben Halbserie schon einen ganz ausgelassen hat.
-    emergencyQuotaLeft(matchday, tippers.map((t) => t.id)),
+    emergencyQuotaLeft(
+      matchday,
+      tippers.map((t) => t.id),
+    ),
   ]);
   const emergencyByUser = new Map<string, EmergencyConfig>(
     emergencyRows.map((e) => [
@@ -183,7 +208,12 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
       {
         defaultHome: e.defaultHome,
         defaultAway: e.defaultAway,
-        rules: e.teamRules.map((r) => ({ id: r.id, teamName: r.teamName, goalsFor: r.goalsFor, goalsAgainst: r.goalsAgainst })),
+        rules: e.teamRules.map((r) => ({
+          id: r.id,
+          teamName: r.teamName,
+          goalsFor: r.goalsFor,
+          goalsAgainst: r.goalsAgainst,
+        })),
       },
     ]),
   );
@@ -211,7 +241,10 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
       const tipHome = effective?.homeGoals ?? null;
       const tipAway = effective?.awayGoals ?? null;
       const points = f.result && effective ? scoreTip(f.result, effective) : null;
-      tipsByFixture.set(f.id, { tipHome, tipAway, points, emergency: !tip && emergency !== null });
+      // Vorläufige Punkte laufender Partien: gleiche Regel, nur auf dem Zwischenstand.
+      // Fließen absichtlich NICHT in die Aggregation unten ein.
+      const livePoints = f.liveResult && effective ? scoreTip(f.liveResult, effective) : null;
+      tipsByFixture.set(f.id, { tipHome, tipAway, points, livePoints, emergency: !tip && emergency !== null });
 
       if (points !== null) {
         if (f.league === 'BL') blPoints += points;
@@ -281,7 +314,6 @@ function aggregateTotals(tippers: TipperRow[], days: DayColumn[]): { totals: Poi
   const averages = mapTotals(totals, (v) => Math.round((v / n) * 100) / 100);
   return { totals, averages };
 }
-
 
 /** Tipptag-Grenze der Hinrunde (1–17 Hin-, 18–34 Rückrunde). */
 const HINRUUNDE_MAX_TIPPTAG = 17;

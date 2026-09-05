@@ -22,6 +22,15 @@ export function isFixtureScoreable(f: FixtureResultInfo): boolean {
   return f.status === 'FINISHED' && f.homeGoals !== null && f.awayGoals !== null;
 }
 
+/**
+ * Partie liefert einen VORLÄUFIGEN Zwischenstand: sie läuft und hat bereits beide Tore.
+ * Bewusst getrennt von `isFixtureScoreable` — daraus berechnete Punkte sind eine reine
+ * Anzeige-Information und fließen weder in Summen noch in den Excel-Export ein.
+ */
+export function isFixtureProvisional(f: FixtureResultInfo): boolean {
+  return f.status === 'IN_PROGRESS' && f.homeGoals !== null && f.awayGoals !== null;
+}
+
 function sign(n: number): -1 | 0 | 1 {
   if (n > 0) return 1;
   if (n < 0) return -1;
