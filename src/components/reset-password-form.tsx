@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 
 import { authClient } from '@/lib/auth-client';
 import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
@@ -17,6 +18,7 @@ export function ResetPasswordForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -39,16 +41,27 @@ export function ResetPasswordForm() {
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="password">Neues Passwort</Label>
-        <Input
-          id="password"
-          type="password"
-          required
-          minLength={MIN_PASSWORD_LENGTH}
-          autoComplete="new-password"
-          placeholder={`Mindestens ${MIN_PASSWORD_LENGTH} Zeichen`}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+            autoComplete="new-password"
+            placeholder={`Mindestens ${MIN_PASSWORD_LENGTH} Zeichen`}
+            className="pr-10"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+            className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+          >
+            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </div>
       </div>
       {error && (
         <p role="alert" className="text-destructive text-sm">

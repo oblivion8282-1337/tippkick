@@ -273,6 +273,21 @@ export async function approveUserAction(formData: FormData): Promise<void> {
   revalidatePath('/admin');
 }
 
+/**
+ * Setzt das Passwort eines Nutzers zurück: der Credential-Account wird gelöscht,
+ * damit die nächste Passworteingabe beim Login ein NEUES Passwort setzt
+ * (Erstaktivierung). Schützt sich selbst.
+ */
+export async function resetUserPasswordAction(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const userId = String(formData.get('userId'));
+  if (userId === session.user.id) {
+    return; // sich selbst nicht zurücksetzen
+  }
+  await prisma.account.deleteMany({ where: { userId, providerId: 'credential' } });
+  revalidatePath('/admin');
+}
+
 /** Lehnt einen wartenden Nutzer ab (= löscht ihn, nur solange approved=false). */
 export async function rejectUserAction(formData: FormData): Promise<void> {
   const session = await requireAdmin();

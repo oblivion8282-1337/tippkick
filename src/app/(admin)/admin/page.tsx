@@ -23,7 +23,12 @@ import { TipptagRow } from '@/components/tipptag-row';
 import { UserAvatar } from '@/components/user-avatar';
 import { getSession } from '@/lib/session';
 import { getManageableSeason, getSeasons } from '@/lib/matchdays';
-import { approveUserAction, deleteUserAction, rejectUserAction } from '@/app/(admin)/admin/actions';
+import {
+  approveUserAction,
+  deleteUserAction,
+  rejectUserAction,
+  resetUserPasswordAction,
+} from '@/app/(admin)/admin/actions';
 import type { CompetitionKey } from '@/generated/prisma/client';
 
 /** Vorschau abgeschlossener Tipptage, bevor die Liste eingeklappt wird. */
@@ -92,9 +97,7 @@ export default async function AdminHomePage({
     .map((e) => ({ entry: e, state: 'done' as RowState }))
     .concat(chronik.running.map((e) => ({ entry: e, state: 'running' as RowState })))
     .concat(chronik.upcoming.map((e) => ({ entry: e, state: 'open' as RowState })));
-  const availableKeys = COMPETITION_ORDER.filter((key) =>
-    allEntries.some((e) => e.entry.competitionKey === key),
-  );
+  const availableKeys = COMPETITION_ORDER.filter((key) => allEntries.some((e) => e.entry.competitionKey === key));
   // Default: Bundesliga (Vereins-Hauptwettbewerb) — analog zum Dashboard-Hero.
   // Fallbacks: früheste offene Deadline, sonst der laufende, sonst der erste.
   const defaultKey =
@@ -176,59 +179,59 @@ export default async function AdminHomePage({
       )}
 
       {tab === 'tipptage' && (
-      <Card>
-        <CardHeader className="border-border/40 flex-row flex-wrap items-center justify-between gap-3 border-b">
-          <CardTitle className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4" /> Tipptage
-          </CardTitle>
-          <nav className="flex flex-wrap items-center gap-1 text-xs" aria-label="Wettbewerb wählen">
-            {availableKeys.map((key) => {
-              const open = openCountByKey.get(key) ?? 0;
-              return (
-                <Link
-                  key={key}
-                  href={competitionHref(key)}
-                  aria-current={key === selectedKey ? 'page' : undefined}
-                  className={
-                    key === selectedKey
-                      ? 'bg-primary text-primary-foreground flex items-center gap-1.5 rounded px-2.5 py-1 font-medium'
-                      : 'text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded px-2.5 py-1'
-                  }
-                >
-                  {COMPETITION_SHORT[key]}
-                  {open > 0 && (
-                    <span
-                      className={
-                        key === selectedKey
-                          ? 'bg-primary-foreground/20 rounded-full px-1.5 py-0.5 text-[0.65rem] tabular-nums'
-                          : 'bg-muted-foreground/15 rounded-full px-1.5 py-0.5 text-[0.65rem] tabular-nums'
-                      }
-                    >
-                      {open}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-        </CardHeader>
-        <CardContent className="px-0 pt-0">
-          {entries.length === 0 && (
-            <p className="text-muted-foreground px-6 py-8 text-sm">
-              {chronik.upcoming.length === 0 && chronik.running.length === 0 && chronik.past.length === 0 ? (
-                <>
-                  Noch keine Tipptage. Spieltage gruppieren?{' '}
-                  <Link href="/admin/spieltage" className="text-primary underline">
-                    Zur Gruppierung
+        <Card>
+          <CardHeader className="border-border/40 flex-row flex-wrap items-center justify-between gap-3 border-b">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" /> Tipptage
+            </CardTitle>
+            <nav className="flex flex-wrap items-center gap-1 text-xs" aria-label="Wettbewerb wählen">
+              {availableKeys.map((key) => {
+                const open = openCountByKey.get(key) ?? 0;
+                return (
+                  <Link
+                    key={key}
+                    href={competitionHref(key)}
+                    aria-current={key === selectedKey ? 'page' : undefined}
+                    className={
+                      key === selectedKey
+                        ? 'bg-primary text-primary-foreground flex items-center gap-1.5 rounded px-2.5 py-1 font-medium'
+                        : 'text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded px-2.5 py-1'
+                    }
+                  >
+                    {COMPETITION_SHORT[key]}
+                    {open > 0 && (
+                      <span
+                        className={
+                          key === selectedKey
+                            ? 'bg-primary-foreground/20 rounded-full px-1.5 py-0.5 text-[0.65rem] tabular-nums'
+                            : 'bg-muted-foreground/15 rounded-full px-1.5 py-0.5 text-[0.65rem] tabular-nums'
+                        }
+                      >
+                        {open}
+                      </span>
+                    )}
                   </Link>
-                </>
-              ) : (
-                `Keine Tipptage für ${COMPETITION_LABELS[selectedKey]}.`
-              )}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+                );
+              })}
+            </nav>
+          </CardHeader>
+          <CardContent className="px-0 pt-0">
+            {entries.length === 0 && (
+              <p className="text-muted-foreground px-6 py-8 text-sm">
+                {chronik.upcoming.length === 0 && chronik.running.length === 0 && chronik.past.length === 0 ? (
+                  <>
+                    Noch keine Tipptage. Spieltage gruppieren?{' '}
+                    <Link href="/admin/spieltage" className="text-primary underline">
+                      Zur Gruppierung
+                    </Link>
+                  </>
+                ) : (
+                  `Keine Tipptage für ${COMPETITION_LABELS[selectedKey]}.`
+                )}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Läuft: eigene Karte — Deadline vorbei, Ergebnisse stehen (teilweise)
@@ -264,10 +267,10 @@ export default async function AdminHomePage({
             </div>
             {upcomingFolded.length > 0 && (
               <details className="border-border/40 border-t">
-                <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
+                <summary className="text-muted-foreground hover:bg-muted cursor-pointer px-6 py-3 text-sm select-none">
                   Weitere {upcomingFolded.length} offene Tipptage anzeigen
                 </summary>
-                <div className="divide-border/40 divide-y border-t border-border/40">
+                <div className="divide-border/40 border-border/40 divide-y border-t">
                   {upcomingFolded.map(({ entry: u, state }) => renderTipptagRow(u, state))}
                 </div>
               </details>
@@ -291,10 +294,10 @@ export default async function AdminHomePage({
             </div>
             {pastFolded.length > 0 && (
               <details className="border-border/40 border-t">
-                <summary className="text-muted-foreground hover:bg-muted cursor-pointer select-none px-6 py-3 text-sm">
+                <summary className="text-muted-foreground hover:bg-muted cursor-pointer px-6 py-3 text-sm select-none">
                   Weitere {pastFolded.length} abgeschlossene Tipptage anzeigen
                 </summary>
-                <div className="divide-border/40 divide-y border-t border-border/40">
+                <div className="divide-border/40 border-border/40 divide-y border-t">
                   {pastFolded.map(({ entry: u, state }) => renderTipptagRow(u, state))}
                 </div>
               </details>
@@ -305,134 +308,143 @@ export default async function AdminHomePage({
 
       {/* Wettbewerbe */}
       {tab === 'wettbewerbe' && (
-      <Card>
-        <CardHeader className="border-border/40 border-b">
-          <CardTitle>Wettbewerbe</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pt-0">
-          <ul className="divide-border/40 divide-y">
-            {COMPETITION_ORDER.map((key) => {
-              const c = compByKey.get(key);
-              const active = Boolean(c && c.sourceShortcuts.length > 0);
-              return (
-                <li key={key} className="flex flex-wrap items-center gap-3 px-6 py-4 text-sm">
-                  <span className="font-medium">{COMPETITION_LABELS[key]}</span>
-                  {active && c ? (
-                    <>
-                      <span className="text-muted-foreground tabular-nums">
-                        {c._count.matchdays} Tipptage · {c._count.sections} Spieltage importiert
-                      </span>
-                      <LinkButton
-                        href={`/admin/spieltage?season=${season.id}&competition=${c.id}`}
-                        size="icon-sm"
-                        className="ml-auto"
-                        aria-label={`${COMPETITION_LABELS[key]} öffnen`}
-                      >
-                        <ChevronRight className="size-4" />
-                      </LinkButton>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground ml-auto text-xs">{c ? 'ohne Quelle' : 'deaktiviert'}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
-      )}
-
-      {/* Tipper */}
-      {tab === 'tipper' && (
-      <Card>
-        <CardHeader className="border-border/40 border-b">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-4 w-4" /> Tipper · {tipperStats.tippers} (+{tipperStats.admins} Tippleitung)
-            {pending.length > 0 && (
-              <span className="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
-                {pending.length} wartet
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pt-0">
-          {pending.length > 0 && (
-            <>
-              <p className="text-muted-foreground px-6 py-2 text-xs font-medium tracking-wide uppercase">
-                Wartet auf Freischaltung
-              </p>
-              <ul className="divide-border/40 border-border/40 divide-y border-t">
-                {pending.map((u) => (
-                  <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
-                    <span className="font-medium">{u.name}</span>
-                    <span className="text-muted-foreground truncate">{u.email}</span>
-                    <span className="ml-auto flex gap-2">
-                      <form action={approveUserAction}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <SubmitButton size="sm" pendingText="Schalte frei …">
-                          Freischalten
-                        </SubmitButton>
-                      </form>
-                      <form action={rejectUserAction}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <ConfirmButton confirm={`${u.name} ablehnen und löschen?`} variant="destructive" size="sm">
-                          Ablehnen
-                        </ConfirmButton>
-                      </form>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          {active.length === 0 ? (
-            <p className="text-muted-foreground px-6 py-8 text-sm">Noch keine Tipper freigeschaltet.</p>
-          ) : (
-            <ul className="divide-border/40 border-border/40 divide-y border-t">
-              {active.map((u) => {
-                const isAdmin = u.role === ROLE_ADMIN;
-                const isSelf = u.id === selfId;
+        <Card>
+          <CardHeader className="border-border/40 border-b">
+            <CardTitle>Wettbewerbe</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 pt-0">
+            <ul className="divide-border/40 divide-y">
+              {COMPETITION_ORDER.map((key) => {
+                const c = compByKey.get(key);
+                const active = Boolean(c && c.sourceShortcuts.length > 0);
                 return (
-                  <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
-                    <UserAvatar name={u.name} image={u.image} className="h-7 w-7 text-xs" />
-                    <span className="font-medium">
-                      {u.name}
-                      {isSelf && <span className="text-muted-foreground ml-1 text-xs">(du)</span>}
-                    </span>
-                    <span className="text-muted-foreground truncate">{u.email}</span>
-                    {isSelf ? (
-                      <span
-                        className={
-                          isAdmin
-                            ? 'bg-primary/15 text-primary ml-auto rounded px-2 py-0.5 text-xs font-medium'
-                            : 'bg-muted text-muted-foreground ml-auto rounded px-2 py-0.5 text-xs'
-                        }
-                      >
-                        {isAdmin ? 'Tippleitung' : 'Tipper'}
-                      </span>
+                  <li key={key} className="flex flex-wrap items-center gap-3 px-6 py-4 text-sm">
+                    <span className="font-medium">{COMPETITION_LABELS[key]}</span>
+                    {active && c ? (
+                      <>
+                        <span className="text-muted-foreground tabular-nums">
+                          {c._count.matchdays} Tipptage · {c._count.sections} Spieltage importiert
+                        </span>
+                        <LinkButton
+                          href={`/admin/spieltage?season=${season.id}&competition=${c.id}`}
+                          size="icon-sm"
+                          className="ml-auto"
+                          aria-label={`${COMPETITION_LABELS[key]} öffnen`}
+                        >
+                          <ChevronRight className="size-4" />
+                        </LinkButton>
+                      </>
                     ) : (
-                      <span className="ml-auto flex items-center gap-2">
-                        <RoleSelectForm userId={u.id} role={u.role ?? ROLE_USER} />
-                        <form action={deleteUserAction}>
-                          <input type="hidden" name="userId" value={u.id} />
-                          <ConfirmButton
-                            confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`}
-                            variant="destructive"
-                            size="sm"
-                          >
-                            Entfernen
-                          </ConfirmButton>
-                        </form>
-                      </span>
+                      <span className="text-muted-foreground ml-auto text-xs">{c ? 'ohne Quelle' : 'deaktiviert'}</span>
                     )}
                   </li>
                 );
               })}
             </ul>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tipper */}
+      {tab === 'tipper' && (
+        <Card>
+          <CardHeader className="border-border/40 border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4" /> Tipper · {tipperStats.tippers} (+{tipperStats.admins} Tippleitung)
+              {pending.length > 0 && (
+                <span className="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
+                  {pending.length} wartet
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 pt-0">
+            {pending.length > 0 && (
+              <>
+                <p className="text-muted-foreground px-6 py-2 text-xs font-medium tracking-wide uppercase">
+                  Wartet auf Freischaltung
+                </p>
+                <ul className="divide-border/40 border-border/40 divide-y border-t">
+                  {pending.map((u) => (
+                    <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
+                      <span className="font-medium">{u.name}</span>
+                      <span className="text-muted-foreground truncate">{u.email}</span>
+                      <span className="ml-auto flex gap-2">
+                        <form action={approveUserAction}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <SubmitButton size="sm" pendingText="Schalte frei …">
+                            Freischalten
+                          </SubmitButton>
+                        </form>
+                        <form action={rejectUserAction}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <ConfirmButton confirm={`${u.name} ablehnen und löschen?`} variant="destructive" size="sm">
+                            Ablehnen
+                          </ConfirmButton>
+                        </form>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {active.length === 0 ? (
+              <p className="text-muted-foreground px-6 py-8 text-sm">Noch keine Tipper freigeschaltet.</p>
+            ) : (
+              <ul className="divide-border/40 border-border/40 divide-y border-t">
+                {active.map((u) => {
+                  const isAdmin = u.role === ROLE_ADMIN;
+                  const isSelf = u.id === selfId;
+                  return (
+                    <li key={u.id} className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm">
+                      <UserAvatar name={u.name} image={u.image} className="h-7 w-7 text-xs" />
+                      <span className="font-medium">
+                        {u.name}
+                        {isSelf && <span className="text-muted-foreground ml-1 text-xs">(du)</span>}
+                      </span>
+                      <span className="text-muted-foreground truncate">{u.email}</span>
+                      {isSelf ? (
+                        <span
+                          className={
+                            isAdmin
+                              ? 'bg-primary/15 text-primary ml-auto rounded px-2 py-0.5 text-xs font-medium'
+                              : 'bg-muted text-muted-foreground ml-auto rounded px-2 py-0.5 text-xs'
+                          }
+                        >
+                          {isAdmin ? 'Tippleitung' : 'Tipper'}
+                        </span>
+                      ) : (
+                        <span className="ml-auto flex items-center gap-2">
+                          <RoleSelectForm userId={u.id} role={u.role ?? ROLE_USER} />
+                          <form action={resetUserPasswordAction}>
+                            <input type="hidden" name="userId" value={u.id} />
+                            <ConfirmButton
+                              confirm={`Passwort von ${u.name} zurücksetzen? Der nächste Login setzt per Eingabe ein neues Passwort.`}
+                              size="sm"
+                            >
+                              Passwort zurücksetzen
+                            </ConfirmButton>
+                          </form>
+                          <form action={deleteUserAction}>
+                            <input type="hidden" name="userId" value={u.id} />
+                            <ConfirmButton
+                              confirm={`${u.name} endgültig entfernen (inkl. Tipps)?`}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              Entfernen
+                            </ConfirmButton>
+                          </form>
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

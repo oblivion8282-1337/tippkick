@@ -8,6 +8,7 @@ import { AuthShell } from '@/components/auth-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Eye, EyeOff } from 'lucide-react';
 
 /**
  * EIN Formular für alles: Name (oder E-Mail) + Passwort.
@@ -20,6 +21,7 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(gateMessage);
   const [pending, setPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -92,16 +94,26 @@ export function LoginForm({ gateMessage }: { gateMessage: string | null }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Passwort</Label>
-          <Input
-            id="password"
-            type="password"
-            required
-            minLength={MIN_PASSWORD_LENGTH}
-            autoComplete="current-password"
-            placeholder="Noch kein Passwort? Diese Eingabe setzt es."
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={MIN_PASSWORD_LENGTH}
+              autoComplete="current-password"
+              className="pr-10"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+              className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
         </div>
 
         {error && (
