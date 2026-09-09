@@ -56,22 +56,8 @@ async function loadMatchdaySummary(
   return { md, tipped, total, open: isTippable(md.deadlineAt) };
 }
 
-/** Läd den zuletzt gestarteten Tipptag eines Wettbewerbs (Deadline vorbei) — Kandidat fürs Fieber. */
-async function loadLiveMatchday(competitionId: string): Promise<{ id: string; number: number } | null> {
-  const md = await prisma.matchday.findFirst({
-    where: { competitionId, deadlineAt: { lte: new Date() } },
-    orderBy: { number: 'desc' },
-    select: { id: true, number: true },
-  });
-  return md;
-}
-
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ matchday?: string; competition?: string }>;
-}) {
-  const { matchday: matchdayParam, competition: competitionParam } = await searchParams;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ matchday?: string }> }) {
+  const { matchday: matchdayParam } = await searchParams;
   const session = await requireUser();
   const competitions = await getCompetitions();
 
@@ -94,33 +80,23 @@ export default async function DashboardPage({
       if (!focus) {
         return null;
       }
-      const [summary, liveMatchday] = await Promise.all([
-        loadMatchdaySummary(c.id, focus.number, session.user.id),
-        loadLiveMatchday(c.id),
-      ]);
-      return summary ? { c, ...summary, liveMatchday } : null;
+      const summary = await loadMatchdaySummary(c.id, focus.number, session.user.id);
+      return summary ? { c, ...summary } : null;
     }),
   );
   const visibleRows = rows.filter((r): r is NonNullable<typeof r> => r !== null);
   if (visibleRows.length === 0) {
     return <div className="text-muted-foreground py-24 text-center">Aktuell keine tippspielfähigen Tipptage.</div>;
   }
-  // Hero: per ?competition= wählbar, sonst fix die Bundesliga (Vereins-Hauptwettbewerb).
+  // Hero ist fix die Bundesliga (Vereins-Hauptwettbewerb); CL/DFB stehen darunter.
   // Fallback: erster verfuegbarer Wettbewerb, falls es (noch) keine Bundesliga gibt.
-  const focusRow =
-    visibleRows.find((r) => r.c.key === competitionParam) ??
-    visibleRows.find((r) => r.c.key === 'BL') ??
-    visibleRows[0];
+  const focusRow = visibleRows.find((r) => r.c.key === 'BL') ?? visibleRows[0];
 
-  // Hero = Fokus-Wettbewerb, Tipptag per ?matchday= schaltbar. Beim gezielten
-  // Aufruf eines Wettbewerbs startet der laufende (Fieber-)Tipptag, sonst der
-  // tippbare Fokus-Tipptag.
+  // Hero = Fokus-Wettbewerb, Tipptag per ?matchday= schaltbar.
   const heroC = focusRow.c;
   const numbers = heroC.matchdays.map((m) => m.number).sort((a, b) => a - b);
   const requested = Number(matchdayParam);
-  const defaultNumber =
-    competitionParam === heroC.key && focusRow.liveMatchday ? focusRow.liveMatchday.number : focusRow.md.number;
-  const selectedNumber = numbers.includes(requested) ? requested : defaultNumber;
+  const selectedNumber = numbers.includes(requested) ? requested : focusRow.md.number;
   const heroSummary = await loadMatchdaySummary(heroC.id, selectedNumber, session.user.id);
   if (!heroSummary) {
     return null;
@@ -215,7 +191,7 @@ function WeekendHero({
 
           {/* Tipptag + Pfeile zum Schalten (flankierend) */}
           <div className="flex items-center gap-3">
-            <TipptagArrow dir="prev" target={prevNumber} competitionKey={competitionKey} />
+            <TipptagArrow dir="prev" target={prevNumber} />
             {/* whitespace-nowrap: „2. Tipptag" muss EINZEILIG bleiben — der Umbruch
                 zwischen Zahl und Wort zerreißt die Überschrift auf schmalen Screens. */}
             <h2 className="font-display text-4xl font-semibold tracking-tight whitespace-nowrap sm:text-7xl">
@@ -227,7 +203,7 @@ function WeekendHero({
                 </>
               )}
             </h2>
-            <TipptagArrow dir="next" target={nextNumber} competitionKey={competitionKey} />
+            <TipptagArrow dir="next" target={nextNumber} />
           </div>
 
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base sm:pl-12">
@@ -283,16 +259,8 @@ function WeekendHero({
   );
 }
 
-/** Pfeil-Link zum Schalten des Tipptags (deaktiviert, wenn kein Ziel). Bleibt im gewählten Wettbewerb. */
-function TipptagArrow({
-  dir,
-  target,
-  competitionKey,
-}: {
-  dir: 'prev' | 'next';
-  target: number | null;
-  competitionKey: CompetitionKey;
-}) {
+/** Pfeil-Link zum Schalten des Tipptags (deaktiviert, wenn kein Ziel). */
+function TipptagArrow({ dir, target }: { dir: 'prev' | 'next'; target: number | null }) {
   const Icon = dir === 'prev' ? ChevronLeft : ChevronRight;
   const label = dir === 'prev' ? 'Vorheriger Tipptag' : 'Nächster Tipptag';
   if (target === null) {
@@ -307,7 +275,7 @@ function TipptagArrow({
   }
   return (
     <Link
-      href={{ pathname: '/dashboard', query: { competition: competitionKey, matchday: target } }}
+      href={{ pathname: '/dashboard', query: { matchday: target } }}
       aria-label={label}
       className="hover:bg-foreground/5 text-muted-foreground hover:text-foreground flex h-9 w-9 items-center justify-center rounded-full transition-colors"
     >
@@ -325,17 +293,12 @@ function CompetitionCard({
     tipped: number;
     total: number;
     open: boolean;
-    liveMatchday: { id: string; number: number } | null;
   };
 }) {
-  // Fieber gilt für den zuletzt gestarteten Tipptag — auch wenn der Fokus-Tipptag
-  // (der zum Tippen angezeigt wird) schon der nächste ist.
-  const fieberId = row.liveMatchday?.id ?? null;
   return (
     <div className="border-border/60 bg-card hover:border-pitch/40 flex flex-col gap-2 rounded-2xl border p-5 transition-colors">
-      {/* Klick auf die Karte: Wettbewerb als Hero anzeigen (Pfeile + Fieber + Jetzt tippen). */}
       <Link
-        href={{ pathname: '/dashboard', query: { competition: row.c.key, matchday: row.md.number } }}
+        href={{ pathname: '/tippen', query: { competition: row.c.key, matchday: row.md.number } }}
         className="group flex items-start justify-between gap-2"
       >
         <div>
@@ -353,8 +316,8 @@ function CompetitionCard({
           <span>{row.open ? 'offen' : row.tipped === row.total && row.total > 0 ? 'vollständig' : 'geschlossen'}</span>
         </div>
         {/* Fieber wie im Bundesliga-Hero: erst nach Deadline (vorher wären fremde Tipps sichtbar). */}
-        {fieberId && (
-          <LinkButton href={`/auswertung/${fieberId}`} variant="outline" size="sm">
+        {!row.open && (
+          <LinkButton href={`/auswertung/${row.md.id}`} variant="outline" size="sm">
             <BarChart3 className="h-4 w-4" />
             Fieber
           </LinkButton>
