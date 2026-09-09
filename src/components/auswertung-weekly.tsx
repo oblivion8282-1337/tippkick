@@ -62,8 +62,14 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
                     {day.label}
                   </th>
                 ))}
-                <th className={`${NUM} border-border/40 border-b`}>TW-BL</th>
-                <th className={`${NUM} border-border/40 border-b`}>TW-2L</th>
+                {view.leagueSplit ? (
+                  <>
+                    <th className={`${NUM} border-border/40 border-b`}>TW-BL</th>
+                    <th className={`${NUM} border-border/40 border-b`}>TW-2L</th>
+                  </>
+                ) : (
+                  <th className={`${NUM} border-border/40 border-b`}>TW</th>
+                )}
                 <th className={`${NUM} border-border/40 border-b`}>3er</th>
                 <th className={`${NUM} border-border/40 border-b`}>2er</th>
                 <th className={`${NUM} border-border/40 border-b`}>1er</th>
@@ -84,8 +90,14 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
                         {fmt(t.daily[day.key] ?? 0)}
                       </td>
                     ))}
-                    <td className={`${NUM} border-border/40 border-b`}>{fmt(t.blPoints)}</td>
-                    <td className={`${NUM} border-border/40 border-b`}>{fmt(t.l2Points)}</td>
+                    {view.leagueSplit ? (
+                      <>
+                        <td className={`${NUM} border-border/40 border-b`}>{fmt(t.blPoints)}</td>
+                        <td className={`${NUM} border-border/40 border-b`}>{fmt(t.l2Points)}</td>
+                      </>
+                    ) : (
+                      <td className={`${NUM} border-border/40 border-b`}>{fmt(t.blPoints + t.l2Points)}</td>
+                    )}
                     <td className={`${NUM} border-border/40 border-b`}>{t.counts.three}</td>
                     <td className={`${NUM} border-border/40 border-b`}>{t.counts.two}</td>
                     <td className={`${NUM} border-border/40 border-b`}>{t.counts.one}</td>
@@ -95,8 +107,8 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
               })}
             </tbody>
             <tfoot>
-              <TotalRow label="Summe" days={view.days} data={view.totals} />
-              <TotalRow label="Ø" days={view.days} data={view.averages} />
+              <TotalRow label="Summe" days={view.days} data={view.totals} leagueSplit={view.leagueSplit} />
+              <TotalRow label="Ø" days={view.days} data={view.averages} leagueSplit={view.leagueSplit} />
             </tfoot>
           </table>
         </div>
@@ -105,7 +117,17 @@ export function AuswertungWeekly({ view }: { view: AuswertungView }) {
   );
 }
 
-function TotalRow({ label, days, data }: { label: string; days: DayColumn[]; data: PointTotals }) {
+function TotalRow({
+  label,
+  days,
+  data,
+  leagueSplit,
+}: {
+  label: string;
+  days: DayColumn[];
+  data: PointTotals;
+  leagueSplit: boolean;
+}) {
   return (
     <tr className="bg-muted/40 font-medium">
       {/* Deckend geflacht statt bg-muted/40 — transparente Sticky-Zellen lassen die
@@ -116,8 +138,14 @@ function TotalRow({ label, days, data }: { label: string; days: DayColumn[]; dat
           {fmt(data.daily[day.key] ?? 0)}
         </td>
       ))}
-      <td className={`${NUM} border-border/40 border-t`}>{fmt(data.bl)}</td>
-      <td className={`${NUM} border-border/40 border-t`}>{fmt(data.l2)}</td>
+      {leagueSplit ? (
+        <>
+          <td className={`${NUM} border-border/40 border-t`}>{fmt(data.bl)}</td>
+          <td className={`${NUM} border-border/40 border-t`}>{fmt(data.l2)}</td>
+        </>
+      ) : (
+        <td className={`${NUM} border-border/40 border-t`}>{fmt(data.bl + data.l2)}</td>
+      )}
       <td className={`${NUM} border-border/40 border-t`}>{data.counts.three}</td>
       <td className={`${NUM} border-border/40 border-t`}>{data.counts.two}</td>
       <td className={`${NUM} border-border/40 border-t`}>{data.counts.one}</td>

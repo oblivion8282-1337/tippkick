@@ -216,7 +216,8 @@ function addRawSheet(workbook: ExcelJS.Workbook, view: AuswertungView): void {
  */
 function addTipperSummaries(ws: ExcelJS.Worksheet, view: AuswertungView, startRow: number): void {
   // Fixture → (Liga, Kalendertag): einmal aufbauen, dann pro Tipper wiederverwenden.
-  const fixtureMeta = new Map<string, { league: League; dayKey: string }>();
+  // league: null (CL/DFB) fällt in den l2-Bucket — Summen/Gesamt bleiben korrekt.
+  const fixtureMeta = new Map<string, { league: League | null; dayKey: string }>();
   for (const section of view.sections) {
     for (const f of section.fixtures) {
       fixtureMeta.set(f.id, { league: section.league, dayKey: dateKeyOf(f.kickoff) });

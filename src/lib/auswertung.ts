@@ -39,7 +39,8 @@ export type AuswertungFixture = {
 
 export type AuswertungSection = {
   id: string;
-  league: League;
+  /** null = nicht liga-getaggt (CL/DFB) — Abschnitte ohne 1./2.-Liga-Split. */
+  league: League | null;
   label: string;
   sectionNumber: number;
   fixtures: AuswertungFixture[];
@@ -91,6 +92,8 @@ export type AuswertungView = {
   sections: AuswertungSection[];
   tippers: TipperRow[];
   hasAnyScoreable: boolean;
+  /** true = Tipptag enthält echte 1./2.-Liga-Sections → TW-Spalten gesplittet (BL/2L). */
+  leagueSplit: boolean;
   totals: PointTotals;
   averages: PointTotals;
 };
@@ -137,7 +140,7 @@ type FixtureGoals = { homeGoals: number; awayGoals: number };
  * Partie (nur Anzeige). Immer höchstens eins von beiden gesetzt.
  */
 type ScoredFixture = AuswertungFixture & {
-  league: League;
+  league: League | null;
   result: FixtureGoals | null;
   liveResult: FixtureGoals | null;
 };
@@ -154,13 +157,18 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
     return null;
   }
 
+  // CL/DFB-Sections haben bewusst keine Liga-Taggung (league: null) — sie zählen
+  // genauso wie BL/L2-Sections, bekommen aber einen neutralen Abschnitts-Label.
   const sections: AuswertungSection[] = matchday.sections
-    .filter((s): s is typeof s & { league: League } => s.league !== null)
-    .sort((a, b) => LEAGUE_SECTION_ORDER.indexOf(a.league) - LEAGUE_SECTION_ORDER.indexOf(b.league))
+    .sort(
+      (a, b) =>
+        (a.league === null ? LEAGUE_SECTION_ORDER.length : LEAGUE_SECTION_ORDER.indexOf(a.league)) -
+        (b.league === null ? LEAGUE_SECTION_ORDER.length : LEAGUE_SECTION_ORDER.indexOf(b.league)),
+    )
     .map((s) => ({
       id: s.id,
       league: s.league,
-      label: LEAGUE_SECTION_LABELS[s.league],
+      label: s.league === null ? 'Spiele' : LEAGUE_SECTION_LABELS[s.league],
       sectionNumber: s.number,
       fixtures: s.fixtures.map((f) => ({
         id: f.id,
@@ -247,6 +255,8 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
       tipsByFixture.set(f.id, { tipHome, tipAway, points, livePoints, emergency: !tip && emergency !== null });
 
       if (points !== null) {
+        // BL in die BL-Spalte; L2 UND liga-lose Wettbewerbe (CL/DFB) teilen sich die
+        // zweite Spalte — beim Fieber ohne Split zeigt die UI nur eine TW-Spalte.
         if (f.league === 'BL') blPoints += points;
         else l2Points += points;
         daily[dateKeyOf(f.kickoff)] += points;
@@ -270,6 +280,7 @@ export async function buildAuswertung(matchdayId: string): Promise<AuswertungVie
     sections,
     tippers: tipperRows,
     hasAnyScoreable: sections.some((s) => s.fixtures.some((f) => f.scoreable)),
+    leagueSplit: sections.some((s) => s.league === 'BL') && sections.some((s) => s.league === 'L2'),
     ...aggregateTotals(tipperRows, days),
   };
 }
