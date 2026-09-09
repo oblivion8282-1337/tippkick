@@ -248,11 +248,7 @@ function WeekendHero({
           </LinkButton>
           {/* Auswertung erst nach Deadline — vorher wären fremde Tipps sichtbar. */}
           {!open && (
-            <LinkButton
-              href={`/auswertung/${md.id}`}
-              variant="outline"
-              className="h-10 px-4 text-sm"
-            >
+            <LinkButton href={`/auswertung/${md.id}`} variant="outline" className="h-10 px-4 text-sm">
               <BarChart3 className="h-4 w-4" />
               Fieber
             </LinkButton>
@@ -293,31 +289,40 @@ function CompetitionCard({
 }: {
   row: {
     c: { key: CompetitionKey; name: string; season: { name: string } };
-    md: { number: number; deadlineAt: Date };
+    md: { id: string; number: number; deadlineAt: Date };
     tipped: number;
     total: number;
     open: boolean;
   };
 }) {
   return (
-    <Link
-      href={{ pathname: '/tippen', query: { competition: row.c.key, matchday: row.md.number } }}
-      className="group border-border/60 bg-card hover:border-pitch/40 hover:bg-card/80 flex flex-col gap-2 rounded-2xl border p-5 transition-colors"
-    >
-      <div className="flex items-start justify-between gap-2">
+    <div className="border-border/60 bg-card hover:border-pitch/40 flex flex-col gap-2 rounded-2xl border p-5 transition-colors">
+      <Link
+        href={{ pathname: '/tippen', query: { competition: row.c.key, matchday: row.md.number } }}
+        className="group flex items-start justify-between gap-2"
+      >
         <div>
           <p className="text-muted-foreground text-sm">{row.c.name}</p>
           <p className="font-display text-xl font-semibold tracking-tight">{row.md.number}. Tipptag</p>
         </div>
         <ChevronRight className="text-muted-foreground group-hover:text-pitch h-5 w-5 transition-colors" />
+      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+          <span>
+            {row.tipped}/{row.total} getippt
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>{row.open ? 'offen' : row.tipped === row.total && row.total > 0 ? 'vollständig' : 'geschlossen'}</span>
+        </div>
+        {/* Fieber wie im Bundesliga-Hero: erst nach Deadline (vorher wären fremde Tipps sichtbar). */}
+        {!row.open && (
+          <LinkButton href={`/auswertung/${row.md.id}`} variant="outline" size="sm">
+            <BarChart3 className="h-4 w-4" />
+            Fieber
+          </LinkButton>
+        )}
       </div>
-      <div className="text-muted-foreground flex items-center gap-2 text-xs">
-        <span>
-          {row.tipped}/{row.total} getippt
-        </span>
-        <span aria-hidden="true">·</span>
-        <span>{row.open ? 'offen' : row.tipped === row.total && row.total > 0 ? 'vollständig' : 'geschlossen'}</span>
-      </div>
-    </Link>
+    </div>
   );
 }
