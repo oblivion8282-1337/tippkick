@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Clock, ShieldCheck } from 'lucide-react';
 
-import { getCompetitions, isTippable, pickDefaultMatchday } from '@/lib/matchdays';
+import { getCompetitions, isTippable, pickCurrentMatchday } from '@/lib/matchdays';
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { LEAGUE_SECTION_LABELS, ROLE_ADMIN } from '@/lib/constants';
@@ -56,8 +56,18 @@ async function loadMatchdaySummary(
   return { md, tipped, total, open: isTippable(md.deadlineAt) };
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ matchday?: string }> }) {
-  const { matchday: matchdayParam } = await searchParams;
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  // ?matchday=N schaltet den Bundesliga-Hero, ?md_<KEY>=N den Tipptag einer Karte.
+  const strParam = (key: string): string | undefined => {
+    const v = params[key];
+    return typeof v === 'string' ? v : undefined;
+  };
+  const matchdayParam = strParam('matchday');
   const session = await requireUser();
   const competitions = await getCompetitions();
 
@@ -73,15 +83,29 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
 
-  // Pro Wettbewerb: Fokus-Tipptag + Fortschritt (für die Wettbewerb-Karten).
+  // Pro Wettbewerb: angezeigter Tipptag (per ?md_<KEY>= schaltbar, Default = Fokus)
+  // + Tipp-Fortschritt (für Hero und Wettbewerb-Karten).
   const rows = await Promise.all(
     competitions.map(async (c) => {
-      const focus = pickDefaultMatchday(c.matchdays);
+      const focus = pickCurrentMatchday(c.matchdays);
       if (!focus) {
         return null;
       }
-      const summary = await loadMatchdaySummary(c.id, focus.number, session.user.id);
-      return summary ? { c, ...summary } : null;
+      const numbers = c.matchdays.map((m) => m.number).sort((a, b) => a - b);
+      const requested = Number(strParam(`md_${c.key}`));
+      const selectedNumber = numbers.includes(requested) ? requested : focus.number;
+      const summary = await loadMatchdaySummary(c.id, selectedNumber, session.user.id);
+      if (!summary) {
+        return null;
+      }
+      const idx = numbers.indexOf(selectedNumber);
+      return {
+        c,
+        numbers,
+        ...summary,
+        prevNumber: idx > 0 ? numbers[idx - 1] : null,
+        nextNumber: idx >= 0 && idx < numbers.length - 1 ? numbers[idx + 1] : null,
+      };
     }),
   );
   const visibleRows = rows.filter((r): r is NonNullable<typeof r> => r !== null);
@@ -92,18 +116,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Fallback: erster verfuegbarer Wettbewerb, falls es (noch) keine Bundesliga gibt.
   const focusRow = visibleRows.find((r) => r.c.key === 'BL') ?? visibleRows[0];
 
-  // Hero = Fokus-Wettbewerb, Tipptag per ?matchday= schaltbar.
-  const heroC = focusRow.c;
-  const numbers = heroC.matchdays.map((m) => m.number).sort((a, b) => a - b);
-  const requested = Number(matchdayParam);
-  const selectedNumber = numbers.includes(requested) ? requested : focusRow.md.number;
-  const heroSummary = await loadMatchdaySummary(heroC.id, selectedNumber, session.user.id);
+  // Hero-Tipptag per ?matchday= schaltbar (innerhalb des Hero-Wettbewerbs).
+  const heroRequested = Number(matchdayParam);
+  const heroSelected = focusRow.numbers.includes(heroRequested) ? heroRequested : focusRow.md.number;
+  const heroSummary =
+    heroSelected === focusRow.md.number
+      ? focusRow
+      : await loadMatchdaySummary(focusRow.c.id, heroSelected, session.user.id);
   if (!heroSummary) {
     return null;
   }
-  const idx = numbers.indexOf(selectedNumber);
-  const prevNumber = idx > 0 ? numbers[idx - 1] : null;
-  const nextNumber = idx >= 0 && idx < numbers.length - 1 ? numbers[idx + 1] : null;
+  const heroIdx = focusRow.numbers.indexOf(heroSelected);
+  const heroPrev = heroIdx > 0 ? focusRow.numbers[heroIdx - 1] : null;
+  const heroNext = heroIdx >= 0 && heroIdx < focusRow.numbers.length - 1 ? focusRow.numbers[heroIdx + 1] : null;
+
+  // Aktuelle md_*-Parameter (bleiben beim Schalten einer Karte erhalten).
+  const mdParams: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (key.startsWith('md_') && typeof value === 'string') {
+      mdParams[key] = value;
+    }
+  }
 
   return (
     <div className="space-y-10">
@@ -113,11 +146,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       />
 
       <WeekendHero
-        competitionKey={heroC.key}
-        competitionName={heroC.name}
+        competitionKey={focusRow.c.key}
+        competitionName={focusRow.c.name}
         summary={heroSummary}
-        prevNumber={prevNumber}
-        nextNumber={nextNumber}
+        prevNumber={heroPrev}
+        nextNumber={heroNext}
+        focusNumber={focusRow.md.number}
       />
 
       {visibleRows.length > 1 && (
@@ -125,9 +159,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <h2 className="font-display text-lg font-semibold tracking-tight">Andere Wettbewerbe</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {visibleRows
-              .filter((r) => r.c.key !== heroC.key)
+              .filter((r) => r.c.key !== focusRow.c.key)
               .map((row) => (
-                <CompetitionCard key={row.c.key} row={row} />
+                <CompetitionCard key={row.c.key} row={row} mdParams={mdParams} paramKey={`md_${row.c.key}`} />
               ))}
           </div>
         </section>
@@ -160,12 +194,14 @@ function WeekendHero({
   summary,
   prevNumber,
   nextNumber,
+  focusNumber,
 }: {
   competitionKey: CompetitionKey;
   competitionName: string;
   summary: MatchdaySummary;
   prevNumber: number | null;
   nextNumber: number | null;
+  focusNumber: number;
 }) {
   const { md, tipped, total, open } = summary;
   const ratio = total === 0 ? 0 : tipped / total;
@@ -191,7 +227,7 @@ function WeekendHero({
 
           {/* Tipptag + Pfeile zum Schalten (flankierend) */}
           <div className="flex items-center gap-3">
-            <TipptagArrow dir="prev" target={prevNumber} />
+            <TipptagArrow dir="prev" target={prevNumber} focusNumber={focusNumber} />
             {/* whitespace-nowrap: „2. Tipptag" muss EINZEILIG bleiben — der Umbruch
                 zwischen Zahl und Wort zerreißt die Überschrift auf schmalen Screens. */}
             <h2 className="font-display text-4xl font-semibold tracking-tight whitespace-nowrap sm:text-7xl">
@@ -203,7 +239,7 @@ function WeekendHero({
                 </>
               )}
             </h2>
-            <TipptagArrow dir="next" target={nextNumber} />
+            <TipptagArrow dir="next" target={nextNumber} focusNumber={focusNumber} />
           </div>
 
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base sm:pl-12">
@@ -259,8 +295,18 @@ function WeekendHero({
   );
 }
 
-/** Pfeil-Link zum Schalten des Tipptags (deaktiviert, wenn kein Ziel). */
-function TipptagArrow({ dir, target }: { dir: 'prev' | 'next'; target: number | null }) {
+/** Pfeil-Link zum Schalten des Tipptags (deaktiviert, wenn kein Ziel). Zurück beim
+ * Fokus-Tipptag wird der Parameter weggelassen, damit die URL sauber bleibt und
+ * ein späterer Besuch wieder den aktuellen Tipptag zeigt. */
+function TipptagArrow({
+  dir,
+  target,
+  focusNumber,
+}: {
+  dir: 'prev' | 'next';
+  target: number | null;
+  focusNumber: number;
+}) {
   const Icon = dir === 'prev' ? ChevronLeft : ChevronRight;
   const label = dir === 'prev' ? 'Vorheriger Tipptag' : 'Nächster Tipptag';
   if (target === null) {
@@ -275,7 +321,9 @@ function TipptagArrow({ dir, target }: { dir: 'prev' | 'next'; target: number | 
   }
   return (
     <Link
-      href={{ pathname: '/dashboard', query: { matchday: target } }}
+      href={
+        target === focusNumber ? { pathname: '/dashboard' } : { pathname: '/dashboard', query: { matchday: target } }
+      }
       aria-label={label}
       className="hover:bg-foreground/5 text-muted-foreground hover:text-foreground flex h-9 w-9 items-center justify-center rounded-full transition-colors"
     >
@@ -286,6 +334,8 @@ function TipptagArrow({ dir, target }: { dir: 'prev' | 'next'; target: number | 
 
 function CompetitionCard({
   row,
+  mdParams,
+  paramKey,
 }: {
   row: {
     c: { key: CompetitionKey; name: string; season: { name: string } };
@@ -293,20 +343,33 @@ function CompetitionCard({
     tipped: number;
     total: number;
     open: boolean;
+    prevNumber: number | null;
+    nextNumber: number | null;
   };
+  mdParams: Record<string, string>;
+  paramKey: string;
 }) {
+  // Beim Schalten einer Karte bleiben die md_*-Stände der anderen Karten erhalten.
+  // Zurück beim Fokus-Tipptag fällt der Parameter weg — die URL bleibt sauber und
+  // ein späterer Besuch zeigt wieder den aktuellen Tipptag.
+  const switchQuery = (target: number) => {
+    if (target === row.md.number) {
+      const rest = { ...mdParams };
+      delete rest[paramKey];
+      return { pathname: '/dashboard', query: rest };
+    }
+    return { pathname: '/dashboard', query: { ...mdParams, [paramKey]: target } };
+  };
+
   return (
     <div className="border-border/60 bg-card hover:border-pitch/40 flex flex-col gap-2 rounded-2xl border p-5 transition-colors">
-      <Link
-        href={{ pathname: '/tippen', query: { competition: row.c.key, matchday: row.md.number } }}
-        className="group flex items-start justify-between gap-2"
-      >
-        <div>
-          <p className="text-muted-foreground text-sm">{row.c.name}</p>
-          <p className="font-display text-xl font-semibold tracking-tight">{row.md.number}. Tipptag</p>
-        </div>
-        <ChevronRight className="text-muted-foreground group-hover:text-pitch h-5 w-5 transition-colors" />
-      </Link>
+      <p className="text-muted-foreground text-sm">{row.c.name}</p>
+      {/* Tipptag mit Pfeilen — wie im Bundesliga-Hero, nur kompakter. */}
+      <div className="flex items-center gap-2">
+        <CardArrow dir="prev" target={row.prevNumber} switchQuery={switchQuery} />
+        <p className="font-display text-xl font-semibold tracking-tight">{row.md.number}. Tipptag</p>
+        <CardArrow dir="next" target={row.nextNumber} switchQuery={switchQuery} />
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-muted-foreground flex items-center gap-2 text-xs">
           <span>
@@ -315,14 +378,58 @@ function CompetitionCard({
           <span aria-hidden="true">·</span>
           <span>{row.open ? 'offen' : row.tipped === row.total && row.total > 0 ? 'vollständig' : 'geschlossen'}</span>
         </div>
-        {/* Fieber wie im Bundesliga-Hero: erst nach Deadline (vorher wären fremde Tipps sichtbar). */}
-        {!row.open && (
-          <LinkButton href={`/auswertung/${row.md.id}`} variant="outline" size="sm">
-            <BarChart3 className="h-4 w-4" />
-            Fieber
+        {/* Beide Aktionen nebeneinander unten rechts. Fieber erst nach Deadline —
+            vorher wären fremde Tipps sichtbar. */}
+        <div className="flex items-center gap-2">
+          <LinkButton
+            href={{ pathname: '/tippen', query: { competition: row.c.key, matchday: row.md.number } }}
+            size="sm"
+            className="bg-pitch hover:bg-pitch/90 text-pitch-foreground h-8 px-3 text-xs"
+          >
+            {row.open ? 'Jetzt tippen' : 'Ansehen'}
+            <ChevronRight className="size-3.5" />
           </LinkButton>
-        )}
+          {!row.open && (
+            <LinkButton href={`/auswertung/${row.md.id}`} variant="outline" size="sm" className="h-8 px-3">
+              <BarChart3 className="h-4 w-4" />
+              Fieber
+            </LinkButton>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Pfeil-Link zum Schalten des Tipptags einer Karte (deaktiviert, wenn kein Ziel). */
+function CardArrow({
+  dir,
+  target,
+  switchQuery,
+}: {
+  dir: 'prev' | 'next';
+  target: number | null;
+  switchQuery: (target: number) => { pathname: string; query: Record<string, string | number> };
+}) {
+  const Icon = dir === 'prev' ? ChevronLeft : ChevronRight;
+  const label = dir === 'prev' ? 'Vorheriger Tipptag' : 'Nächster Tipptag';
+  if (target === null) {
+    return (
+      <span
+        aria-disabled="true"
+        className="text-muted-foreground/30 flex h-7 w-7 items-center justify-center rounded-full"
+      >
+        <Icon className="size-4" />
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={switchQuery(target)}
+      aria-label={label}
+      className="hover:bg-foreground/5 text-muted-foreground hover:text-foreground flex h-7 w-7 items-center justify-center rounded-full transition-colors"
+    >
+      <Icon className="size-4" />
+    </Link>
   );
 }

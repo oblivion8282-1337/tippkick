@@ -67,6 +67,23 @@ export function pickDefaultMatchday<T extends { deadlineAt: Date; _count?: { sec
 }
 
 /**
+ * Dashboard-Sicht: der LAUFENDE Tipptag (Deadline vorbei, aber noch nicht
+ * abgeschlossen — endDate nicht erreicht), damit beim Öffnen des Dashboards das
+ * aktuell Gespielte sichtbar ist. Erst wenn er abgeschlossen ist (oder keiner
+ * läuft), gilt der Tipp-Fokus (nächster offener, sonst letzter mit Partien).
+ * Bewusst anders als pickDefaultMatchday — dort zählt das kommende Tippen.
+ */
+export function pickCurrentMatchday<T extends { deadlineAt: Date; endDate: Date; _count?: { sections: number } }>(
+  matchdays: T[],
+): T | undefined {
+  const now = Date.now();
+  const running = matchdays
+    .filter((m) => (m._count?.sections ?? 0) > 0 && m.deadlineAt.getTime() <= now && now <= m.endDate.getTime())
+    .sort((a, b) => a.deadlineAt.getTime() - b.deadlineAt.getTime());
+  return running[running.length - 1] ?? pickDefaultMatchday(matchdays);
+}
+
+/**
  * Wettbewerbe der aktuellen Saison (sortiert) inkl. Spieltage + Partieanzahl.
  * Partieanzahl = Summe über alle Sections des Spieltags.
  */
@@ -85,6 +102,7 @@ export async function getCompetitions() {
         select: {
           number: true,
           deadlineAt: true,
+          endDate: true,
           _count: { select: { sections: true } },
         },
       },
