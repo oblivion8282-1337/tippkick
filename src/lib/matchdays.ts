@@ -35,13 +35,17 @@ export async function getSeasons() {
 
 /**
  * SSOT für den `sections`-Include-Shaped von Matchday. Sortiert nach Liga (BL vor L2
- * bzw. Single-Liga `null` zuerst) + Liga-Spieltags-Nummer; Fixtures nach sortOrder.
+ * bzw. Single-Liga `null` zuerst) + Liga-Spieltags-Nummer; Fixtures chronologisch nach
+ * Anstoß, sortOrder nur als Gleichstands-Tiebreaker. Die Anstoß-Sortierung ist das
+ * Fundament für Tipp-Maske, Auswertung und Excel-Export: OpenLigaDB verschiebt Anstöße
+ * nachträglich, und sortOrder friert die Import-Reihenfolge ein — ohne kickoff-first
+ * würde die Reihenfolge (Fr → Sa → So) auseinanderfallen, sobald sich Anstöße ändern.
  * Wird in getMatchdayAdmin / getMatchdayByNumber / getMyTips wiederverwendet.
  */
 export const matchdaySectionsInclude = {
   sections: {
     orderBy: [{ league: 'asc' }, { number: 'asc' }],
-    include: { fixtures: { orderBy: { sortOrder: 'asc' } } },
+    include: { fixtures: { orderBy: [{ kickoff: 'asc' }, { sortOrder: 'asc' }] } },
   },
 } satisfies Prisma.MatchdayInclude;
 

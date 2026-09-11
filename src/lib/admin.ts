@@ -299,14 +299,22 @@ export async function getCompetitionsAdmin(seasonId?: string) {
   });
 }
 
+/** Zähler des Reconciliation-Passes (siehe reconcileSectionFixtures). */
+export type ReconcileSummary = { moved: number; removed: number; lostTips: number; keptStale: number };
+
 export type SeasonImportResult =
-  | { ok: true; sections: number; fixtures: number }
+  | { ok: true; sections: number; fixtures: number; reconcile: ReconcileSummary }
   | { ok: false; reason: 'no-source' | 'empty' | 'error'; message?: string };
 
 /**
  * Importiert eine komplette Saison aus OpenLigaDB als **unzugeordnete** Sektionen.
  * Pro Liga-Group (BL/L2 bzw. Single-Liga) eine eigene Sektion mit number=groupOrderId.
  * Partien inkl. externalId + Ergebnisdaten. Idempotent.
+ *
+ * Vor dem Einfüge-Lauf läuft die Reconciliation (reconcileSectionFixtures): OpenLigaDB
+ * ersetzt provisorische Ansetzungen gelegentlich durch neue Match-IDs (z. B. wenn die
+ * DFL den echten Spielplan mit Anstoßzeiten veröffentlicht) — ohne Gegenprobe blieben
+ * die alten Platzhalter-Partien liegen und würden mit den echten doppelt.
  */
 export async function importSeasonFromOpenLigaDb(competitionId: string): Promise<SeasonImportResult> {
   const competition = await prisma.competition.findUnique({
@@ -321,6 +329,8 @@ export async function importSeasonFromOpenLigaDb(competitionId: string): Promise
   if (seasonMap.size === 0) {
     return { ok: false, reason: 'empty' };
   }
+
+  const reconcile = await reconcileSectionFixtures(competitionId, seasonMap);
 
   let sections = 0;
   let fixtures = 0;
@@ -339,7 +349,216 @@ export async function importSeasonFromOpenLigaDb(competitionId: string): Promise
     }
   }
 
-  return { ok: true, sections, fixtures };
+  return { ok: true, sections, fixtures, reconcile };
+}
+
+/** Sektions-Identität als Map-Key: Liga (null-fähig) + OpenLigaDB-Gruppe. */
+function sectionMapKey(league: League | null, number: number): string {
+  return `${league ?? '*'}#${number}`;
+}
+
+/**
+ * Gegenprobe DB ↔ OpenLigaDB vor dem Import: erkennt Partien, deren externalId in der
+ * API nicht mehr (oder nicht mehr an dieser Stelle) existiert, und räumt sie weg —
+ * damit ersetzt der Sync ersatzlos neu veröffentlichte Spielpläne, statt Platzhalter
+ * ewig liegen zu lassen und mit den echten Partien zu duplizieren.
+ *
+ * Pro Partie mit externalId, je nach API-Lage:
+ *  - **ID in anderer Gruppe/Liga** (Nachverlegung): Partie umziehen — Tipps bleiben
+ *    erhalten. Ziel-Sektion nicht in der DB? Dann wie fehlende ID behandeln (löschen,
+ *    der Import legt sie dort ohnehin neu an).
+ *  - **ID nirgends in der API** (ersetzter Spielplan): löschen — aber nur wenn die
+ *    Partie noch offen ist (FINISHED/MANUAL bleibt als Historie stehen) UND die API
+ *    für die Gruppe mindestens so viele Partien listet, wie die Sektion trägt. Der
+ *    zweite Schutz verhindert Fehllöschungen bei temporär lückenhaften API-Antworten
+ *    und respektiert die Nachzügler-Philosophie des Imports (verlegte Partien sollen
+ *    später wieder dazukommen dürfen). Sonst: behalten + als keptStale melden.
+ *
+ * Läuft VOR dem populate-Lauf, damit ersetzte Sektionen sauber neu nummeriert werden;
+ * die Spannen/Deadlines berührter Sektionen/Tipptage werden hier explizit neu
+ * berechnet — der populate-lauf reicht das nur bei kickoff-Changes bestehender IDs
+ * weiter, nach einem Komplett-Austausch würde sonst die alte Platzhalter-Deadline
+ * stehen bleiben. Löst nichts aus, wenn eine Gruppe in der API fehlt (keine Evidenz).
+ */
+async function reconcileSectionFixtures(
+  competitionId: string,
+  seasonMap: Map<number, TaggedFixture[]>,
+): Promise<ReconcileSummary> {
+  const summary: ReconcileSummary = { moved: 0, removed: 0, lostTips: 0, keptStale: 0 };
+  const sections = await prisma.matchdaySection.findMany({
+    where: { competitionId },
+    select: {
+      id: true,
+      league: true,
+      number: true,
+      matchdayId: true,
+      fixtures: {
+        where: { externalId: { not: null } },
+        select: { id: true, homeTeam: true, awayTeam: true, status: true, resultSource: true, externalId: true },
+      },
+    },
+  });
+  if (sections.length === 0) {
+    return summary;
+  }
+
+  // API-Index: externe IDs je (Liga, Gruppe) + globale Lage je ID.
+  const apiIdsBySection = new Map<string, Set<string>>();
+  const apiLocation = new Map<string, { league: League | null; number: number }>();
+  for (const [number, fixtures] of seasonMap) {
+    for (const fixture of fixtures) {
+      const key = sectionMapKey(fixture.league, number);
+      let ids = apiIdsBySection.get(key);
+      if (!ids) {
+        ids = new Set();
+        apiIdsBySection.set(key, ids);
+      }
+      ids.add(fixture.externalId);
+      apiLocation.set(fixture.externalId, { league: fixture.league, number });
+    }
+  }
+
+  // Tipps pro Partie (Löschungen kaskadieren sie — für den Report mitzählen).
+  const tipCounts = new Map<string, number>(
+    (
+      await prisma.tip.groupBy({
+        by: ['fixtureId'],
+        _count: { _all: true },
+        where: { fixture: { section: { competitionId } } },
+      })
+    ).map((row) => [row.fixtureId, row._count._all]),
+  );
+
+  // Phase A: Partien umziehen, deren ID die API an anderer Stelle führt (sicherer
+  // Befund — die Existenz an der neuen Stelle beweist den Umzug). Senkt zugleich den
+  // Sektions-Bestand für die apiCount-Prüfung in Phase B.
+  const touchedSectionIds = new Set<string>();
+  const targetSortOrder = new Map<string, number>();
+  const remainingCount = new Map<string, number>();
+  for (const section of sections) {
+    remainingCount.set(section.id, section.fixtures.length);
+  }
+
+  const moveTo = async (fixtureId: string, target: (typeof sections)[number]) => {
+    let maxSort = targetSortOrder.get(target.id);
+    if (maxSort === undefined) {
+      const agg = await prisma.fixture.aggregate({
+        where: { sectionId: target.id },
+        _max: { sortOrder: true },
+      });
+      maxSort = agg._max.sortOrder ?? -1;
+      targetSortOrder.set(target.id, maxSort);
+    }
+    maxSort += 1;
+    targetSortOrder.set(target.id, maxSort);
+    await prisma.fixture.update({ where: { id: fixtureId }, data: { sectionId: target.id, sortOrder: maxSort } });
+    touchedSectionIds.add(target.id);
+    summary.moved += 1;
+  };
+
+  const removeFixture = async (
+    section: (typeof sections)[number],
+    fixture: (typeof section.fixtures)[number],
+    reason: string,
+  ) => {
+    remainingCount.set(section.id, (remainingCount.get(section.id) ?? 0) - 1);
+    touchedSectionIds.add(section.id);
+    const lostTips = tipCounts.get(fixture.id) ?? 0;
+    summary.removed += 1;
+    summary.lostTips += lostTips;
+    console.warn(
+      `[reconcile] ${fixture.homeTeam} - ${fixture.awayTeam} (${fixture.externalId}) — ${reason}` +
+        (lostTips > 0 ? `, ${lostTips} Tipp(s) kaskadieren mit` : '') +
+        '.',
+    );
+    await prisma.fixture.delete({ where: { id: fixture.id } });
+  };
+
+  for (const section of sections) {
+    for (const fixture of section.fixtures) {
+      const location = apiLocation.get(fixture.externalId as string);
+      if (!location) {
+        continue;
+      }
+      const isSamePlace = location.league === section.league && location.number === section.number;
+      if (isSamePlace) {
+        continue;
+      }
+      if (fixture.status === 'FINISHED' || fixture.resultSource === 'MANUAL') {
+        summary.keptStale += 1;
+        console.warn(
+          `[reconcile] ${fixture.homeTeam} - ${fixture.awayTeam} (${fixture.externalId}) ist laut API ` +
+            `nun Gruppe ${location.number}/${location.league ?? '*'}, bleibt als FINISHED/MANUAL stehen.`,
+        );
+        continue;
+      }
+      const target = sections.find((s) => s.league === location.league && s.number === location.number) ?? null;
+      if (target) {
+        remainingCount.set(section.id, (remainingCount.get(section.id) ?? 0) - 1);
+        touchedSectionIds.add(section.id);
+        console.info(
+          `[reconcile] ${fixture.homeTeam} - ${fixture.awayTeam} (${fixture.externalId}) wandert von ` +
+            `Gruppe ${section.number}/${section.league ?? '*'} nach ${location.number}/${location.league ?? '*'}.`,
+        );
+        await moveTo(fixture.id, target);
+      } else {
+        // Ziel-Sektion existiert noch nicht in der DB — Partie hier entfernen, der
+        // Import legt sie in der neuen Gruppe ohnehin frisch an (sonst Duplikat).
+        await removeFixture(
+          section,
+          fixture,
+          `ist laut API nun Gruppe ${location.number}/${location.league ?? '*'} (Ziel-Sektion noch nicht ` +
+            'in der DB — der Import legt sie dort neu an)',
+        );
+      }
+    }
+  }
+
+  // Phase B: IDs, die die API nicht mehr kennt (ersetzter Spielplan). apiCount-Schutz
+  // gegen den Bestand NACH Phase A — eine in Phase A entfernte Nachverlegung zählt
+  // nicht mehr mit.
+  for (const section of sections) {
+    const apiIds = apiIdsBySection.get(sectionMapKey(section.league, section.number));
+    if (!apiIds) {
+      continue; // Gruppe in der API unbekannt → keine Evidenz, nichts tun.
+    }
+    const dbCount = remainingCount.get(section.id) ?? 0;
+    for (const fixture of section.fixtures) {
+      if (apiIds.has(fixture.externalId as string)) {
+        continue;
+      }
+      const location = apiLocation.get(fixture.externalId as string);
+      if (location) {
+        continue; // Phase A hat den Fall (Umzug) schon behandelt.
+      }
+      const keeper = fixture.status === 'FINISHED' || fixture.resultSource === 'MANUAL';
+      if (keeper || dbCount > apiIds.size) {
+        summary.keptStale += 1;
+        console.warn(
+          `[reconcile] ${fixture.homeTeam} - ${fixture.awayTeam} (${fixture.externalId}) fehlt in der API — ` +
+            keeper
+              ? 'bleibt als FINISHED/MANUAL stehen.'
+              : `wird behalten (Sektion ${section.number}/${section.league ?? '*'} trägt ${dbCount} Partien, ` +
+                `die API nur ${apiIds.size} — möglicherweise temporär lückenhafte API).`,
+        );
+        continue;
+      }
+      await removeFixture(section, fixture, 'existiert in der API nicht mehr — Platzhalter-Partie wird gelöscht');
+    }
+  }
+
+  // Spannen/Deadlines der berührten Sektionen + ihrer Tipptage neu berechnen.
+  for (const sectionId of touchedSectionIds) {
+    await recalcSectionSpan(sectionId);
+  }
+  const touchedMatchdayIds = new Set(
+    sections.filter((s) => touchedSectionIds.has(s.id)).flatMap((s) => (s.matchdayId ? [s.matchdayId] : [])),
+  );
+  for (const matchdayId of touchedMatchdayIds) {
+    await recalcMatchdaySpan(matchdayId);
+  }
+
+  return summary;
 }
 
 /** Liefert den OpenLigaDB-Shortcut für eine Liga (für sourceShortcut-Feld). */
@@ -382,11 +601,39 @@ async function populateSectionFixtures(input: {
   });
   const existingExternalIds = new Set(existing.map((f) => f.externalId).filter((id): id is string => id !== null));
   const baseSortOrder = existing.length; // Fortlaufend in der ganzen Sektion, nicht im Subset
-  const newFixtures = input.fixtures.filter((f) => !existingExternalIds.has(f.externalId));
+  let newFixtures = input.fixtures.filter((f) => !existingExternalIds.has(f.externalId));
+
+  // Doppelabsicherung: eine OpenLigaDB-matchID identifiziert DIESE Partie — sie darf im
+  // ganzen Wettbewerb nur einmal existieren. Die Reconciliation zieht umgezogene Partien
+  // vorher in die richtige Sektion; hier bleiben nur Sonderfälle (FINISHED/MANUAL an der
+  // Alt-Position), die dann nicht zusätzlich als Kopie in der neuen Sektion landen.
+  if (newFixtures.length > 0) {
+    const elsewhere = await prisma.fixture.findMany({
+      where: {
+        externalId: { in: newFixtures.map((f) => f.externalId) },
+        sectionId: { not: section.id },
+        section: { competitionId: input.competitionId },
+      },
+      select: { externalId: true },
+    });
+    const elsewhereIds = new Set(elsewhere.map((f) => f.externalId));
+    if (elsewhereIds.size > 0) {
+      newFixtures = newFixtures.filter((f) => {
+        if (!elsewhereIds.has(f.externalId)) {
+          return true;
+        }
+        console.warn(
+          `[populateSectionFixtures] ${f.homeTeam} - ${f.awayTeam} (${f.externalId}) existiert bereits in ` +
+            'einer anderen Sektion dieses Wettbewerbs — wird nicht doppelt eingefügt.',
+        );
+        return false;
+      });
+    }
+  }
 
   // Verlegte Partien: existierende externalIds erhalten kickoff-Updates (OpenLigaDB
   // verschiebt Anstöße). Danach muss die Sektionsspanne (und ggf. die Tipptag-Deadline)
-  // neu berechnet werden — der Aufrufer runImportMatchday tut das via recalcMatchdaySpan.
+  // neu berechnet werden — geschieht unten direkt nach den Updates via recalcMatchdaySpan.
   const kickoffById = new Map(
     existing.filter((e) => e.externalId !== null).map((e) => [e.externalId as string, e.kickoff]),
   );

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { autoAssignSimpleTipptage, importSeasonFromOpenLigaDb } from '@/lib/admin';
+import { autoAssignSimpleTipptage, importSeasonFromOpenLigaDb, type ReconcileSummary } from '@/lib/admin';
 import { syncResults } from '@/lib/result-sync';
 
 export type OpenLigaDbSyncSummary = {
@@ -8,6 +8,8 @@ export type OpenLigaDbSyncSummary = {
   fixtures: number;
   resultsUpdated: number;
   resultsSkipped: number;
+  /** DB ↔ API-Gegenprobe: umgezogene/ersetzte Partien, mitkaskadierte Tipps. */
+  reconciled: ReconcileSummary;
   failures?: { competitionId: string; reason: string; message?: string }[];
 };
 
@@ -28,6 +30,7 @@ export async function syncOpenLigaDb(): Promise<OpenLigaDbSyncSummary> {
 
   let sections = 0;
   let fixtures = 0;
+  const reconciled: ReconcileSummary = { moved: 0, removed: 0, lostTips: 0, keptStale: 0 };
   const failures: { competitionId: string; reason: string; message?: string }[] = [];
   for (const competition of competitions) {
     try {
@@ -35,6 +38,10 @@ export async function syncOpenLigaDb(): Promise<OpenLigaDbSyncSummary> {
       if (result.ok) {
         sections += result.sections;
         fixtures += result.fixtures;
+        reconciled.moved += result.reconcile.moved;
+        reconciled.removed += result.reconcile.removed;
+        reconciled.lostTips += result.reconcile.lostTips;
+        reconciled.keptStale += result.reconcile.keptStale;
         await autoAssignSimpleTipptage(competition.id);
       } else {
         failures.push({ competitionId: competition.id, reason: result.reason, message: result.message });
@@ -72,6 +79,7 @@ export async function syncOpenLigaDb(): Promise<OpenLigaDbSyncSummary> {
     fixtures,
     resultsUpdated: sync.updated,
     resultsSkipped: sync.skipped,
+    reconciled,
     ...(failures.length > 0 ? { failures } : {}),
   };
 }
