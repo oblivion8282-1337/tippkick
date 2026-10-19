@@ -5,7 +5,7 @@ import { formatDateRange } from '@/lib/datetime';
 import { TEMPLATE_EXPORT_KEYS } from '@/lib/constants';
 import { loadTipsByUser } from '@/lib/tipps';
 import { getEligibleTippers } from '@/lib/tippers';
-import { buildMatchdayExcel } from '@/lib/excel/export-matchday';
+import { buildMatchdayExcel, CL_COMPACT_LAYOUT } from '@/lib/excel/export-matchday';
 import { buildAuswertungExcel } from '@/lib/excel/export-auswertung';
 
 export const runtime = 'nodejs';
@@ -61,10 +61,20 @@ async function buildBundesligaExport(matchdayId: string): Promise<Buffer | null>
 async function buildGenericExport(matchday: MinimalMatchday): Promise<Buffer> {
   const fixtureIds = matchday.sections.flatMap((s) => s.fixtures.map((f) => f.id));
   const [tippers, tipsByUser] = await Promise.all([getEligibleTippers(), loadTipsByUser(fixtureIds)]);
+
+  // Nur CL: (a) Tipper-Blöcke ohne einzigen Tipp weglassen — sonst stehen
+  // zwischen den Spalten leere 6er-Blöcke (TT 2 26/27: 11 von 32) — und
+  // (b) das kompakte Block-Layout mit eigener Namensspalte, erster Block in G.
+  // Bewusst auf CL beschränkt; DFB/EM/WM und die BL-Vorlagen-Auswertung bleiben
+  // unverändert (alle Tipper, klassisches M-Raster).
+  const isCL = matchday.competition.key === 'CL';
+  const tippedTippers = isCL ? tippers.filter((t) => (tipsByUser.get(t.id)?.size ?? 0) > 0) : tippers;
+
   return buildMatchdayExcel({
     title: `${matchday.competition.name} - ${matchday.number}. Tipptag`,
     dateRange: formatDateRange(matchday.startDate, matchday.endDate),
-    tippers,
+    tippers: tippedTippers,
+    layout: isCL ? CL_COMPACT_LAYOUT : undefined,
     fixtures: matchday.sections
       .flatMap((s) => s.fixtures)
       .map((f) => ({ id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
